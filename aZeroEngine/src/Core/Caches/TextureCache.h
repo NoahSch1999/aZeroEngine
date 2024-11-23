@@ -30,27 +30,28 @@ namespace aZero
 			const std::string FileName = FilePath.substr(LastSlashOffset, FileNameLength);
 
 			Asset::LoadedTextureData LoadedTextureData;
-			Asset::LoadTexture2DFromFile(FilePath, LoadedTextureData);
-			
-			if (m_Assets.count(FileName) > 0)
+			if (Asset::LoadTexture2DFromFile(FilePath, LoadedTextureData))
 			{
-				// Handle duplicate texture-names
-				throw;
-				//
-			}
-			
-			m_Assets.emplace(FileName, Asset::TextureFileAsset(FileName, LoadedTextureData, CmdList));
+				if (m_Assets.count(FileName) > 0)
+				{
+					// Handle duplicate texture-names
+					throw;
+					//
+				}
 
-			D3D12_SHADER_RESOURCE_VIEW_DESC TextureSRVDesc;
-			TextureSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-			TextureSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			TextureSRVDesc.Texture2D.MipLevels = 1;
-			TextureSRVDesc.Texture2D.MostDetailedMip = 0;
-			TextureSRVDesc.Texture2D.PlaneSlice = 0;
-			TextureSRVDesc.Texture2D.ResourceMinLODClamp = 0.f;
-			TextureSRVDesc.Format = this->GetAsset(FileName)->GetResource().GetResource()->GetDesc().Format;
-			m_Descriptors.emplace(FileName, m_DescriptorManager->GetResourceHeap().GetDescriptor());
-			gDevice->CreateShaderResourceView(this->GetAsset(FileName)->GetResource().GetResource(), &TextureSRVDesc, m_Descriptors.at(FileName).GetCPUHandle());
+				m_Assets.emplace(FileName, Asset::TextureFileAsset(FileName, LoadedTextureData, CmdList));
+
+				D3D12_SHADER_RESOURCE_VIEW_DESC TextureSRVDesc;
+				TextureSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+				TextureSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				TextureSRVDesc.Texture2D.MipLevels = 1;
+				TextureSRVDesc.Texture2D.MostDetailedMip = 0;
+				TextureSRVDesc.Texture2D.PlaneSlice = 0;
+				TextureSRVDesc.Texture2D.ResourceMinLODClamp = 0.f;
+				TextureSRVDesc.Format = this->GetAsset(FileName)->GetResource().GetResource()->GetDesc().Format;
+				m_Descriptors.emplace(FileName, m_DescriptorManager->GetResourceHeap().GetDescriptor());
+				gDevice->CreateShaderResourceView(this->GetAsset(FileName)->GetResource().GetResource(), &TextureSRVDesc, m_Descriptors.at(FileName).GetCPUHandle());
+			}
 		}
 
 		const Asset::TextureFileAsset* GetAsset(const std::string& Name)

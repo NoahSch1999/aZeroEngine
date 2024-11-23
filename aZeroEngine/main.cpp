@@ -101,6 +101,10 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 			Engine.BeginFrame();
 
+			static float Rot = 0.f;
+			Rot += 0.005f;
+			aZero::gComponentManager.GetComponent<ECS::TransformComponent>(Ent2).SetTransform(DXM::Matrix::CreateScale(0.5f) * DXM::Matrix::CreateRotationY(Rot) * DXM::Matrix::CreateTranslation(DXM::Vector3(0,0,10.f)));
+			aZero::gComponentManager.UpdateRenderComponent<ECS::TransformComponent>(Ent2);
 			Engine.Update();
 
 			Engine.Render();

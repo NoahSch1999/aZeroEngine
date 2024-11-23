@@ -11,6 +11,8 @@
 #include "Scene/Scene.h"
 #include "Caches/MaterialCache.h"
 
+#define ASSET_PATH std::string("C:/Projects/Programming/aZeroEngine/aZeroEngine/assets/")
+
 namespace aZero
 {
 	class Engine
@@ -67,8 +69,8 @@ namespace aZero
 			gRenderer.m_PackedGPULookupBufferUpdateContext.StopRecording();
 			gRenderer.m_GraphicsQueue.ExecuteContext({ gRenderer.m_PackedGPULookupBufferUpdateContext });
 
-			gRenderer.m_Meshes.LoadFromFile("C:/Projects/Programming/aZeroEngine/assets/meshes/Torus.fbx", gRenderer.m_GraphicsCommandContext.GetCommandList());
-			gRenderer.m_TextureFileAssets.LoadFromFile("C:/Projects/Programming/aZeroEngine/assets/textures/chunli.png", gRenderer.m_GraphicsCommandContext.GetCommandList());
+			gRenderer.m_Meshes.LoadFromFile(ASSET_PATH + "meshes/Torus.fbx", gRenderer.m_GraphicsCommandContext.GetCommandList());
+			gRenderer.m_TextureFileAssets.LoadFromFile(ASSET_PATH + "textures/chunli.png", gRenderer.m_GraphicsCommandContext.GetCommandList());
 
 			gRenderer.m_GraphicsCommandContext.StopRecording();
 			gRenderer.m_GraphicsQueue.ExecuteContext({ gRenderer.m_GraphicsCommandContext });
