@@ -1,6 +1,6 @@
 #pragma once
-#include "Core/Renderer/D3D12Wrap/Resources/PackedGPULookupBuffer.h"
-#include "Core/Renderer/D3D12Wrap/Resources/FrameAllocator.h"
+#include "Core/Renderer/D3D12Wrap/Resources/LinearFrameAllocator.h"
+#include "Core/Renderer/D3D12Wrap/Resources/FreelistBuffer.h"
 
 namespace aZero
 {
@@ -9,8 +9,7 @@ namespace aZero
 		struct PrimitiveRenderData
 		{
 			DXM::Matrix WorldMatrix;
-			int MaterialIndex;
-			int MeshIndex;
+			uint32_t MeshEntryIndex;
 		};
 
 		struct PointLightRenderData
@@ -18,14 +17,30 @@ namespace aZero
 			DXM::Vector3 Position;
 			DXM::Vector3 Color;
 			float Range;
+		}; 
+		
+		struct SpotLightRenderData
+		{
+			DXM::Vector3 m_Position;
+			DXM::Vector3 m_Color;
+			float m_Range;
+			float m_Radius;
 		};
 
-		// Make entity have ptr to renderscene? somehow the renderscene has to be reachable from the entity
+		struct DirectionalLightRenderData
+		{
+			DXM::Vector3 m_Direction;
+			DXM::Vector3 m_Color;
+		};
+
 		class RenderScene
 		{
 		private:
-			D3D12::PackedGPULookupBuffer<PrimitiveRenderData> m_PrimitiveDataGPUBuffer;
-			D3D12::PackedGPULookupBuffer<PointLightRenderData> m_PointLightGPUBuffer;
+			D3D12::FreelistBuffer m_PrimitiveDataBuffer;
+			std::unordered_map<uint64_t, DS::FreelistAllocator::AllocationHandle> m_EntityID_To_PrimitiveHandle;
+
+			D3D12::FreelistBuffer m_PointLightBuffer;
+			std::unordered_map<uint64_t, DS::FreelistAllocator::AllocationHandle> m_EntityID_To_PointLightHandle;
 
 		public:
 
@@ -34,11 +49,11 @@ namespace aZero
 			{
 				if constexpr (std::is_same_v<RenderDataType, PrimitiveRenderData>)
 				{
-					return m_PrimitiveDataGPUBuffer.GetResource();
+					return m_PrimitiveDataBuffer.GetBuffer().GetResource();
 				}
 				else if constexpr (std::is_same_v<RenderDataType, PointLightRenderData>)
 				{
-					return m_PointLightGPUBuffer.GetResource();
+					return m_PointLightBuffer.GetBuffer().GetResource();
 				}
 				else
 				{
@@ -49,57 +64,103 @@ namespace aZero
 
 			RenderScene() = default;
 
-			RenderScene(unsigned int NumPrimitives, unsigned int NumPointLights)
+			RenderScene(const RenderScene& Other) = delete;
+			RenderScene& operator=(const RenderScene& Other) = delete;
+
+			RenderScene(RenderScene&& Other) noexcept
 			{
-				this->Init(NumPrimitives, NumPointLights);
+				m_EntityID_To_PrimitiveHandle = std::move(Other.m_EntityID_To_PrimitiveHandle);
+				m_PrimitiveDataBuffer = std::move(Other.m_PrimitiveDataBuffer);
+
+				m_EntityID_To_PointLightHandle = std::move(Other.m_EntityID_To_PointLightHandle);
+				m_PointLightBuffer = std::move(Other.m_PointLightBuffer);
 			}
 
-			~RenderScene();
-
-			void Init(unsigned int NumPrimitives, unsigned int NumPointLights)
+			RenderScene& operator=(RenderScene&& Other) noexcept
 			{
-				m_PrimitiveDataGPUBuffer.Init(100, NumPrimitives);
-				m_PointLightGPUBuffer.Init(100, NumPointLights);
+				if (this != &Other)
+				{
+					m_EntityID_To_PrimitiveHandle = std::move(Other.m_EntityID_To_PrimitiveHandle);
+					m_PrimitiveDataBuffer = std::move(Other.m_PrimitiveDataBuffer);
+
+					m_EntityID_To_PointLightHandle = std::move(Other.m_EntityID_To_PointLightHandle);
+					m_PointLightBuffer = std::move(Other.m_PointLightBuffer);
+				}
+				return *this;
 			}
 
-			void AddPrimitive(unsigned int Index)
+			RenderScene(ID3D12Device* Device, uint32_t NumPrimitives, uint32_t NumPointLights, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
 			{
-				m_PrimitiveDataGPUBuffer.Register(Index);
+				this->Init(Device, NumPrimitives, NumPointLights, OptResourceRecycler);
 			}
 
-			void AddPointLight(unsigned int Index)
+			void Init(ID3D12Device* Device, uint32_t NumPrimitives, uint32_t NumPointLights, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
 			{
-				m_PointLightGPUBuffer.Register(Index);
+				m_PrimitiveDataBuffer.Init(Device, NumPrimitives * sizeof(PrimitiveRenderData), OptResourceRecycler, D3D12::GPUResource::RWPROPERTY::GPUONLY);
+				m_PointLightBuffer.Init(Device, NumPointLights * sizeof(PointLightRenderData), OptResourceRecycler, D3D12::GPUResource::RWPROPERTY::GPUONLY);
 			}
 
-			void RemovePrimitive(unsigned int Index)
+			void AddPrimitive(uint32_t Index)
 			{
-				m_PrimitiveDataGPUBuffer.Remove(Index);
+				if (m_EntityID_To_PrimitiveHandle.count(Index) == 0)
+				{
+					DS::FreelistAllocator::AllocationHandle Handle;
+					m_PrimitiveDataBuffer.GetAllocation(Handle, sizeof(PrimitiveRenderData));
+					m_EntityID_To_PrimitiveHandle.emplace(Index, std::move(Handle));
+				}
 			}
 
-			void RemovePointLight(unsigned int Index)
+			void AddPointLight(uint32_t Index)
 			{
-				m_PointLightGPUBuffer.Remove(Index);
+				if (m_EntityID_To_PointLightHandle.count(Index) == 0)
+				{
+					DS::FreelistAllocator::AllocationHandle Handle;
+					m_PointLightBuffer.GetAllocation(Handle, sizeof(PointLightRenderData));
+					m_EntityID_To_PointLightHandle.emplace(Index, std::move(Handle));
+				}
 			}
 
-			void UpdatePrimitive(unsigned int Index, void* Data, D3D12::FrameAllocator& Allocator, UINT ElementDataOffset = 0, UINT NumBytes = sizeof(PrimitiveRenderData))
+			void RemovePrimitive(uint32_t Index)
 			{
-				m_PrimitiveDataGPUBuffer.Update(Index, Data, Allocator, ElementDataOffset, NumBytes);
+				if (m_EntityID_To_PrimitiveHandle.count(Index) != 0)
+				{
+					m_EntityID_To_PrimitiveHandle.erase(Index);
+				}
 			}
 
-			void UpdatePointLight(unsigned int Index, void* Data, D3D12::FrameAllocator& Allocator, UINT ElementDataOffset = 0, UINT NumBytes = sizeof(PointLightRenderData))
+			void RemovePointLight(uint32_t Index)
 			{
-				m_PointLightGPUBuffer.Update(Index, Data, Allocator, ElementDataOffset, NumBytes);
+				if (m_EntityID_To_PointLightHandle.count(Index) != 0)
+				{
+					m_EntityID_To_PointLightHandle.erase(Index);
+				}
 			}
 
-			bool IsPrimitive(unsigned int Index) const
+			void UpdatePrimitive(uint32_t Index, void* Data, D3D12::LinearFrameAllocator& Allocator, uint32_t ElementDataOffset = 0, uint32_t NumBytes = sizeof(PrimitiveRenderData))
 			{
-				return m_PrimitiveDataGPUBuffer.IsRegistered(Index);
+				if (m_EntityID_To_PrimitiveHandle.count(Index) != 0)
+				{
+					DS::FreelistAllocator::AllocationHandle& Handle = m_EntityID_To_PrimitiveHandle.at(Index);
+					m_PrimitiveDataBuffer.Write(Allocator, Data, Handle.GetStartOffset() + ElementDataOffset, NumBytes);
+				}
 			}
 
-			bool IsPointLight(unsigned int Index) const
+			void UpdatePointLight(uint32_t Index, void* Data, D3D12::LinearFrameAllocator& Allocator, uint32_t ElementDataOffset = 0, uint32_t NumBytes = sizeof(PointLightRenderData))
 			{
-				return m_PointLightGPUBuffer.IsRegistered(Index);
+				if (m_EntityID_To_PointLightHandle.count(Index) != 0)
+				{
+					m_PointLightBuffer.Write(Allocator, m_EntityID_To_PointLightHandle.at(Index), Data);
+				}
+			}
+
+			bool IsPrimitive(uint64_t Index) const
+			{
+				return m_EntityID_To_PrimitiveHandle.count(Index) > 0;
+			}
+
+			bool IsPointLight(uint64_t Index) const
+			{
+				return m_EntityID_To_PointLightHandle.count(Index) > 0;
 			}
 		};
 	}

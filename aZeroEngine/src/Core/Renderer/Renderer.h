@@ -1,91 +1,84 @@
 #pragma once
+
+// TODO: Minimize includes
 #include "Core/Renderer/D3D12Wrap/Commands/CommandQueue.h"
-#include "Core/Renderer/D3D12Wrap/Descriptors/DescriptorManager.h"
-#include "Core/Caches/ShaderCache.h"
-#include "Core/Renderer/D3D12Wrap/Pipeline/Graphics/GraphicsPass.h"
-#include "Core/Renderer/D3D12Wrap/Pipeline/Compute/ComputePass.h"
-#include "Core/Renderer/D3D12Wrap/Resources/StructuredBuffer.h"
-#include "Core/Renderer/D3D12Wrap/Resources/GPUTexture.h"
+#include "Core/Renderer/D3D12Wrap/Pipeline/RenderPass.h"
 #include "Core/DataStructures/UniqueIndexList.h"
-#include "Core/Renderer/D3D12Wrap/Pipeline/InputLayout.h"
-#include "Core/AssetTypes/MeshAsset.h"
-#include "Core/AssetTypes/TextureAsset.h"
-#include "Core/Caches/MeshCache.h"
-#include "Core/Caches/TextureCache.h"
 #include "Core/aZeroECSWrap/aZeroECS/aZeroECS.h"
 #include "Core/Renderer/D3D12Wrap/Window/Window.h"
-#include "Core/Renderer/D3D12Wrap/Resources/PackedGPULookupBuffer.h"
-#include "Core/AssetTypes/MaterialAsset.h"
 #include "RenderScene.h"
+#include "Core/Renderer/D3D12Wrap/Descriptors/DescriptorHeap.h"
+#include "Core/Renderer/D3D12Wrap/Window/SwapChain.h"
+#include "Core/AssetTypes/Mesh.h"
+#include "Core/AssetTypes/Texture.h"
+#include "Core/AssetTypes/Material.h"
+#include "Core/Renderer/D3D12Wrap/Resources/FreelistBuffer.h"
+
+// TODO: Try to remove this being a dynamic string allocation etc...
+// TODO: Add path for compiled shaders
+#define SHADER_COMPILED_DIRECTORY std::string("?")
+#define SHADER_COMPILED_PATH(ShaderName) (SHADER_COMPILED_DIRECTORY + std::string(ShaderName) + std::string(".?"))
+
+#define SHADER_SRC_DIRECTORY std::string("src/Shaders/")
+#define SHADER_SRC_PATH(ShaderName) (SHADER_SRC_DIRECTORY + std::string(ShaderName) + std::string(".hlsl"))
 
 namespace aZero
 {
-	class Engine;
 	class Scene;
-
+	class Engine;
 	namespace Rendering
 	{
-
-		
-
+		// TODO: Look over and move or replace (?)
 		#define PRIMITIVE_DATA_WORLDMATRIX_OFFSET 0
-		#define PRIMITIVE_DATA_TEXTUREINDEX_OFFSET sizeof(DXM::Matrix)
-		#define PRIMITIVE_DATA_MESHINDEX_OFFSET sizeof(DXM::Matrix) + sizeof(int)
+		#define PRIMITIVE_DATA_MESHINDEX_OFFSET sizeof(DXM::Matrix)
+		#define PRIMITIVE_DATA_MATERIALINDEX_OFFSET PRIMITIVE_DATA_MESHINDEX_OFFSET + sizeof(uint32_t)
 
+		// TODO: Look over and move (?)
 		struct PerDrawConstants
 		{
 			int PrimitiveIndex;
 		};
 
-		
-
-		struct SpotLightRenderData
-		{
-			DXM::Vector3 m_Position;
-			DXM::Vector3 m_Color;
-			float m_Range;
-			float m_Radius;
-		};
-
-		struct DirectionalLightRenderData
-		{
-			DXM::Vector3 m_Direction;
-			DXM::Vector3 m_Color;
-		};
+		class RenderInterface;
 
 		class Renderer
 		{
-			/*
-			JOB:
-			Interface between engine and actually rendering
-			-Has all the resources needed to render
-				-Works scene based, ie. each Scene has its renderer counter part which is rendered independenltly
-					-Ie. each scene has the culling pass and render pass done consecutively, but with the render targets merged
-						-Allows easy "chunk"/"scene" removal/adding
-
-			-Scene is registered
-				-Create render scene
-				-Entity is updated, get scene equivalent and update that on renderer
-			
-			*/
 			friend Engine;
-			// Definitely Temp stuff!!!!
-		public:
-			std::set<UINT> m_TempEntities;
-			MeshFileCache m_Meshes;
-			TextureFileCache m_TextureFileAssets;
+			friend RenderInterface;
 
 		private:
-			const UINT64 BUFFERING_COUNT = 3;
+			ID3D12Device* m_Device;
+			CComPtr<IDxcCompiler3> m_Compiler;
 
-			// Primitives
-			std::vector<D3D12::FrameAllocator> m_FrameAllocators;
+			D3D12::CommandQueue m_GraphicsQueue;
+			uint64_t m_FrameIndex = 0;
+			uint64_t m_FrameCount = 0;
+			uint64_t m_LastPresentSignal;
 
-			D3D12::PackedGPULookupBuffer<Asset::BasicMaterialRenderData> m_BasicMaterialGPUBuffer;
-			std::unordered_map<int, int> m_BasicMaterialRefCount;
+			D3D12::FreelistBuffer m_VertexBuffer;
+			D3D12::FreelistBuffer m_IndexBuffer;
+			D3D12::FreelistBuffer m_MeshEntryBuffer;
+			D3D12::FreelistBuffer m_MaterialBuffer;
 
+			D3D12::DescriptorHeap m_ResourceHeap;
+			D3D12::DescriptorHeap m_SamplerHeap;
+			D3D12::DescriptorHeap m_RTVHeap;
+			D3D12::DescriptorHeap m_DSVHeap;
+
+			// TODO: Remove/move once we have a more complex resource allocation strategy
+			D3D12::ResourceRecycler m_ResourceRecycler;
+
+			// TODO: Remove/change once we add it as an argument to the engine
+			const uint64_t BUFFERING_COUNT = 3;
+
+			// TODO: Remove/replace if we need to have a more complex per-frame copy strategy (ex. we need to somehow copy some stuff before continuing)
+			std::vector<D3D12::LinearFrameAllocator> m_FrameAllocators;
+
+			// TODO: Remove once CommandContext is sorted up
+			D3D12::CommandContext m_GraphicsCommandContext;
 			D3D12::CommandContext m_PackedGPULookupBufferUpdateContext;
 
+			// TODO: Remove once we have a more smooth sampler and pipeline setup
 			D3D12::Descriptor m_DefaultSamplerDescriptor;
 
 			D3D12::GPUTexture m_FinalRenderSurface;
@@ -95,27 +88,15 @@ namespace aZero
 			D3D12::GPUTexture m_SceneDepthTexture;
 			D3D12::Descriptor m_SceneDepthTextureDSV;
 
-			// Main Rendering Classes
-			D3D12::CommandQueue m_GraphicsQueue;
-			D3D12::DescriptorManager m_DescriptorManager;
-			D3D12::CommandContext m_GraphicsCommandContext;
-
-			// Pipeline Caching
-			ShaderCache m_ShaderCache;
-			std::unordered_map<std::string, D3D12::GraphicsPass> m_GraphicsPassCache;
-			std::unordered_map<std::string, D3D12::ComputePass> m_ComputePassCache;
+			//D3D12::RenderPass m_TempRenderPass;
 
 			DXM::Vector2 m_RenderResolution;
 			D3D12_CLEAR_VALUE m_RTVClearColor;
 			D3D12_CLEAR_VALUE m_DSVClearColor;
+			//
 
-			UINT64 m_FrameIndex = 0;
-			UINT64 m_FrameCount = 0;
-			UINT64 m_LastPresentSignal;
-
-			ECS::ComponentManagerDecl* m_ComponentManager = nullptr;
-
-			RenderScene m_RenderScene;
+			// TODO: Remove once change the args of ::Render() to take in a scene, camera, and window and renders with it etc
+			std::unordered_map<std::string, RenderScene> m_RenderScenes;
 			Scene* m_CurrentScene = nullptr;
 
 		private:
@@ -134,8 +115,12 @@ namespace aZero
 				m_LastPresentSignal = m_GraphicsQueue.ForceSignal();
 			}
 
+		public:
+			// TODO: Remove when index draw count is fully gpu driven
+			std::unordered_map<uint32_t, Asset::Mesh> m_Entity_To_Mesh;
+			D3D12::RenderPass Pass;
+
 		protected:
-			void Init(ECS::ComponentManagerDecl& ComponentManager, const DXM::Vector2& RenderResolution);
 
 			void BeginFrame();
 
@@ -148,246 +133,103 @@ namespace aZero
 			void FlushImmediate() { m_GraphicsQueue.FlushImmediate(); }
 
 		public:
-			Renderer() = default;
+			Renderer(ID3D12Device* Device, const DXM::Vector2& RenderResolution)
+				:m_Device(Device)
+			{	
+				this->Init(Device, RenderResolution);
+			}
+
+			void Init(ID3D12Device* Device, const DXM::Vector2& RenderResolution);
 
 			~Renderer()
 			{
 				m_GraphicsQueue.FlushCommands();
 			}
 
+			D3D12::LinearFrameAllocator& GetFrameAllocator()
+			{
+				return m_FrameAllocators[m_FrameIndex];
+			}
+
+			IDxcCompiler3& GetCompiler() { return *m_Compiler.p; }
+
 			const DXM::Vector2& GetRenderResolution() const { return m_RenderResolution; }
 
 			D3D12::CommandQueue& GetGraphicsQueue() { return m_GraphicsQueue; }
 
-			bool IsElegibleAsPrimitive(const ECS::Entity& Entity)
+			RenderScene& CreateScene(const std::string& SceneName)
 			{
-				if (Entity.GetComponentMask().test(m_ComponentManager->GetComponentBit<ECS::TransformComponent>())
-					&& Entity.GetComponentMask().test(m_ComponentManager->GetComponentBit<ECS::StaticMeshComponent>())
-					)
-				{
-					return true;
-				}
-
-				return false; // check bitset
-			}
-
-			void UploadFullPrimitiveData(const ECS::Entity& Entity, RenderScene& InRenderScene)
-			{
-				// stage copy into gpu buffer with component data
-				PrimitiveRenderData PrimData;
-
-				// Give data
-				const ECS::TransformComponent& TransformComp = *m_ComponentManager->GetComponentArray<ECS::TransformComponent>().GetComponent(Entity);
-				const ECS::StaticMeshComponent& StaticMeshComp = *m_ComponentManager->GetComponentArray<ECS::StaticMeshComponent>().GetComponent(Entity);
-				PrimData.WorldMatrix = TransformComp.GetTransform();
-				PrimData.MeshIndex = 2;
-				PrimData.MaterialIndex = StaticMeshComp.GetReferenceID();
-				//
-
-				InRenderScene.UpdatePrimitive(Entity.GetID(), &PrimData, m_FrameAllocators[m_FrameIndex]);
-			}
-
-			void UploadFullPointLightData(const ECS::Entity& Entity, RenderScene& InRenderScene)
-			{
-				const ECS::PointLightComponent& PointLightComp = *m_ComponentManager->GetComponentArray<ECS::PointLightComponent>().GetComponent(Entity);
-				PointLightRenderData RenderData;
-				RenderData.Position = PointLightComp.GetPosition();
-				RenderData.Color = PointLightComp.GetColor();
-				RenderData.Range = PointLightComp.GetRange();
-
-				// Parent light position to the transform component
-				if (m_ComponentManager->HasComponent<ECS::TransformComponent>(Entity))
-				{
-					RenderData.Position += m_ComponentManager->GetComponentArray<ECS::TransformComponent>().GetComponent(Entity)->GetTransform().Translation();
-				}
-
-				InRenderScene.UpdatePointLight(Entity.GetID(), &RenderData, m_FrameAllocators[m_FrameIndex]);
-			}
-
-			void UploadFullSpotLightData(const ECS::Entity& Entity)
-			{
-				/*const ECS::SpotLightComponent& SpotLightComp = *m_ComponentManager->GetComponentArray<ECS::SpotLightComponent>().GetComponent(Entity);
-				SpotLightRenderData RenderData;
-				RenderData.m_Position = SpotLightComp.GetPosition();
-				RenderData.m_Color = SpotLightComp.GetColor();
-				RenderData.m_Range = SpotLightComp.GetRange();
-				RenderData.m_Radius = SpotLightComp.GetRadius();
-
-				m_SpotLightGPUBuffer.Update(Entity.GetID(), &RenderData, m_FrameAllocators[m_FrameIndex]);*/
-			}
-
-			void UploadFullDirectionalLightData(const ECS::Entity& Entity)
-			{
-				/*const ECS::DirectionalLightComponent& DirectionalLightComp = *m_ComponentManager->GetComponentArray<ECS::DirectionalLightComponent>().GetComponent(Entity);
-				DirectionalLightRenderData RenderData;
-				RenderData.m_Direction = DirectionalLightComp.GetDirection();
-				RenderData.m_Color = DirectionalLightComp.GetColor();
-
-				m_DirectionalLightGPUBuffer.Update(Entity.GetID(), &RenderData, m_FrameAllocators[m_FrameIndex]);*/
-			}
-
-			template<typename ComponentType>
-			void RegisterRenderComponent(const ECS::Entity& Entity)
-			{
-				if constexpr (std::is_same_v<ComponentType, ECS::TransformComponent>)
-				{
-					if (this->IsElegibleAsPrimitive(Entity))
-					{
-						if (!m_RenderScene.IsPrimitive(Entity.GetID()))
-						{
-							m_RenderScene.AddPrimitive(Entity.GetID());
-							this->UploadFullPrimitiveData(Entity, m_RenderScene);
-						}
-					}
-				}
-				else if constexpr (std::is_same_v<ComponentType, ECS::StaticMeshComponent>)
-				{
-					if (this->IsElegibleAsPrimitive(Entity))
-					{
-						if (!m_RenderScene.IsPrimitive(Entity.GetID()))
-						{
-							m_RenderScene.AddPrimitive(Entity.GetID());
-							this->UploadFullPrimitiveData(Entity, m_RenderScene);
-						}
-					}
-				}
-				else if constexpr (std::is_same_v<ComponentType, ECS::PointLightComponent>)
-				{
-					if (!m_RenderScene.IsPointLight(Entity.GetID()))
-					{
-						m_RenderScene.AddPointLight(Entity.GetID());
-
-						// Do something so that the renderer knows what indice it is in (ex. add to tree)
-
-						//
-
-						this->UploadFullPointLightData(Entity, m_RenderScene);
-					}
-				}
-				else
-				{
-					return;
-				}
-			}
-
-			template<typename ComponentType>
-			void UnregisterRenderComponent(const ECS::Entity& Entity)
-			{
-				if constexpr (std::is_same_v<ComponentType, ECS::TransformComponent>)
-				{
-					if (m_RenderScene.IsPrimitive(Entity.GetID()))
-					{
-						m_RenderScene.RemovePrimitive(Entity.GetID());
-					}
-				}
-				else if constexpr (std::is_same_v<ComponentType, ECS::StaticMeshComponent>)
-				{
-					if (m_RenderScene.IsPrimitive(Entity.GetID()))
-					{
-						m_RenderScene.RemovePrimitive(Entity.GetID());
-					}
-				}
-				else if constexpr (std::is_same_v<ComponentType, ECS::PointLightComponent>)
-				{
-					if (m_RenderScene.IsPointLight(Entity.GetID()))
-					{
-						m_RenderScene.RemovePointLight(Entity.GetID());
-						
-						// Do something so that the renderer removes what indice it is in (ex. from tree)
-
-						//
-					}
-				}
-				else
-				{
-					return;
-				}
-			}
-
-			template<typename ComponentType>
-			void UpdateRenderComponent(const ECS::Entity& Entity, const ComponentType& Component)
-			{
-				// NOTE - If the input is a copy of the component this could easily be a threadsafe function that enqueues the comp data copy on another thread
-				if constexpr (std::is_same_v<ComponentType, ECS::TransformComponent>)
-				{
-					if (m_RenderScene.IsPrimitive(Entity.GetID()))
-					{
-						m_RenderScene.UpdatePrimitive(Entity.GetID(), (void*)&Component.GetTransform(), m_FrameAllocators.at(m_FrameIndex), PRIMITIVE_DATA_WORLDMATRIX_OFFSET, sizeof(DXM::Matrix));
-					}
-				}
-				else if constexpr (std::is_same_v<ComponentType, ECS::StaticMeshComponent>)
-				{
-					if (m_RenderScene.IsPrimitive(Entity.GetID()))
-					{
-						int x = 2;
-						m_RenderScene.UpdatePrimitive(Entity.GetID(), &x, m_FrameAllocators.at(m_FrameIndex), PRIMITIVE_DATA_MESHINDEX_OFFSET, sizeof(int));
-					}
-				}
-				else if constexpr (std::is_same_v<ComponentType, ECS::PointLightComponent>)
-				{
-					if (m_RenderScene.IsPointLight(Entity.GetID()))
-					{
-						this->UploadFullPointLightData(Entity.GetID(), m_RenderScene);
-					}
-				}
-				else
-				{
-					return;
-				}
-			}
-
-			void ForceRegisterMaterial(const Asset::MaterialTemplate<Asset::BasicMaterialRenderData>& Material)
-			{
-				const int MaterialID = Material.GetID();
-				Asset::BasicMaterialRenderData RenderData = Material.GetRenderData();
-				m_BasicMaterialGPUBuffer.Register(MaterialID);
-				m_BasicMaterialGPUBuffer.Update(MaterialID, &RenderData, m_FrameAllocators[m_FrameIndex]);
-
-				if (m_BasicMaterialRefCount.count(MaterialID) == 0)
-				{
-					m_BasicMaterialRefCount.emplace(MaterialID, 1);
-				}
-				else
-				{
-					m_BasicMaterialRefCount.at(MaterialID)++;
-				}
-			}
-
-			void ForceUnregisterMaterial(const Asset::MaterialTemplate<Asset::BasicMaterialRenderData>& Material)
-			{
-				const int MaterialID = Material.GetID();
-
-				if (m_BasicMaterialRefCount.count(MaterialID) > 0)
-				{
-					const int CurrentRefCount = m_BasicMaterialRefCount.at(MaterialID);
-					m_BasicMaterialRefCount.at(MaterialID)--;
-
-					if (CurrentRefCount - 1 == 0)
-					{
-						m_BasicMaterialGPUBuffer.Remove(MaterialID);
-						m_BasicMaterialRefCount.erase(MaterialID);
-					}
-				}
-			}
-
-			void MarkMaterialDirty(const Asset::MaterialTemplate<Asset::BasicMaterialRenderData>& Material)
-			{
-				if (m_BasicMaterialRefCount.count(Material.GetID()) == 0)
-				{
-					// No material is referenced, so no use to update (might not even be registered to the renderer)
-					return;
-				}
-
-				Asset::BasicMaterialRenderData RenderData = Material.GetRenderData();
-				m_BasicMaterialGPUBuffer.Update(Material.GetID(), &RenderData, m_FrameAllocators[m_FrameIndex]);
+				m_RenderScenes.emplace(SceneName, std::move(RenderScene(m_Device, 1000, 100, &m_ResourceRecycler)));
+				return m_RenderScenes.at(SceneName);
 			}
 
 			void SetScene(Scene* InScene)
 			{
 				m_CurrentScene = InScene;
 			}
+
+			void MarkRenderStateDirty(Asset::Mesh& Mesh)
+			{
+				// TODO: Handle case of a zero-vertex mesh being marked dirty
+				if (!Mesh.HasRenderState())
+				{
+					m_VertexBuffer.GetAllocation(
+						Mesh.m_AssetGPUHandle->m_VertexBufferAllocHandle,
+						Mesh.GetAssetData()->Vertices.size() * sizeof(decltype(Mesh.GetAssetData()->Vertices.at(0))));
+
+					m_VertexBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle->m_VertexBufferAllocHandle, (void*)Mesh.GetAssetData()->Vertices.data());
+
+					m_IndexBuffer.GetAllocation(
+						Mesh.m_AssetGPUHandle->m_IndexBufferAllocHandle,
+						Mesh.GetAssetData()->Indices.size() * sizeof(decltype(Mesh.GetAssetData()->Indices.at(0))));
+
+					m_IndexBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle->m_IndexBufferAllocHandle, (void*)Mesh.GetAssetData()->Indices.data());
+
+					m_MeshEntryBuffer.GetAllocation(
+						Mesh.m_AssetGPUHandle->m_MeshEntryAllocHandle,
+						sizeof(Asset::MeshGPUEntry)
+					);
+
+					Asset::MeshGPUEntry NewMeshEntry;
+					NewMeshEntry.m_VertexStartOffset = Mesh.m_AssetGPUHandle->m_VertexBufferAllocHandle.GetStartOffset() / sizeof(Asset::VertexData);
+					NewMeshEntry.m_IndexStartOffset = Mesh.m_AssetGPUHandle->m_IndexBufferAllocHandle.GetStartOffset() / sizeof(uint32_t);
+					NewMeshEntry.m_NumIndices = Mesh.GetAssetData()->Indices.size();
+					m_MeshEntryBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle->m_MeshEntryAllocHandle, (void*)&NewMeshEntry);
+				}
+				else
+				{
+					// TODO: Impl case where a mesh asset that already has a render state will be modified
+				}
+			}
+
+			// TODO: Impl
+			void MarkRenderStateDirty(Asset::Texture& Texture)
+			{
+				if (!Texture.HasRenderState())
+				{
+					// Use Texture to stage the data into the gpu resource
+
+					// If resource exists in a gpu resource (ex. using wicloader), then just copy from that into the gpu-only resource
+
+					// If resource data is in raw bytes, then create resource and stage it etc.
+				}
+				else
+				{
+
+				}
+			}
+
+			void MarkRenderStateDirty(Asset::Material& Material)
+			{
+				if (!Material.HasRenderState())
+				{
+					m_MaterialBuffer.GetAllocation(Material.m_AssetGPUHandle->m_MaterialAllocHandle, sizeof(Asset::MaterialRenderData));
+				}
+				
+				Asset::MaterialRenderData RenderData = Material.GetRenderData();
+				m_MaterialBuffer.Write(this->GetFrameAllocator(), Material.m_AssetGPUHandle->m_MaterialAllocHandle, &RenderData);
+			}
 		};
 
 	}
-	extern Rendering::Renderer gRenderer;
 }

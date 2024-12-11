@@ -1,41 +1,39 @@
 #pragma once
 #include <vector>
+#include <mutex>
 
-#include "Core/D3D12Core.h"
+#include "Core/D3D12Include.h"
 
 namespace aZero
 {
 	namespace D3D12
 	{
-		// TODO - Make it threadsafe.
 		// TODO - Make it more efficient by minimizing the amount of dynamic memory allocations
 		class ResourceRecycler
 		{
 		private:
-			std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_resources;
+			std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Resources;
+			std::mutex m_Mutex;
 
 		public:
-			ResourceRecycler()
-			{
+			ResourceRecycler() = default;
 
+			ResourceRecycler(const ResourceRecycler&) = delete;
+			ResourceRecycler& operator=(const ResourceRecycler&) = delete;
+			ResourceRecycler(ResourceRecycler&&) = delete;
+			ResourceRecycler& operator=(ResourceRecycler&&) = delete;
+
+			void RecycleResource(Microsoft::WRL::ComPtr<ID3D12Resource> Resource)
+			{
+				std::unique_lock<std::mutex>(m_Mutex);
+				m_Resources.emplace_back(Resource);
 			}
 
-			~ResourceRecycler()
+			void ReleaseResources()
 			{
-
-			}
-
-			void RecycleResource(Microsoft::WRL::ComPtr<ID3D12Resource> resource)
-			{
-				m_resources.emplace_back(resource);
-			}
-
-			void Clear()
-			{
-				m_resources.clear();
+				std::unique_lock<std::mutex>(m_Mutex);
+				m_Resources.clear();
 			}
 		};
 	}
-
-	extern D3D12::ResourceRecycler gResourceRecycler;
 }

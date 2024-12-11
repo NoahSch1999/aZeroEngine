@@ -14,9 +14,6 @@
     <Filter Include="Core\FileAssets">
       <UniqueIdentifier>{0ab58eda-8e6b-46f1-8336-054b568c2e79}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Core\FileAssetCaches">
-      <UniqueIdentifier>{c2171ad7-fd27-4e50-b7a4-f690de44e87d}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Core\aZeroECSWrap">
       <UniqueIdentifier>{474b69cb-4303-44b2-92f1-97e490a5a33d}</UniqueIdentifier>
     </Filter>
@@ -50,28 +47,22 @@
     <Filter Include="Core\Renderer\D3D12Wrap\Descriptors">
       <UniqueIdentifier>{93817937-cc91-4f8c-b57a-4edeb82df56e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Core\Renderer\D3D12Wrap\Pipeline\Compute">
-      <UniqueIdentifier>{bbd1952b-8077-47ca-a990-253f6522a79d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Core\Renderer\D3D12Wrap\Pipeline\Graphics">
-      <UniqueIdentifier>{fc14fbb2-d6b3-4c6e-b2a7-5def0153c218}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Core\DataStructures">
       <UniqueIdentifier>{ff31bf60-bd8b-45a0-853b-e5e07268b304}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="src\Shaders\BasePass.vs.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="src\Shaders\BasePass.ps.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Main</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\AssetTypes\MeshAsset.cpp">
-      <Filter>Core\FileAssets</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\AssetTypes\TextureAsset.cpp">
-      <Filter>Core\FileAssets</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\aZeroECSWrap\ComponentManagerInterface.cpp">
       <Filter>Core\aZeroECSWrap</Filter>
@@ -88,56 +79,17 @@
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Pipeline\Shader.cpp">
       <Filter>Core\Renderer\D3D12Wrap\Pipeline</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\D3D12Core.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\DefaultHeapBuffer.cpp">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\GPUTexture.cpp">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\ReadbackHeapBuffer.cpp">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\ResourceRecycler.cpp">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\UploadHeapBuffer.cpp">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\GPUResource.cpp">
-      <Filter>Main</Filter>
+      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\Renderer\RenderScene.cpp">
-      <Filter>Core\Renderer</Filter>
+    <ClCompile Include="src\Core\AssetTypes\Mesh.cpp">
+      <Filter>Core\FileAssets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Descriptors\Descriptor.cpp">
+      <Filter>Core\Renderer\D3D12Wrap\Descriptors</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Core\AssetTypes\MaterialAsset.h">
-      <Filter>Core\FileAssets</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\AssetTypes\MeshAsset.h">
-      <Filter>Core\FileAssets</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\AssetTypes\TextureAsset.h">
-      <Filter>Core\FileAssets</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Caches\AssetCacheBase.h">
-      <Filter>Core\FileAssetCaches</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Caches\MaterialCache.h">
-      <Filter>Core\FileAssetCaches</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Caches\MeshCache.h">
-      <Filter>Core\FileAssetCaches</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Caches\ShaderCache.h">
-      <Filter>Core\FileAssetCaches</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Caches\TextureCache.h">
-      <Filter>Core\FileAssetCaches</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\Scene\Scene.h">
       <Filter>Core\Scene</Filter>
     </ClInclude>
@@ -201,61 +153,28 @@
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Descriptors\DescriptorHeap.h">
       <Filter>Core\Renderer\D3D12Wrap\Descriptors</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Descriptors\DescriptorManager.h">
-      <Filter>Core\Renderer\D3D12Wrap\Descriptors</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Commands\CommandContext.h">
       <Filter>Core\Renderer\D3D12Wrap\Commands</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Commands\CommandQueue.h">
       <Filter>Core\Renderer\D3D12Wrap\Commands</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\InputLayout.h">
-      <Filter>Core\Renderer\D3D12Wrap\Pipeline</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\Shader.h">
       <Filter>Core\Renderer\D3D12Wrap\Pipeline</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\Compute\ComputePass.h">
-      <Filter>Core\Renderer\D3D12Wrap\Pipeline\Compute</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\Graphics\GraphicsPass.h">
-      <Filter>Core\Renderer\D3D12Wrap\Pipeline\Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\D3D12Core.h">
+    <ClInclude Include="src\Core\D3D12Include.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Engine.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\DefaultHeapBuffer.h">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\FrameAllocator.h">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUBuffer.h">
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\LinearFrameAllocator.h">
       <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUResource.h">
       <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUTexture.h">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\PackedGPULookupBuffer.h">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\ReadbackHeapBuffer.h">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\ResourceRecycler.h">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\StructuredBuffer.h">
-      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\UploadHeapBuffer.h">
       <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\DataStructures\UniqueIndexList.h">
@@ -264,12 +183,42 @@
     <ClInclude Include="src\Core\Renderer\RenderScene.h">
       <Filter>Core\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\Renderer\RenderInterface.h">
+      <Filter>Core\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\DataStructures\FreelistAllocator.h">
+      <Filter>Core\DataStructures</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\AssetTypes\Mesh.h">
+      <Filter>Core\FileAssets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\AssetTypes\RenderFileAsset.h">
+      <Filter>Core\FileAssets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\FreelistBuffer.h">
+      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUResourceView.h">
+      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\AssetTypes\Texture.h">
+      <Filter>Core\FileAssets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\DXCompilerInclude.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\EngineDebugMacros.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\RenderPass.h">
+      <Filter>Core\Renderer\D3D12Wrap\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\AssetTypes\Material.h">
+      <Filter>Core\FileAssets</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="src\Shaders\BasePassPS.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="src\Shaders\BasePassVS.hlsl">
+    <FxCompile Include="src\Shaders\TestShader.cs.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

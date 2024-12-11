@@ -8,96 +8,83 @@ namespace aZero
 		class CommandQueue
 		{
 		private:
-			Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_queue;
-			Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
-			D3D12_COMMAND_LIST_TYPE m_type = D3D12_COMMAND_LIST_TYPE_NONE;
+			Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_Queue;
+			Microsoft::WRL::ComPtr<ID3D12Fence> m_Fence;
 
-			// NOTE - Issue if these are going above the valid range of UINT64? How should this be handles?
-			UINT64 m_nextFenceValue = 0;
-			UINT64 m_latestFenceValue = 0;
+			// NOTE - Issue if these are going above the valid range of UINT64? How should this be handled?
+			uint64_t m_NextFenceValue = 0;
+			uint64_t m_LatestFenceValue = 0;
 
 		public:
 			CommandQueue() = default;
 
-			CommandQueue(D3D12_COMMAND_LIST_TYPE type)
+			CommandQueue(const CommandQueue&) = delete;
+			CommandQueue& operator=(const CommandQueue&) = delete;
+
+			CommandQueue(CommandQueue&& Other) noexcept
 			{
-				this->Init(type);
+				m_Queue = std::move(Other.m_Queue);
+				m_Fence = std::move(Other.m_Fence);
+				m_NextFenceValue = Other.m_NextFenceValue;
+				m_LatestFenceValue = Other.m_LatestFenceValue;
 			}
 
-			void Init(D3D12_COMMAND_LIST_TYPE type)
+			CommandQueue& operator=(CommandQueue&& Other) noexcept
 			{
-				m_type = type;
-
-				D3D12_COMMAND_QUEUE_DESC desc;
-				desc.Type = type;
-				desc.NodeMask = 0;
-				desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-				desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-
-				if (FAILED(gDevice->CreateCommandQueue(&desc, IID_PPV_ARGS(m_queue.GetAddressOf()))))
+				if (this != &Other)
 				{
-					throw;
+					m_Queue = std::move(Other.m_Queue);
+					m_Fence = std::move(Other.m_Fence);
+					m_NextFenceValue = Other.m_NextFenceValue;
+					m_LatestFenceValue = Other.m_LatestFenceValue;
+				}
+				return *this;
+			}
+
+			CommandQueue(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type)
+			{
+				this->Init(Device, Type);
+			}
+
+			void Init(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type)
+			{
+				D3D12_COMMAND_QUEUE_DESC Desc;
+				Desc.Type = Type;
+				Desc.NodeMask = 0;
+				Desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+				Desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+
+				const HRESULT CommandQueueRes = Device->CreateCommandQueue(&Desc, IID_PPV_ARGS(m_Queue.GetAddressOf()));
+				if (FAILED(CommandQueueRes))
+				{
+					throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue");
 				}
 
-				if (FAILED(gDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_fence.GetAddressOf()))))
+				const HRESULT FenceRes = Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_Fence.GetAddressOf()));
+				if (FAILED(FenceRes))
 				{
-					throw;
+					throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue fence");
 				}
 			}
 
-			ID3D12CommandQueue* const GetCommandQueue() const { return m_queue.Get(); }
-
-			UINT64 GetLatestFenceValue() const { return m_latestFenceValue; }
-
-			// TODO - Cleanup and try to make it more efficient by avoiding copy
-			UINT64 ExecuteContext(const std::vector<CommandContext>& contexts)
+			UINT64 ForceSignal()
 			{
-				std::vector<ID3D12CommandList*> lists;
-				lists.reserve(contexts.size());
-
-				for (const CommandContext& context : contexts)
-				{
-					lists.push_back(context.GetCommandList());
-				}
-
-				m_queue->ExecuteCommandLists(lists.size(), lists.data());
-
-				m_queue->Signal(m_fence.Get(), m_nextFenceValue);
-				m_latestFenceValue = m_nextFenceValue;
-				m_nextFenceValue++;
-				return m_latestFenceValue;
-			}
-
-			UINT64 ExecuteContextAfterSync(const std::vector<CommandContext>& contexts, const CommandQueue& otherQueue, UINT64 signalValue)
-			{
-				m_queue->Wait(otherQueue.m_fence.Get(), signalValue);
-
-				std::vector<ID3D12CommandList*> lists;
-				lists.reserve(contexts.size());
-
-				for (const CommandContext& context : contexts)
-				{
-					lists.push_back(context.GetCommandList());
-				}
-
-				m_queue->ExecuteCommandLists(lists.size(), lists.data());
-
-				m_queue->Signal(m_fence.Get(), m_nextFenceValue);
-				m_latestFenceValue = m_nextFenceValue;
-				m_nextFenceValue++;
-				return m_latestFenceValue;
+				m_Queue->Signal(m_Fence.Get(), m_NextFenceValue);
+				m_LatestFenceValue = m_NextFenceValue;
+				m_NextFenceValue++;
+				return m_LatestFenceValue;
 			}
 
 			void FlushCommands()
 			{
-				UINT64 currentFenceValue = m_fence->GetCompletedValue();
+				uint64_t CurrentFenceValue = m_Fence->GetCompletedValue();
 
-				if (m_latestFenceValue <= currentFenceValue)
+				if (m_LatestFenceValue <= CurrentFenceValue)
 				{
 					return;
 				}
 
-				m_fence->SetEventOnCompletion(m_latestFenceValue, nullptr);
+				m_Fence->SetEventOnCompletion(m_LatestFenceValue, nullptr);
 			}
 
 			void FlushImmediate()
@@ -106,13 +93,39 @@ namespace aZero
 				this->FlushCommands();
 			}
 
-			UINT64 ForceSignal()
+			uint64_t ExecuteContext(CommandContext& Context)
 			{
-				m_queue->Signal(m_fence.Get(), m_nextFenceValue);
-				m_latestFenceValue = m_nextFenceValue;
-				m_nextFenceValue++;
-				return m_latestFenceValue;
+				Context.StopRecording();
+				ID3D12CommandList* CmdList = (ID3D12CommandList*)Context.GetCommandList();
+				m_Queue->ExecuteCommandLists(1, &CmdList);
+				Context.StartRecording();
+				return this->ForceSignal();
 			}
+
+			uint64_t ExecuteContexts(const std::vector<CommandContext*>& Contexts)
+			{
+				std::vector<ID3D12CommandList*> Lists;
+				Lists.reserve(Contexts.size());
+
+				for (CommandContext* Context : Contexts)
+				{
+					Lists.push_back(Context->GetCommandList());
+				}
+
+				m_Queue->ExecuteCommandLists(Lists.size(), Lists.data());
+
+				return this->ForceSignal();
+			}
+
+			// TODO: Check if this works...
+			UINT64 ExecuteContextsAfterSync(const std::vector<CommandContext*>& Contexts, const CommandQueue& OtherQueue, UINT64 SignalValue)
+			{
+				m_Queue->Wait(OtherQueue.m_Fence.Get(), SignalValue);
+				return this->ExecuteContexts(Contexts);
+			}
+
+			ID3D12CommandQueue* const GetCommandQueue() const { return m_Queue.Get(); }
+			uint64_t GetLatestFenceValue() const { return m_LatestFenceValue; }
 		};
 	}
 }

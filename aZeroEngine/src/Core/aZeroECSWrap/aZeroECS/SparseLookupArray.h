@@ -52,6 +52,26 @@ namespace aZero
 				m_Elements.emplace_back(std::forward<ElementType>(Data));
 			}
 
+			void Add(unsigned int ID, ElementType& Data)
+			{
+				if (ID >= m_IDtoElementIndexMap.size())
+				{
+					// Out-of-range
+					throw;
+				}
+
+				if (m_IDtoElementIndexMap.at(ID) != UINT_MAX)
+				{
+					// Replace existing data
+					m_Elements.at(m_IDtoElementIndexMap.at(ID)) = Data;
+					return;
+				}
+
+				m_IDtoElementIndexMap.at(ID) = m_Elements.size(); // Replace this with the integer holding the index to avoid resizing the vec????
+				m_ElementIndexToIDMap.emplace(m_Elements.size(), ID);
+				m_Elements.emplace_back(Data);
+			}
+
 			void Remove(unsigned int ID)
 			{
 				if (ID >= m_IDtoElementIndexMap.size())
@@ -89,14 +109,14 @@ namespace aZero
 				return m_IDtoElementIndexMap.at(ID) != UINT_MAX;
 			}
 
-			ElementType& Get(unsigned int ID)
+			ElementType* Get(unsigned int ID)
 			{
-				return m_Elements[m_IDtoElementIndexMap[ID]];
+				return &m_Elements[m_IDtoElementIndexMap[ID]];
 			}
 
-			const ElementType& Get(unsigned int ID) const
+			const ElementType* Get(unsigned int ID) const
 			{
-				return m_Elements[m_IDtoElementIndexMap[ID]];
+				return &m_Elements[m_IDtoElementIndexMap[ID]];
 			}
 
 			std::vector<ElementType>& GetArray() { return m_Elements; }

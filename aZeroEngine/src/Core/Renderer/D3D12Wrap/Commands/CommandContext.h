@@ -1,5 +1,5 @@
 #pragma once
-#include "Core/D3D12Core.h"
+#include "Core/D3D12Include.h"
 
 namespace aZero
 {
@@ -8,48 +8,86 @@ namespace aZero
 		class CommandContext
 		{
 		private:
-			Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_allocator = nullptr;
-			Microsoft::WRL::ComPtr<ID3D12CommandList> m_commandList = nullptr;
+			Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_Allocator = nullptr;
+			Microsoft::WRL::ComPtr<ID3D12CommandList> m_CommandList = nullptr;
+			bool m_IsRecording;
 
 		public:
 			CommandContext() = default;
 
-			CommandContext(D3D12_COMMAND_LIST_TYPE type)
+			CommandContext(const CommandContext&) = delete;
+			CommandContext& operator=(const CommandContext&) = delete;
+
+			CommandContext(CommandContext&& Other) noexcept
 			{
-				this->Init(type);
+				m_Allocator = std::move(Other.m_Allocator);
+				m_CommandList = std::move(Other.m_CommandList);
+				m_IsRecording = Other.m_IsRecording;
 			}
 
-			void Init(D3D12_COMMAND_LIST_TYPE type)
+			CommandContext& operator=(CommandContext&& Other) noexcept
 			{
-				if (FAILED(gDevice->CreateCommandAllocator(type, IID_PPV_ARGS(m_allocator.GetAddressOf()))))
+				if (this != &Other)
 				{
-					throw;
+					m_Allocator = std::move(Other.m_Allocator);
+					m_CommandList = std::move(Other.m_CommandList);	
+					m_IsRecording = Other.m_IsRecording;
 				}
-
-				if (FAILED(gDevice->CreateCommandList(0, type, m_allocator.Get(), nullptr, IID_PPV_ARGS(m_commandList.GetAddressOf()))))
-				{
-					throw;
-				}
-
-				static_cast<ID3D12GraphicsCommandList*>(m_commandList.Get())->Close();
+				return *this;
 			}
 
-			void StartRecording(ID3D12PipelineState* const startPSO = nullptr)
+			CommandContext(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type)
 			{
-				static_cast<ID3D12GraphicsCommandList*>(m_commandList.Get())->Reset(m_allocator.Get(), startPSO);
+				this->Init(Device, Type);
+			}
+
+			void Init(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type)
+			{
+				const HRESULT CommandAllocRes = Device->CreateCommandAllocator(Type, IID_PPV_ARGS(m_Allocator.GetAddressOf()));
+				if (FAILED(CommandAllocRes))
+				{
+					throw std::invalid_argument("CommandContext::Init() => Failed to create command allcator");
+				}
+
+				const HRESULT CommandListRes = Device->CreateCommandList(0, Type, m_Allocator.Get(), nullptr, IID_PPV_ARGS(m_CommandList.GetAddressOf()));
+				if (FAILED(CommandListRes))
+				{
+					throw std::invalid_argument("CommandContext::Init() => Failed to create command list");
+				}
+
+				m_IsRecording = true;
+			}
+
+			void StartRecording(ID3D12PipelineState* StartPipelineState = nullptr)
+			{
+				if (!m_IsRecording)
+				{
+					this->GetCommandList()->Reset(m_Allocator.Get(), StartPipelineState);
+					m_IsRecording = true;
+				}
+				else if(StartPipelineState)
+				{
+					this->GetCommandList()->SetPipelineState(StartPipelineState);
+				}
 			}
 
 			void StopRecording()
 			{
-				static_cast<ID3D12GraphicsCommandList*>(m_commandList.Get())->Close();
+				if (m_IsRecording)
+				{
+					static_cast<ID3D12GraphicsCommandList*>(m_CommandList.Get())->Close();
+					m_IsRecording = false;
+				}
 			}
 
 			void FreeCommandBuffer()
 			{
-				m_allocator.Get()->Reset();
+				this->StopRecording();
+				m_Allocator.Get()->Reset();
+				this->StartRecording();
 			}
 
-			ID3D12GraphicsCommandList* const GetCommandList() const { return static_cast<ID3D12GraphicsCommandList*>(m_commandList.Get()); }
+			ID3D12GraphicsCommandList* GetCommandList() { return static_cast<ID3D12GraphicsCommandList*>(m_CommandList.Get()); }
 		};
 	}
 }

@@ -41,7 +41,7 @@ namespace aZero
 				{
 					return nullptr;
 				}
-				return &m_ComponentArray.Get(Ent.GetID());
+				return m_ComponentArray.Get(Ent.GetID());
 			}
 
 			/** Returns a pointer to a const component tied to the input aZero::ECS::Entity
@@ -69,7 +69,7 @@ namespace aZero
 				{
 					return nullptr;
 				}
-				return &m_ComponentArray.Get(ID);
+				return m_ComponentArray.Get(ID);
 			}
 
 			/** Returns a pointer to a const component tied to the input ID
@@ -83,7 +83,7 @@ namespace aZero
 				{
 					return nullptr;
 				}
-				return &m_ComponentArray.Get(ID);
+				return m_ComponentArray.Get(ID);
 			}
 
 			/** Returns a reference to the internal sparse array containing all the components
@@ -118,6 +118,18 @@ namespace aZero
 						m_ComponentArray.ForceExpand(m_AdditionalElementsWhenResize);
 					}
 					m_ComponentArray.Add(Ent.GetID(), std::forward<ComponentType>(Component));
+				}
+			}
+
+			void AddComponent(Entity& Ent, ComponentType& Component)
+			{
+				if (Ent.GetID() != UINT_MAX)
+				{
+					if (Ent.GetID() >= m_ComponentArray.GetArray().size())
+					{
+						m_ComponentArray.ForceExpand(m_AdditionalElementsWhenResize);
+					}
+					m_ComponentArray.Add(Ent.GetID(), Component);
 				}
 			}
 

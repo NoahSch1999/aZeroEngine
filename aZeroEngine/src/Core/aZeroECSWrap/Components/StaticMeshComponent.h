@@ -1,6 +1,7 @@
 #pragma once
-#include "Core/D3D12Core.h"
-#include "Core/AssetTypes/MaterialAsset.h"
+#include "Core/D3D12Include.h"
+#include "Core/AssetTypes/Mesh.h"
+#include "Core/AssetTypes/Material.h"
 
 namespace aZero
 {
@@ -8,29 +9,42 @@ namespace aZero
 	{
 		class StaticMeshComponent
 		{
-		private:
-			std::shared_ptr<Asset::MaterialTemplate<Asset::BasicMaterialRenderData>> m_MaterialPtr;
-
 		public:
-			std::string m_AssetNameRef; // Temp
+			Asset::Mesh m_MeshReference;
+			Asset::Material m_MaterialReference;
 
 			StaticMeshComponent() = default;
-			StaticMeshComponent(const std::string& AssetName, std::shared_ptr<Asset::MaterialTemplate<Asset::BasicMaterialRenderData>> MaterialPtr = nullptr)
+			
+			StaticMeshComponent(const StaticMeshComponent& Other)
 			{
-				m_MaterialPtr = MaterialPtr;
-				m_AssetNameRef = AssetName;
+				m_MeshReference = Other.m_MeshReference;
+				m_MaterialReference = Other.m_MaterialReference;
 			}
 
-			int GetReferenceID() const { return m_MaterialPtr != nullptr ? m_MaterialPtr->GetID() : 0; }
-
-			const Asset::BasicMaterialRenderData& GetRenderData() const 
+			StaticMeshComponent(StaticMeshComponent&& Other) noexcept
 			{
-				if (m_MaterialPtr != nullptr)
+				m_MeshReference = std::move(Other.m_MeshReference);
+				m_MaterialReference = std::move(Other.m_MaterialReference);
+			}
+
+			StaticMeshComponent& operator=(StaticMeshComponent&& Other) noexcept
+			{
+				if (this != &Other)
 				{
-					return m_MaterialPtr->GetRenderData();
+					m_MeshReference = std::move(Other.m_MeshReference);
+					m_MaterialReference = std::move(Other.m_MaterialReference);
 				}
-				return Asset::BasicMaterialRenderData();
+
+				return *this;
 			}
+
+			StaticMeshComponent& operator=(const StaticMeshComponent& Other)
+			{
+				m_MeshReference = Other.m_MeshReference;
+				m_MaterialReference = Other.m_MaterialReference;
+				return *this;
+			}
+
 		};
 	}
 }

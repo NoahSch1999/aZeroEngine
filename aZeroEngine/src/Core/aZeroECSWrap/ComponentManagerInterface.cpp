@@ -1,3 +1,3 @@
 #include "ComponentManagerInterface.h"
 
-aZero::ComponentManagerInterface aZero::gComponentManager;
+//aZero::ComponentManagerInterface aZero::gComponentManager;

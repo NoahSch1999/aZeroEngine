@@ -36,11 +36,6 @@ namespace aZero
 			DXGI_FORMAT backBufferFormat,
 			const DXM::Vector2& dimensions, bool fullscreen, const std::string& windowName);
 
-		void AllocateSwapChain(const D3D12::CommandQueue& graphicsQueue)
-		{
-			m_swapChain = std::make_unique<D3D12::SwapChain>(m_windowHandle, graphicsQueue, m_renderSurfaceFormat);
-		}
-
 		bool IsOpen();
 		void Resize(const DXM::Vector2& dimensions, const DXM::Vector2& position = { 0, 0 });
 		void SetFullscreen(bool enabled);

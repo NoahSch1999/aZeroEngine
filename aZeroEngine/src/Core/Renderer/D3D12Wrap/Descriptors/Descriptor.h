@@ -1,5 +1,5 @@
 #pragma once
-#include "Core/D3D12Core.h"
+#include "Core/D3D12Include.h"
 
 namespace aZero
 {
@@ -9,14 +9,15 @@ namespace aZero
 		{
 			friend class DescriptorHeap;
 		private:
-			D3D12_CPU_DESCRIPTOR_HANDLE m_cpuHandle = { 0 };
-			D3D12_GPU_DESCRIPTOR_HANDLE m_gpuHandle = { 0 };
-			uint32_t m_heapIndex = 0;
+			D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
+			D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle;
+			uint32_t m_HeapIndex;
+			DescriptorHeap* m_OwningHeap = nullptr;
 
-			Descriptor(const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle,
-				const D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle,
-				const uint32_t heapIndex)
-				:m_cpuHandle(cpuHandle), m_gpuHandle(gpuHandle), m_heapIndex(heapIndex)
+			Descriptor(const D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle,
+				const D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle,
+				const uint32_t HeapIndex)
+				:m_CpuHandle(CpuHandle), m_GpuHandle(GpuHandle), m_HeapIndex(HeapIndex)
 			{
 
 			}
@@ -24,9 +25,38 @@ namespace aZero
 		public:
 			Descriptor() = default;
 
-			D3D12_CPU_DESCRIPTOR_HANDLE GetCPUHandle() const { return m_cpuHandle; }
-			D3D12_GPU_DESCRIPTOR_HANDLE GetGPUHandle() const { return m_gpuHandle; }
-			uint32_t GetHeapIndex() const { return m_heapIndex; }
+			~Descriptor();
+
+			Descriptor(Descriptor& Other) = delete;
+			Descriptor& operator=(Descriptor& Other) = delete;
+
+			Descriptor(Descriptor&& Other) noexcept
+			{
+				m_CpuHandle = Other.m_CpuHandle;
+				m_GpuHandle = Other.m_GpuHandle;
+				m_HeapIndex = Other.m_HeapIndex;
+				m_OwningHeap = Other.m_OwningHeap;
+
+				Other.m_OwningHeap = nullptr;
+			}
+
+			Descriptor& operator=(Descriptor&& Other) noexcept
+			{
+				if (this != &Other)
+				{
+					m_CpuHandle = Other.m_CpuHandle;
+					m_GpuHandle = Other.m_GpuHandle;
+					m_HeapIndex = Other.m_HeapIndex;
+					m_OwningHeap = Other.m_OwningHeap;
+
+					Other.m_OwningHeap = nullptr;
+				}
+				return *this;
+			}
+
+			D3D12_CPU_DESCRIPTOR_HANDLE GetCPUHandle() const { return m_CpuHandle; }
+			D3D12_GPU_DESCRIPTOR_HANDLE GetGPUHandle() const { return m_GpuHandle; }
+			uint32_t GetHeapIndex() const { return m_HeapIndex; }
 		};
 	}
 }

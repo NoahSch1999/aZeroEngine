@@ -1,5 +1,5 @@
 #pragma once
-#include "Core/D3D12Core.h"
+#include "Core/D3D12Include.h"
 
 namespace aZero
 {

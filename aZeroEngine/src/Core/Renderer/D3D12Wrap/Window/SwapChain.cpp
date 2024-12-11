@@ -1,117 +1,83 @@
 #include "SwapChain.h"
 
-aZero::D3D12::SwapChain::SwapChain(HWND windowHandle, const CommandQueue& graphicsQueue, DXGI_FORMAT backBufferFormat)
+aZero::D3D12::SwapChain::SwapChain(HWND WindowHandle, const CommandQueue& GraphicsQueue, DXGI_FORMAT BackBufferFormat, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
 {
-	if (FAILED(graphicsQueue.GetCommandQueue()->GetDevice(IID_PPV_ARGS(&gDevice))))
+	ID3D12Device* Device;
+	const HRESULT GetDeviceRes = GraphicsQueue.GetCommandQueue()->GetDevice(IID_PPV_ARGS(&Device));
+	if (FAILED(GetDeviceRes))
 	{
-		throw;
+		throw std::invalid_argument("SwapChain::Constructor() => Failed to get input CommandQueue device");
 	}
 
-	if (FAILED(CreateDXGIFactory(IID_PPV_ARGS(m_dxgiFactory.GetAddressOf()))))
+	const HRESULT DXGIRes = CreateDXGIFactory(IID_PPV_ARGS(m_DxgiFactory.GetAddressOf()));
+	if (FAILED(DXGIRes))
 	{
-		throw;
+		throw std::invalid_argument("SwapChain::Constructor() => Failed to create DXGIFactory");
 	}
 
-	DXGI_SWAP_CHAIN_DESC1 scDesc;
-	scDesc.Width = 0;
-	scDesc.Height = 0;
-	scDesc.Format = backBufferFormat;
-	scDesc.Stereo = false;
-	scDesc.SampleDesc.Count = 1;
-	scDesc.SampleDesc.Quality = 0;
-	scDesc.BufferCount = 3;
-	scDesc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
-	scDesc.Scaling = DXGI_SCALING_STRETCH;
-	scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	scDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-	scDesc.Flags = (DXGI_SWAP_CHAIN_FLAG)(DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
+	DXGI_SWAP_CHAIN_DESC1 SwapChainDesc;
+	SwapChainDesc.Width = 0;
+	SwapChainDesc.Height = 0;
+	SwapChainDesc.Format = BackBufferFormat;
+	SwapChainDesc.Stereo = false;
+	SwapChainDesc.SampleDesc.Count = 1;
+	SwapChainDesc.SampleDesc.Quality = 0;
+	SwapChainDesc.BufferCount = 3;
+	SwapChainDesc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
+	SwapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	SwapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+	SwapChainDesc.Flags = (DXGI_SWAP_CHAIN_FLAG)(DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
 	//scDesc.Flags = DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY; // NOTE - Test it!
 
-	DXGI_SWAP_CHAIN_FULLSCREEN_DESC fullscreenDesc = {};
-	DEVMODEA displayInfo;
-	EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &displayInfo);
+	DXGI_SWAP_CHAIN_FULLSCREEN_DESC FullscreenDesc = {};
+	DEVMODEA DisplayInfo;
+	EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &DisplayInfo);
 
-	fullscreenDesc.RefreshRate.Numerator = displayInfo.dmDisplayFrequency;
-	fullscreenDesc.RefreshRate.Denominator = 1;
-	fullscreenDesc.Windowed = true;
-	fullscreenDesc.Scaling = DXGI_MODE_SCALING_STRETCHED;
-	fullscreenDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+	FullscreenDesc.RefreshRate.Numerator = DisplayInfo.dmDisplayFrequency;
+	FullscreenDesc.RefreshRate.Denominator = 1;
+	FullscreenDesc.Windowed = true;
+	FullscreenDesc.Scaling = DXGI_MODE_SCALING_STRETCHED;
+	FullscreenDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 
-	if (FAILED(m_dxgiFactory->CreateSwapChainForHwnd(graphicsQueue.GetCommandQueue(), windowHandle,
-		&scDesc, &fullscreenDesc, nullptr, m_swapChain.GetAddressOf())))
+	const HRESULT SwapChainRes = m_DxgiFactory->CreateSwapChainForHwnd(GraphicsQueue.GetCommandQueue(), WindowHandle,
+		&SwapChainDesc, &FullscreenDesc, nullptr, m_SwapChain.GetAddressOf());
+	if (FAILED(SwapChainRes))
 	{
-		throw;
+		throw std::invalid_argument("SwapChain::Constructor() => Failed to create SwapChain");
 	}
 
-	m_backBuffers.resize(3);
-
-	for (int i = 0; i < 3; i++)
-	{
-		m_swapChain->GetBuffer(i, IID_PPV_ARGS(m_backBuffers[i].GetAddressOf()));
-	}
+	this->SetBackbufferResources(OptResourceRecycler);
 }
 
 aZero::D3D12::SwapChain::~SwapChain()
 {
-	for (Microsoft::WRL::ComPtr<ID3D12Resource>& backBuffer : m_backBuffers)
-	{
-		if (backBuffer)
-		{
-			gResourceRecycler.RecycleResource(backBuffer);
-			backBuffer = nullptr;
-		}
-	}
+	m_BackBuffers.clear();
 }
-
-//void aZero::D3D12::SwapChain::ResolveRenderSurface(ID3D12GraphicsCommandList* cmdList, int backBufferIndex, D3D12::GPUResource& renderSource)
-//{
-//	if (backBufferIndex > m_backBuffers.size())
-//	{
-//		throw;
-//	}
-//
-//	// NOTE - input texture should be same resolution as the backbuffer. So the renderer has to upscale/downscale it to match...
-//
-//	ID3D12Resource* backBuffer = m_backBuffers[backBufferIndex].Get();
-//	D3D12_RESOURCE_DESC desc = backBuffer->GetDesc();
-//	D3D12_RESOURCE_DESC descs = renderSource.GetResource()->GetDesc();
-//
-//	D3D12::GPUResource::TransitionState(cmdList, backBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
-//	D3D12::GPUResource::TransitionState(cmdList, renderSource, D3D12_RESOURCE_STATE_COPY_SOURCE);
-//
-//	// NOTE - Copying causes the resources to go decay into D3D12_RESOURCE_STATE_COMMON once the GPU has executed the recorded command ???? OR NOT ????
-//	cmdList->CopyResource(backBuffer, renderSource.GetResource());
-//
-//	D3D12::GPUResource::TransitionState(cmdList, backBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
-//}
 
 void aZero::D3D12::SwapChain::Present()
 {
-	m_swapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
+	m_SwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
 }
 
 void aZero::D3D12::SwapChain::Resize(const DXM::Vector2& NewDimensions)
 {
-	D3D12_RESOURCE_DESC BBDesc = m_backBuffers[0]->GetDesc();
-	for (Microsoft::WRL::ComPtr<ID3D12Resource>& Buffer : m_backBuffers)
-	{
-		Buffer->Release();
-	}
+	D3D12_RESOURCE_DESC BBDesc = m_BackBuffers[0].GetResource()->GetDesc();
+	m_BackBuffers.clear();
 
 	// Recreate back buffers
-	if (FAILED(m_swapChain->ResizeBuffers(
-		m_backBuffers.size(),
+	const HRESULT ResizeSwapChainRes = m_SwapChain->ResizeBuffers(
+		3,
 		NewDimensions.x,
 		NewDimensions.y,
 		BBDesc.Format,
 		(DXGI_SWAP_CHAIN_FLAG)(DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING)
-	)))
+	);
+
+	if (FAILED(ResizeSwapChainRes))
 	{
-		throw;
+		throw std::invalid_argument("SwapChain::Resize() => Failed to resize SwapChain backbuffers");
 	}
 
-	for (int i = 0; i < 3; i++)
-	{
-		m_swapChain->GetBuffer(i, IID_PPV_ARGS(m_backBuffers[i].GetAddressOf()));
-	}
+	this->SetBackbufferResources(std::optional<D3D12::ResourceRecycler*>{});
 }

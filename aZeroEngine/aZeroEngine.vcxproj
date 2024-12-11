@@ -24,26 +24,20 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="src\Core\AssetTypes\MeshAsset.cpp" />
-    <ClCompile Include="src\Core\AssetTypes\TextureAsset.cpp" />
+    <ClCompile Include="src\Core\AssetTypes\Mesh.cpp" />
     <ClCompile Include="src\Core\aZeroECSWrap\ComponentManagerInterface.cpp" />
-    <ClCompile Include="src\Core\D3D12Core.cpp" />
+    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Descriptors\Descriptor.cpp" />
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Pipeline\Shader.cpp" />
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\DefaultHeapBuffer.cpp" />
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\GPUResource.cpp" />
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\GPUTexture.cpp" />
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\ReadbackHeapBuffer.cpp" />
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\ResourceRecycler.cpp" />
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\UploadHeapBuffer.cpp" />
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Window\SwapChain.cpp" />
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Window\Window.cpp" />
     <ClCompile Include="src\Core\Renderer\Renderer.cpp" />
-    <ClCompile Include="src\Core\Renderer\RenderScene.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Core\AssetTypes\MaterialAsset.h" />
-    <ClInclude Include="src\Core\AssetTypes\MeshAsset.h" />
-    <ClInclude Include="src\Core\AssetTypes\TextureAsset.h" />
+    <ClInclude Include="src\Core\AssetTypes\Material.h" />
+    <ClInclude Include="src\Core\AssetTypes\Mesh.h" />
+    <ClInclude Include="src\Core\AssetTypes\RenderFileAsset.h" />
+    <ClInclude Include="src\Core\AssetTypes\Texture.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\aZeroECS\aZeroECS.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\aZeroECS\ComponentArray.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\aZeroECS\ComponentManager.h" />
@@ -59,51 +53,32 @@
     <ClInclude Include="src\Core\aZeroECSWrap\Components\StaticMeshComponent.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\Components\TickComponent.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\Components\TransformComponent.h" />
-    <ClInclude Include="src\Core\Caches\AssetCacheBase.h" />
-    <ClInclude Include="src\Core\Caches\MaterialCache.h" />
-    <ClInclude Include="src\Core\Caches\MeshCache.h" />
-    <ClInclude Include="src\Core\Caches\ShaderCache.h" />
-    <ClInclude Include="src\Core\Caches\TextureCache.h" />
-    <ClInclude Include="src\Core\D3D12Core.h" />
+    <ClInclude Include="src\Core\D3D12Include.h" />
+    <ClInclude Include="src\Core\DataStructures\FreelistAllocator.h" />
     <ClInclude Include="src\Core\DataStructures\UniqueIndexList.h" />
+    <ClInclude Include="src\Core\DXCompilerInclude.h" />
     <ClInclude Include="src\Core\Engine.h" />
+    <ClInclude Include="src\Core\EngineDebugMacros.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Commands\CommandContext.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Commands\CommandQueue.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Descriptors\Descriptor.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Descriptors\DescriptorHeap.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Descriptors\DescriptorManager.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\Compute\ComputePass.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\Graphics\GraphicsPass.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\InputLayout.h" />
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\RenderPass.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\Shader.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\DefaultHeapBuffer.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\FrameAllocator.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUBuffer.h" />
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\LinearFrameAllocator.h" />
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\FreelistBuffer.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUResource.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUTexture.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\PackedGPULookupBuffer.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\ReadbackHeapBuffer.h" />
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUResourceView.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\ResourceRecycler.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\StructuredBuffer.h" />
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\UploadHeapBuffer.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Window\SwapChain.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Window\Window.h" />
     <ClInclude Include="src\Core\Renderer\Renderer.h" />
+    <ClInclude Include="src\Core\Renderer\RenderInterface.h" />
     <ClInclude Include="src\Core\Renderer\RenderScene.h" />
     <ClInclude Include="src\Core\Scene\Scene.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="src\Shaders\BasePassPS.hlsl">
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">6.6</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">6.6</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.6</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.6</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-    </FxCompile>
-    <FxCompile Include="src\Shaders\BasePassVS.hlsl">
+    <None Include="src\Shaders\BasePass.vs.hlsl">
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">6.6</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">6.6</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.6</ShaderModel>
@@ -112,6 +87,36 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\Shaders\BasePass.ps.hlsl">
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="src\Shaders\TestShader.cs.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -167,18 +172,18 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\slang\lib;$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\slang\lib;$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\slang\lib;$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
     <LinkIncremental>
     </LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\slang\lib;$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
     <LinkIncremental>
     </LinkIncremental>
   </PropertyGroup>
@@ -188,12 +193,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>;$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>;$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d3dcompiler.lib;;zlibstaticd.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d3dcompiler.lib;;zlibstaticd.lib;dxguid.lib;slang.lib;dxcompiler.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -204,14 +210,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>;$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>;$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d3dcompiler.lib;;zlibstatic.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d3dcompiler.lib;;zlibstatic.lib;dxguid.lib;slang.lib;dxcompiler.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -221,12 +228,13 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Projects\Programming\aZeroEngine\aZeroEngine\aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Programming\aZeroEngine\aZeroEngine\aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;DirectXTK12.lib;assimp-vc143-mtd.lib;%(AdditionalDependencies);d3dcompiler.lib;;zlibstaticd.lib</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;DirectXTK12.lib;assimp-vc143-mtd.lib;%(AdditionalDependencies);d3dcompiler.lib;;zlibstaticd.lib;dxguid.lib;slang.lib;dxcompiler.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -238,14 +246,15 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Projects\Programming\aZeroEngine\aZeroEngine\aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Programming\aZeroEngine\aZeroEngine\aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;DirectXTK12.lib;assimp-vc143-mt.lib;%(AdditionalDependencies);d3dcompiler.lib;;zlibstatic.lib</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;DirectXTK12.lib;assimp-vc143-mt.lib;%(AdditionalDependencies);d3dcompiler.lib;;zlibstatic.lib;dxguid.lib;slang.lib;dxcompiler.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

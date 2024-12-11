@@ -1,4 +1,5 @@
 #include "Window.h"
+#include "SwapChain.h"
 
 LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -40,7 +41,7 @@ void aZero::Window::Init(const D3D12::CommandQueue& graphicsQueue, HINSTANCE app
 
 	if (m_windowHandle == NULL)
 	{
-		throw;
+		throw std::invalid_argument("Window::Init() => Failed to create window");
 	}
 
 	if (fullscreen)
@@ -50,7 +51,7 @@ void aZero::Window::Init(const D3D12::CommandQueue& graphicsQueue, HINSTANCE app
 
 	ShowWindow(m_windowHandle, SW_SHOWNORMAL);
 
-	m_swapChain = std::make_unique<D3D12::SwapChain>(m_windowHandle, graphicsQueue, backBufferFormat);
+	m_swapChain = std::make_unique<D3D12::SwapChain>(m_windowHandle, graphicsQueue, backBufferFormat, std::optional<D3D12::ResourceRecycler*>{});
 }
 
 aZero::Window::Window::~Window()
@@ -98,6 +99,7 @@ void aZero::Window::Window::Resize(const DXM::Vector2& dimensions, const DXM::Ve
 {
 	m_lastWindowedDimensions = dimensions;
 	SetWindowPos(m_windowHandle, NULL, position.x, position.y, dimensions.x, dimensions.y, 0);
+
 	m_swapChain->Resize(dimensions);
 }
 

@@ -1,164 +1,82 @@
 #pragma once
 #include <unordered_map>
 #include <string>
+#include <optional>
 
-#include "Core/D3D12Core.h"
+#include "Core/D3D12Include.h"
+#include "Core/DXCompilerInclude.h"
 
 namespace aZero
 {
 	namespace D3D12
 	{
-		Microsoft::WRL::ComPtr<ID3DBlob> LoadBlobFromFile(const std::string& FilePath);
+		enum class SHADER_TYPE { NONE, VS, PS, CS };
 
-		struct ShaderTypes
-		{
-			class VertexShader
-			{
-				bool dummy;
-			};
-
-			class PixelShader
-			{
-				bool dummy;
-			};
-		};
-
-		struct DescriptorTypes
-		{
-			class CBV
-			{
-				bool dummy;
-			};
-
-			class SRV
-			{
-				bool dummy;
-			};
-
-			class UAV
-			{
-				bool dummy;
-			};
-		};
+		class RenderPass;
 
 		class Shader
 		{
+			friend RenderPass;
+
 		public:
-			struct ShaderParameter
+			// For use when you need to override a cbuffer or constantbuffer<T> shader resource to be used as a root constant
+			struct RootConstantOverride
 			{
-				std::string Name = "INVALID";
-				int BindingSlot = -1;
-				ShaderParameter(const std::string& name, int bindingSlot)
-				{
-					Name = name;
-					BindingSlot = bindingSlot;
-				}
+				uint32_t BindingSlot;
 			};
 
-			struct RootConstant : public ShaderParameter
+			// For use when you want to specify a specific DXGI_FORMAT for an rendertarget
+			// Default values are found in: Shader::ReflectionMaskToDXGIFormat()
+			struct RenderTargetOverride
 			{
-				int Num32BitValues = 0;
-				RootConstant(const std::string& name, int bindingSlot, int num32BitValues)
-					:ShaderParameter(name, bindingSlot)
-				{
-					Num32BitValues = num32BitValues;
-				}
-			};
-
-			struct RootDescriptor : public ShaderParameter
-			{
-				D3D12_ROOT_PARAMETER_TYPE ParameterType;
-				RootDescriptor(const std::string& name, int bindingSlot, D3D12_ROOT_PARAMETER_TYPE parameterType)
-					:ShaderParameter(name, bindingSlot)
-				{
-					ParameterType = parameterType;
-				}
-			};
-
-			struct StaticSamplerDesc
-			{
-				D3D12_STATIC_SAMPLER_DESC Desc;
+				uint32_t TargetSlot;
+				DXGI_FORMAT Format;
 			};
 
 		private:
+			SHADER_TYPE m_Type;
+			CComPtr<IDxcBlob> m_CompiledShader;
 
-			std::unordered_map<std::string, RootConstant> m_rootConstants;
-			std::unordered_map<std::string, RootDescriptor> m_rootDescriptor;
-
-			// TODO - samplers and rtv formats should be deduced from the shader compiler and passed to the pipeline pass creation
-			std::vector<StaticSamplerDesc> m_staticSamplers; // NOTE - Only for none-COMPUTE type shaders
-			std::vector<DXGI_FORMAT> m_renderTargets; // NOTE - Only for PS type shaders
-
-			Microsoft::WRL::ComPtr<ID3DBlob> m_compiledShader = nullptr;
-
-			void CompileFromFile(const std::string& FilePath)
+			struct ShaderResourceInfo
 			{
-				// TODO - Impl
+				uint32_t m_RootIndex;
+				D3D12_ROOT_PARAMETER_TYPE m_ResourceType;
+			};
+			std::unordered_map<std::string, ShaderResourceInfo> m_ResourceNameToInformation;
+			std::vector<D3D12_ROOT_PARAMETER> m_RootParameters;
 
-				const std::wstring FilePathWStr(FilePath.begin(), FilePath.end());
+			std::vector<DXGI_FORMAT> m_RenderTargetFormats;
+			std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputElementDescs;
+			std::vector<std::string> m_InputElementSemanticNames; // TODO: Try remove
 
-
-				// Fill param maps with data
+			void Reset()
+			{
+				m_Type = SHADER_TYPE::NONE;
+				m_CompiledShader = nullptr;
+				m_ResourceNameToInformation.clear();
+				m_RootParameters.clear();
+				m_RenderTargetFormats.clear();
+				m_InputElementDescs.clear();
+				m_InputElementSemanticNames.clear();
 			}
+
+			bool ExtractShaderTypeFromFilepath(const std::string& Path, std::string& OutputStr);
+
+			void GenerateReflectionData(IDxcResult& CompiledShaderResult, 
+				IDxcUtils& Utils, 
+				std::optional<std::vector<RootConstantOverride>> RootConstOverride,
+				std::optional<std::vector<RenderTargetOverride>> RTOverride);
 
 		public:
 
 			Shader() = default;
 
-			// TODO - Remove type input and replace with loaded shaders type automatically
-			Shader(const std::string& srcFilePath)
-			{
-				Initialize(srcFilePath);
-			}
+			bool CompileFromFile(IDxcCompiler3& Compiler,
+				const std::string& FilePath, 
+				std::optional<std::vector<RootConstantOverride>> RootConstOverride = std::optional<std::vector<RootConstantOverride>>{},
+				std::optional<std::vector<RenderTargetOverride>> RTOverride = std::optional<std::vector<RenderTargetOverride>>{});
 
-			void Initialize(const std::string& srcFilePath);
-
-			ID3DBlob* const GetShaderBlob() const { return m_compiledShader.Get(); }
-
-			// TODO - The goal is that all adding should be done automatically through the CompileFromFile method.
-			// Thus, these methods should be removed when that is implemented.
-			template<typename Parameter>
-			void AddParameter(Parameter&& param)
-			{
-				if constexpr (std::is_same_v<Parameter, RootConstant>)
-				{
-					m_rootConstants.emplace(param.Name, param);
-				}
-				else if constexpr (std::is_same_v<Parameter, RootDescriptor>)
-				{
-					m_rootDescriptor.emplace(param.Name, param);
-				}
-				else
-				{
-					// TODO - Add fatal error debug
-					throw;
-				}
-			}
-
-			void AddRenderTarget(DXGI_FORMAT format)
-			{
-				m_renderTargets.push_back(format);
-			}
-
-			void AddStaticSampler(const StaticSamplerDesc& sampler)
-			{
-				m_staticSamplers.push_back(sampler);
-			}
-
-			const std::unordered_map<std::string, RootConstant>& GetRootConstants() const
-			{
-				return m_rootConstants;
-			}
-
-			const std::unordered_map<std::string, RootDescriptor>& GetRootDescriptors() const
-			{
-				return m_rootDescriptor;
-			}
-
-			const std::vector<DXGI_FORMAT>& GetRenderTargetFormats() const
-			{
-				return m_renderTargets;
-			}
+			SHADER_TYPE GetType() const { return m_Type; }
 		};
 	}
 }

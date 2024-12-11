@@ -28,6 +28,18 @@ namespace aZero
 			ComponentManager() = default;
 			~ComponentManager() = default;
 
+			template<typename ComponentType>
+			ComponentType* GetComponent(const ECS::Entity& Entity)
+			{
+				return GetComponentArray<ComponentType>().GetComponent(Entity);
+			}
+
+			template<typename ComponentType>
+			const ComponentType* GetComponent(const ECS::Entity& Entity) const
+			{
+				return GetComponentArray<ComponentType>().GetComponent(Entity);
+			}
+
 			/** Returns the bit index of the component type specified
 			@return int Index
 			*/
@@ -68,6 +80,13 @@ namespace aZero
 			void AddComponent(Entity& Ent, ComponentType&& Component)
 			{
 				GetComponentArray<ComponentType>().AddComponent(Ent, std::forward<ComponentType>(Component));
+				Ent.SetComponentBit(GetComponentBit<ComponentType>(), true);
+			}
+
+			template<typename ComponentType>
+			void AddComponent(Entity& Ent, ComponentType& Component)
+			{
+				GetComponentArray<ComponentType>().AddComponent(Ent, Component);
 				Ent.SetComponentBit(GetComponentBit<ComponentType>(), true);
 			}
 

@@ -6,6 +6,43 @@
 namespace aZero
 {
 	class Engine;
+	class Scene;
+
+	class SceneEntity
+	{
+		friend Scene;
+	private:
+		ECS::Entity m_Entity;
+		Scene& m_Owner;
+
+		SceneEntity(ECS::Entity Entity, Scene& OwningScene)
+			:m_Entity(Entity), m_Owner(OwningScene)
+		{
+
+		}
+
+	public:
+
+		ECS::Entity& GetEntity()
+		{
+			return m_Entity;
+		}
+
+		const ECS::Entity& GetEntity() const
+		{
+			return m_Entity;
+		}
+
+		Scene& GetScene()
+		{
+			return m_Owner;
+		}
+
+		const Scene& GetScene() const
+		{
+			return m_Owner;
+		}
+	};
 
 	class Scene
 	{
@@ -13,65 +50,62 @@ namespace aZero
 		friend Engine;
 
 	private:
-		ECS::EntityManager* m_EntityManager = nullptr;
+		ECS::EntityManager& m_EntityManager;
+		ECS::ComponentManagerDecl& m_ComponentManager;
+
+		Rendering::RenderScene* m_RenderScene;
 
 		std::string m_Name;
 
-		std::unordered_map<std::string, ECS::Entity> m_Entities;
+		std::unordered_map<std::string, SceneEntity> m_Entities;
 
 		void RemoveEntityComponents(ECS::Entity& Entity)
 		{
 
-			if (gComponentManager.HasComponent<ECS::TransformComponent>(Entity))
+			if (m_ComponentManager.HasComponent<ECS::TransformComponent>(Entity))
 			{
-				gComponentManager.RemoveComponent<ECS::TransformComponent>(Entity);
+				m_ComponentManager.RemoveComponent<ECS::TransformComponent>(Entity);
 			}
 
-			if (gComponentManager.HasComponent<ECS::StaticMeshComponent>(Entity))
+			if (m_ComponentManager.HasComponent<ECS::StaticMeshComponent>(Entity))
 			{
-				gComponentManager.RemoveComponent<ECS::StaticMeshComponent>(Entity);
+				m_ComponentManager.RemoveComponent<ECS::StaticMeshComponent>(Entity);
 			}
 
-			if (gComponentManager.HasComponent<TickComponent_Interface>(Entity))
+			if (m_ComponentManager.HasComponent<TickComponent_Interface>(Entity))
 			{
-				gComponentManager.RemoveComponent<TickComponent_Interface>(Entity);
+				m_ComponentManager.RemoveComponent<TickComponent_Interface>(Entity);
 			}
 		}
 
-		void Init(const std::string& Name, ECS::EntityManager& EntityManager)
+		Scene(const std::string& Name, Rendering::RenderScene& RenderScene, ECS::EntityManager& EntityManager, ECS::ComponentManagerDecl& ComponentManager)
+			:m_RenderScene(&RenderScene), m_EntityManager(EntityManager), m_ComponentManager(ComponentManager)
 		{
 			m_Name = Name;
-			m_EntityManager = &EntityManager;
 		}
 
 	public:
-		Scene() = default;
-
-		Scene(const std::string& Name, ECS::EntityManager& EntityManager)
-		{
-			this->Init(Name, EntityManager);
-		}
 
 		void ClearEntities()
 		{
 			for (auto& Entity : m_Entities)
 			{
-				this->RemoveEntityComponents(Entity.second);
+				this->RemoveEntityComponents(Entity.second.GetEntity());
 			}
 			m_Entities.clear();
 		}
 
-		ECS::Entity& CreateEntity(const std::string& Name)
+		SceneEntity& CreateEntity(const std::string& Name)
 		{
 			if (m_Entities.count(Name))
 			{
-				// Handle duplicate name
+				// TODO: Handle duplicate name
 				throw;
 				//
 			}
 			
-			m_Entities.emplace(Name, m_EntityManager->CreateEntity());
-			ECS::Entity& Entity = m_Entities.at(Name);
+			m_Entities.emplace(Name, SceneEntity(m_EntityManager.CreateEntity(), *this));
+			SceneEntity& Entity = m_Entities.at(Name);
 
 			return Entity;
 		}
@@ -80,10 +114,10 @@ namespace aZero
 		{
 			if (m_Entities.count(Name))
 			{
-				ECS::Entity& Entity = m_Entities.at(Name);
+				SceneEntity& Entity = m_Entities.at(Name);
 
-				this->RemoveEntityComponents(Entity);
-				m_EntityManager->RemoveEntity(Entity);
+				this->RemoveEntityComponents(Entity.GetEntity());
+				m_EntityManager.RemoveEntity(Entity.GetEntity());
 
 				m_Entities.erase(Name); // NOTE : Goes wrong...
 			}
@@ -91,6 +125,10 @@ namespace aZero
 
 		const std::string& GetName() const { return m_Name; }
 
-		const std::unordered_map<std::string, ECS::Entity>& GetEntityMap() const { return m_Entities; }
+		const std::unordered_map<std::string, SceneEntity>& GetEntityMap() const { return m_Entities; }
+
+		Rendering::RenderScene* GetRenderScene() { return m_RenderScene; }
+
+		const Rendering::RenderScene* GetRenderScene() const { return m_RenderScene; }
 	};
 }
