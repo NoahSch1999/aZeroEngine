@@ -3,10 +3,10 @@
 #include "ThirdParty/assimp/include/assimp/scene.h"
 #include "ThirdParty/assimp/include/assimp/postprocess.h"
 
-bool aZero::Asset::LoadFBXFile(MeshData& OutMesh, const std::string& Path)
+bool aZero::Asset::LoadFBXFile(const std::string& Path, MeshData& OutMesh)
 {
 	Assimp::Importer Importer;
-	const aiScene* const Scene = Importer.ReadFile(Path, aiProcess_SortByPType | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+	const aiScene* const Scene = Importer.ReadFile(Path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 
 	if (Scene)
 	{

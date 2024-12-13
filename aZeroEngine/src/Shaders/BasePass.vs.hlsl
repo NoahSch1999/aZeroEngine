@@ -52,6 +52,7 @@ VertexData GetVertexFromID(
 struct OutputData
 {
     float4 Position : SV_Position;
+    float3 WorldPosition : WorldPosition;
     float2 UV : UV;
     float3 Normal : NORMAL;
     float3x3 TBN : TBN;
@@ -68,6 +69,7 @@ OutputData main(uint VertexID : SV_VertexID)
     
     OutputData Output;
     Output.Position = mul(float4(Vertex.Position, 1.f), WorldMatrix);
+    Output.WorldPosition = Output.Position;
     Output.Position = mul(Output.Position, ViewMatricesBuffer.ViewMatrix);
     Output.Position = mul(Output.Position, ViewMatricesBuffer.ProjectionMatrix);
     

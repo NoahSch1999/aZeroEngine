@@ -17,8 +17,8 @@ namespace aZero
 		struct MaterialRenderData
 		{
 			DXM::Vector3 m_Color = DXM::Vector3(1.f, 1.f, 1.f);
-			uint32_t m_AlbedoDescriptorIndex = 0;
-			uint32_t m_NormalMapDescriptorIndex = 0;
+			int32_t m_AlbedoDescriptorIndex = 0;
+			int32_t m_NormalMapDescriptorIndex = 0;
 		};
 
 		struct MaterialGPUHandle
@@ -33,47 +33,52 @@ namespace aZero
 		public:
 			Material() = default;
 
-			Material(MaterialData& Material)
+			Material(const MaterialData& Material)
 			{
-				*m_AssetData.get() = Material;
+				m_AssetData = Material;
+			}
+
+			Material(MaterialData&& Material)
+			{
+				m_AssetData = std::move(Material);
 			}
 
 			void SetColor(const DXM::Vector3& Color)
 			{
-				m_AssetData->m_Color = Color;
+				m_AssetData.m_Color = Color;
 			}
 
 			void SetAlbedoTexture(std::shared_ptr<Texture> AlbedoTexture)
 			{
-				m_AssetData->m_AlbedoTexture = AlbedoTexture;
+				m_AssetData.m_AlbedoTexture = AlbedoTexture;
 			}
 
 			void SetNormalMap(std::shared_ptr<Texture> NormalMap)
 			{
-				m_AssetData->m_NormalMap = NormalMap;
+				m_AssetData.m_NormalMap = NormalMap;
 			}
 
 			MaterialRenderData GetRenderData() const 
 			{
 				MaterialRenderData RenderData;
-				RenderData.m_Color = m_AssetData->m_Color;
+				RenderData.m_Color = m_AssetData.m_Color;
 
-				if (m_AssetData->m_AlbedoTexture)
+				if (m_AssetData.m_AlbedoTexture)
 				{
-					RenderData.m_AlbedoDescriptorIndex = m_AssetData->m_AlbedoTexture->GetDescriptorIndex();
+					RenderData.m_AlbedoDescriptorIndex = m_AssetData.m_AlbedoTexture->GetDescriptorIndex();
 				}
 				else
 				{
-					RenderData.m_AlbedoDescriptorIndex = 0;
+					RenderData.m_AlbedoDescriptorIndex = -1;
 				}
 
-				if (m_AssetData->m_NormalMap)
+				if (m_AssetData.m_NormalMap)
 				{
-					RenderData.m_NormalMapDescriptorIndex = m_AssetData->m_NormalMap->GetDescriptorIndex();
+					RenderData.m_NormalMapDescriptorIndex = m_AssetData.m_NormalMap->GetDescriptorIndex();
 				}
 				else
 				{
-					RenderData.m_NormalMapDescriptorIndex = 0;
+					RenderData.m_NormalMapDescriptorIndex = -1;
 				}
 
 				return RenderData;
@@ -81,7 +86,7 @@ namespace aZero
 
 			virtual bool HasRenderState() const override
 			{
-				if (m_AssetGPUHandle->m_MaterialAllocHandle.IsValid())
+				if (m_AssetGPUHandle.m_MaterialAllocHandle.IsValid())
 				{
 					return true;
 				}

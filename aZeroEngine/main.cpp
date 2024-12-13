@@ -40,48 +40,57 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		aZero::SceneEntity& Ent2 = TestScene->CreateEntity("P2");
 		CManager.AddComponent(Ent2.GetEntity(), ECS::TransformComponent(DXM::Matrix::CreateScale(0.5) * DXM::Matrix::CreateTranslation(DXM::Vector3(0, 2, 10.f))));
 		
-		Asset::Mesh Torus;
-		Torus.LoadFromFile(ASSET_PATH + "meshes/Torus.fbx");
-		RenderInterface.MarkRenderStateDirty(Torus);
+		std::shared_ptr<Asset::Mesh> GoblinMesh = std::make_shared<Asset::Mesh>();
+		GoblinMesh->LoadFromFile(ASSET_PATH + "meshes/goblin.fbx");
+		RenderInterface.MarkRenderStateDirty(*GoblinMesh.get());
 
-	/*	{*/
+		std::shared_ptr<Asset::Texture> GoblinAlbedo = std::make_shared<Asset::Texture>();
+		GoblinAlbedo->LoadFromFile(ASSET_PATH + "textures/goblinAlbedo.png");
+		RenderInterface.MarkRenderStateDirty(*GoblinAlbedo.get());
+
+		std::shared_ptr<Asset::Texture> GoblinNormal = std::make_shared<Asset::Texture>();
+		GoblinNormal->LoadFromFile(ASSET_PATH + "textures/goblinNormal.png");
+		RenderInterface.MarkRenderStateDirty(*GoblinNormal.get()/*, DXGI_FORMAT_R16G16B16A16_FLOAT*/);
+
+		std::shared_ptr<Asset::Material> GoblinMat = std::make_shared<Asset::Material>();
+		GoblinMat->SetAlbedoTexture(GoblinAlbedo);
+		GoblinMat->SetNormalMap(GoblinNormal);
+		RenderInterface.MarkRenderStateDirty(*GoblinMat.get());
+
+		{
 			ECS::StaticMeshComponent MeshComp;
-			MeshComp.m_MeshReference = Torus;
-			MeshComp.m_MaterialReference = Engine.Material;
+			MeshComp.m_MeshReference = GoblinMesh;
+			MeshComp.m_MaterialReference = GoblinMat;
 			CManager.AddComponent(Ent2.GetEntity(), MeshComp);
-	/*	}*/
-
-			RenderInterface.GetEntityToMesh()[Ent2.GetEntity().GetID()] = Torus;
 			RenderInterface.MarkRenderStateDirty<ECS::StaticMeshComponent>(Ent2);
+		}
 		//
 		
 		while (ActiveWindow->IsOpen())
 		{
+			Engine.BeginFrame();
+
 			if (GetAsyncKeyState(VK_ESCAPE))
 			{
 				break;
 			}
-			else if (GetAsyncKeyState('2'))
-			{
-				ECS::StaticMeshComponent* Comp = CManager.GetComponent<ECS::StaticMeshComponent>(Ent2.GetEntity());
-				Comp->m_MeshReference = Engine.Mesh;
-				RenderInterface.MarkRenderStateDirty<ECS::StaticMeshComponent>(Ent2);
-				RenderInterface.GetEntityToMesh()[Ent2.GetEntity().GetID()] = Engine.Mesh;
-			}
-			else if (GetAsyncKeyState('3'))
-			{
-				ECS::StaticMeshComponent* Comp = CManager.GetComponent<ECS::StaticMeshComponent>(Ent2.GetEntity());
-				Comp->m_MeshReference = Torus;
-				RenderInterface.MarkRenderStateDirty<ECS::StaticMeshComponent>(Ent2);
-				RenderInterface.GetEntityToMesh()[Ent2.GetEntity().GetID()] = Torus;
-			}
-
-			Engine.BeginFrame();
 
 			// Example
-			static float Rot = 0.f;
-			Rot += 0.005f;
-			CManager.GetComponent<ECS::TransformComponent>(Ent2.GetEntity())->SetTransform(DXM::Matrix::CreateScale(0.5f) * DXM::Matrix::CreateRotationY(Rot) * DXM::Matrix::CreateTranslation(DXM::Vector3(0,0,10.f)));
+			static float Rot = 90.f;
+
+			if (GetAsyncKeyState('1'))
+			{
+				Rot = 90.f;
+			}
+			else if (GetAsyncKeyState('2'))
+			{
+				
+
+			}
+
+
+			Rot += 0.0002f;
+			CManager.GetComponent<ECS::TransformComponent>(Ent2.GetEntity())->SetTransform(DXM::Matrix::CreateScale(0.5f) * DXM::Matrix::CreateRotationY(Rot) * DXM::Matrix::CreateTranslation(DXM::Vector3(0,-1,3.f)));
 			RenderInterface.MarkRenderStateDirty<ECS::TransformComponent>(Ent2);
 			//
 

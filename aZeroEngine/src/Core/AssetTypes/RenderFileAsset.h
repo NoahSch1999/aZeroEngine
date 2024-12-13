@@ -18,30 +18,25 @@ namespace aZero
 			friend Rendering::Renderer; // NOTE: To avoid having the GPUResourceHandle accessible to the public
 
 		protected:
-			std::shared_ptr<GPUResourceHandle> m_AssetGPUHandle = nullptr;
-			std::shared_ptr<AssetType> m_AssetData;
+			GPUResourceHandle m_AssetGPUHandle;
+			AssetType m_AssetData;
 
 			void RemoveRenderState()
 			{
-				*m_AssetGPUHandle.get() = GPUResourceHandle();
+				m_AssetGPUHandle = GPUResourceHandle();
 			}
-
 
 		public:
-			RenderFileAsset()
-			{
-				m_AssetData = std::make_shared<AssetType>(AssetType());
-				m_AssetGPUHandle = std::make_shared<GPUResourceHandle>(GPUResourceHandle());
-			}
+			RenderFileAsset() = default; 
 
 			RenderFileAsset(const AssetType& Asset)
 			{
-				m_AssetData = std::make_shared<AssetType>(Asset);
+				m_AssetData = Asset;
 			}
 
 			RenderFileAsset(AssetType&& Asset)
 			{
-				m_AssetData = std::make_shared<AssetType>(std::forward(Asset));
+				m_AssetData = std::move(std::forward(Asset));
 			}
 
 			
@@ -76,12 +71,22 @@ namespace aZero
 			}
 
 
-			const AssetType* GetAssetData() const { return m_AssetData.get(); }
-			const GPUResourceHandle* GetGPUAssetHandle() const { return m_AssetGPUHandle.get(); }
+			const AssetType& GetAssetData() const { return m_AssetData; }
+			const GPUResourceHandle& GetGPUAssetHandle() const { return m_AssetGPUHandle; }
 
 			void SetAssetData(AssetType&& Asset)
 			{
-				*m_AssetData.get() = std::move(Asset);
+				m_AssetData = std::move(Asset);
+
+				if (this->HasRenderState())
+				{
+					this->RemoveRenderState();
+				}
+			}
+
+			void SetAssetData(const AssetType& Asset)
+			{
+				m_AssetData = Asset;
 
 				if (this->HasRenderState())
 				{

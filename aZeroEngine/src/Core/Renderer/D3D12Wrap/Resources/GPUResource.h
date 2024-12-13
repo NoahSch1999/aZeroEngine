@@ -113,7 +113,7 @@ namespace aZero
 			GPUResource(const GPUResource& Other) = delete;
 			GPUResource& operator=(const GPUResource& Other) = delete;
 
-			GPUResource(GPUResource&& Other)
+			GPUResource(GPUResource&& Other) noexcept
 			{
 				m_Resource = Other.m_Resource;
 				m_ResourceRecycler = Other.m_ResourceRecycler;
@@ -124,7 +124,7 @@ namespace aZero
 				Other.m_MappedPtr = nullptr;
 			}
 
-			GPUResource& operator=(GPUResource&& Other)
+			GPUResource& operator=(GPUResource&& Other) noexcept
 			{
 				if (this != &Other)
 				{

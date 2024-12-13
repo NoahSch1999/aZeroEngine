@@ -31,9 +31,9 @@ namespace aZero
 				
 				PrimitiveRenderData PrimData;
 				PrimData.WorldMatrix = TransformComp->GetTransform();
-				if (StaticMeshComp->m_MeshReference.HasRenderState())
+				if (StaticMeshComp->m_MeshReference->HasRenderState())
 				{
-					PrimData.MeshEntryIndex = StaticMeshComp->m_MeshReference.GetGPUAssetHandle()->m_MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshGPUEntry);
+					PrimData.MeshEntryIndex = StaticMeshComp->m_MeshReference->GetGPUAssetHandle().m_MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshGPUEntry);
 				}
 				else
 				{
@@ -100,11 +100,16 @@ namespace aZero
 			}
 
 			// TODO: Remove when we dont need to know the index count when doing a draw call
-			std::unordered_map<uint32_t, Asset::Mesh>& GetEntityToMesh() { return m_Renderer.m_Entity_To_Mesh; }
+			std::unordered_map<uint32_t, std::shared_ptr<Asset::Mesh>>& GetEntityToMesh() { return m_Renderer.m_Entity_To_Mesh; }
 
 			void MarkRenderStateDirty(Asset::Mesh& Mesh)
 			{
 				m_Renderer.MarkRenderStateDirty(Mesh);
+			}
+
+			void MarkRenderStateDirty(Asset::Texture& Texture, DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM)
+			{
+				m_Renderer.MarkRenderStateDirty(Texture, Format);
 			}
 
 			void MarkRenderStateDirty(Asset::Material& Material)
@@ -158,18 +163,21 @@ namespace aZero
 					ECS::StaticMeshComponent* Component = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(Entity.GetEntity());
 					if (Component)
 					{
+						// TODO: Remove once we dont need this map
+						this->GetEntityToMesh()[Entity.GetEntity().GetID()] = Component->m_MeshReference;
+
 						this->AddIfNotPrimitive(Entity);
 
 						uint32_t MeshIndex = 0; // TODO: Make MeshGPUEntry index 0 result in an 0 vert draw call
-						if (Component->m_MeshReference.HasRenderState())
+						if (Component->m_MeshReference->HasRenderState())
 						{
-							MeshIndex = Component->m_MeshReference.GetGPUAssetHandle()->m_MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshGPUEntry);
+							MeshIndex = Component->m_MeshReference->GetGPUAssetHandle().m_MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshGPUEntry);
 						}
 
 						uint32_t MaterialIndex = 0;
-						if (Component->m_MaterialReference.HasRenderState())
+						if (Component->m_MaterialReference->HasRenderState())
 						{
-							MaterialIndex = Component->m_MaterialReference.GetGPUAssetHandle()->m_MaterialAllocHandle.GetStartOffset() / sizeof(Asset::MaterialRenderData);
+							MaterialIndex = Component->m_MaterialReference->GetGPUAssetHandle().m_MaterialAllocHandle.GetStartOffset() / sizeof(Asset::MaterialRenderData);
 						}
 						
 

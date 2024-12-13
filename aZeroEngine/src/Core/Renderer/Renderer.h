@@ -117,7 +117,7 @@ namespace aZero
 
 		public:
 			// TODO: Remove when index draw count is fully gpu driven
-			std::unordered_map<uint32_t, Asset::Mesh> m_Entity_To_Mesh;
+			std::unordered_map<uint32_t, std::shared_ptr<Asset::Mesh>> m_Entity_To_Mesh;
 			D3D12::RenderPass Pass;
 
 		protected:
@@ -174,27 +174,27 @@ namespace aZero
 				if (!Mesh.HasRenderState())
 				{
 					m_VertexBuffer.GetAllocation(
-						Mesh.m_AssetGPUHandle->m_VertexBufferAllocHandle,
-						Mesh.GetAssetData()->Vertices.size() * sizeof(decltype(Mesh.GetAssetData()->Vertices.at(0))));
+						Mesh.m_AssetGPUHandle.m_VertexBufferAllocHandle,
+						Mesh.GetAssetData().Vertices.size() * sizeof(decltype(Mesh.GetAssetData().Vertices.at(0))));
 
-					m_VertexBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle->m_VertexBufferAllocHandle, (void*)Mesh.GetAssetData()->Vertices.data());
+					m_VertexBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle.m_VertexBufferAllocHandle, (void*)Mesh.GetAssetData().Vertices.data());
 
 					m_IndexBuffer.GetAllocation(
-						Mesh.m_AssetGPUHandle->m_IndexBufferAllocHandle,
-						Mesh.GetAssetData()->Indices.size() * sizeof(decltype(Mesh.GetAssetData()->Indices.at(0))));
+						Mesh.m_AssetGPUHandle.m_IndexBufferAllocHandle,
+						Mesh.GetAssetData().Indices.size() * sizeof(decltype(Mesh.GetAssetData().Indices.at(0))));
 
-					m_IndexBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle->m_IndexBufferAllocHandle, (void*)Mesh.GetAssetData()->Indices.data());
+					m_IndexBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle.m_IndexBufferAllocHandle, (void*)Mesh.GetAssetData().Indices.data());
 
 					m_MeshEntryBuffer.GetAllocation(
-						Mesh.m_AssetGPUHandle->m_MeshEntryAllocHandle,
+						Mesh.m_AssetGPUHandle.m_MeshEntryAllocHandle,
 						sizeof(Asset::MeshGPUEntry)
 					);
 
 					Asset::MeshGPUEntry NewMeshEntry;
-					NewMeshEntry.m_VertexStartOffset = Mesh.m_AssetGPUHandle->m_VertexBufferAllocHandle.GetStartOffset() / sizeof(Asset::VertexData);
-					NewMeshEntry.m_IndexStartOffset = Mesh.m_AssetGPUHandle->m_IndexBufferAllocHandle.GetStartOffset() / sizeof(uint32_t);
-					NewMeshEntry.m_NumIndices = Mesh.GetAssetData()->Indices.size();
-					m_MeshEntryBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle->m_MeshEntryAllocHandle, (void*)&NewMeshEntry);
+					NewMeshEntry.m_VertexStartOffset = Mesh.m_AssetGPUHandle.m_VertexBufferAllocHandle.GetStartOffset() / sizeof(Asset::VertexData);
+					NewMeshEntry.m_IndexStartOffset = Mesh.m_AssetGPUHandle.m_IndexBufferAllocHandle.GetStartOffset() / sizeof(uint32_t);
+					NewMeshEntry.m_NumIndices = Mesh.GetAssetData().Indices.size();
+					m_MeshEntryBuffer.Write(this->GetFrameAllocator(), Mesh.m_AssetGPUHandle.m_MeshEntryAllocHandle, (void*)&NewMeshEntry);
 				}
 				else
 				{
@@ -202,16 +202,65 @@ namespace aZero
 				}
 			}
 
+			int roundUp(int numToRound, int multiple)
+			{
+				if (multiple == 0)
+					return numToRound;
+
+				int remainder = numToRound % multiple;
+				if (remainder == 0)
+					return numToRound;
+
+				return numToRound + multiple - remainder;
+			}
+
 			// TODO: Impl
-			void MarkRenderStateDirty(Asset::Texture& Texture)
+			void MarkRenderStateDirty(Asset::Texture& Texture, DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM)
 			{
 				if (!Texture.HasRenderState())
 				{
-					// Use Texture to stage the data into the gpu resource
+					Asset::TextureData& Data = Texture.m_AssetData;
+					Asset::TextureGPUHandle& GPUHandle = Texture.m_AssetGPUHandle;
 
-					// If resource exists in a gpu resource (ex. using wicloader), then just copy from that into the gpu-only resource
+					GPUHandle.m_Texture.Init(
+						m_Device,
+						{ Data.m_Dimensions.x, Data.m_Dimensions.y, 1 },
+						Format, D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
+						1, // TODO: Mip should be in the m_AssetData cache
+						D3D12_RESOURCE_STATE_COMMON,
+						std::optional<D3D12_CLEAR_VALUE>{}, &m_ResourceRecycler
+					);
 
-					// If resource data is in raw bytes, then create resource and stage it etc.
+					const UINT StagingBufferSize = GetRequiredIntermediateSize(GPUHandle.m_Texture.GetResource(), 0, 1);
+					D3D12::GPUBuffer StagingBuffer;
+					StagingBuffer.Init(m_Device, D3D12::GPUResource::CPUWRITE, StagingBufferSize, &m_ResourceRecycler);
+
+					std::vector<D3D12::ResourceTransitionBundles> Bundle;
+					Bundle.push_back({});
+					Bundle.at(0).ResourcePtr = GPUHandle.m_Texture.GetResource();
+					Bundle.at(0).StateBefore = D3D12_RESOURCE_STATE_COMMON;
+					Bundle.at(0).StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+					D3D12::TransitionResources(m_GraphicsCommandContext.GetCommandList(), Bundle);
+
+					D3D12_SUBRESOURCE_DATA SubresourceData{};
+					SubresourceData.pData = Data.m_Data.data();
+					SubresourceData.RowPitch = /*roundUp(*/Data.m_Dimensions.x * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/;
+					SubresourceData.SlicePitch = SubresourceData.RowPitch * Data.m_Dimensions.y;
+
+					UpdateSubresources(
+						m_GraphicsCommandContext.GetCommandList(),
+						GPUHandle.m_Texture.GetResource(),
+						StagingBuffer.GetResource(),
+						0, 0, 1, &SubresourceData);
+
+					Bundle.at(0).ResourcePtr = GPUHandle.m_Texture.GetResource();
+					Bundle.at(0).StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+					Bundle.at(0).StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+					D3D12::TransitionResources(m_GraphicsCommandContext.GetCommandList(), Bundle);
+
+					m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
+
+					GPUHandle.m_SRV.Init(m_Device, m_ResourceHeap, GPUHandle.m_Texture, GPUHandle.m_Texture.GetResource()->GetDesc().Format, 1, 0, 0, 0);
 				}
 				else
 				{
@@ -223,11 +272,11 @@ namespace aZero
 			{
 				if (!Material.HasRenderState())
 				{
-					m_MaterialBuffer.GetAllocation(Material.m_AssetGPUHandle->m_MaterialAllocHandle, sizeof(Asset::MaterialRenderData));
+					m_MaterialBuffer.GetAllocation(Material.m_AssetGPUHandle.m_MaterialAllocHandle, sizeof(Asset::MaterialRenderData));
 				}
 				
 				Asset::MaterialRenderData RenderData = Material.GetRenderData();
-				m_MaterialBuffer.Write(this->GetFrameAllocator(), Material.m_AssetGPUHandle->m_MaterialAllocHandle, &RenderData);
+				m_MaterialBuffer.Write(this->GetFrameAllocator(), Material.m_AssetGPUHandle.m_MaterialAllocHandle, &RenderData);
 			}
 		};
 

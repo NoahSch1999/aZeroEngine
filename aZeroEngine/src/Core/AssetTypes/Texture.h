@@ -9,11 +9,12 @@ namespace aZero
 	{
 		struct TextureData
 		{
-			ID3D12Resource* TempResource;
-			/*std::vector<uint8_t> m_RawData;
-			DXM::Vector2 Dimensions;*/
-			// TODO: Should contain everything needed to create a texture with mipmaps etc
+			std::vector<uint8_t> m_Data;
+			DXM::Vector2 m_Dimensions;
+			DXGI_FORMAT m_Format;
 		};
+
+		bool LoadTextureFromFile(const std::string& Path, TextureData& OutData);
 
 		struct TextureGPUHandle
 		{
@@ -23,26 +24,20 @@ namespace aZero
 
 		class Texture : public RenderFileAsset<TextureData, TextureGPUHandle>
 		{
-		private:
-
 		public:
-			uint32_t m_DescriptorIndex = 0;
 			Texture() = default;
 
 			~Texture()
 			{
 				if (this->HasRenderState())
 				{
-					if (m_AssetGPUHandle.use_count() == 1)
-					{
-						this->RemoveRenderState();
-					}
+					this->RemoveRenderState();
 				}
 			}
 
 			virtual bool HasRenderState() const override
 			{
-				if (m_AssetGPUHandle->m_Texture.GetResource())
+				if (m_AssetGPUHandle.m_Texture.GetResource())
 				{
 					return true;
 				}
@@ -52,18 +47,20 @@ namespace aZero
 
 			virtual bool LoadFromFile(const std::string& Path) override
 			{
-				if (true)
+				TextureData NewTexture;
+				if (LoadTextureFromFile(Path, NewTexture))
 				{
-					//TextureData NewTexture;
-					if (/*LoadFBXFile(NewMesh, Path)*/true)
-					{
-						//this->SetAssetData(std::move(NewTexture));
-					}
+					this->SetAssetData(std::move(NewTexture));
 				}
+				else
+				{
+					return false;
+				}
+
 				return true;
 			}
 
-			uint32_t GetDescriptorIndex() const { return m_DescriptorIndex; }
+			uint32_t GetDescriptorIndex() const { return m_AssetGPUHandle.m_SRV.GetDescriptorIndex(); }
 		};
 	}
 }

@@ -8,6 +8,7 @@ struct PrimitiveRenderData
 struct FragmentInput
 {
     float4 Position : SV_Position;
+    float3 WorldPosition : WorldPosition;
     float2 UV : UV;
     float3 Normal : NORMAL;
     float3x3 TBN : TBN;
@@ -31,8 +32,8 @@ struct PerDrawConstants
 struct Material
 {
     float3 Color;
-    uint AlbedoIndex;
-    uint NormalMapIndex;
+    int AlbedoIndex;
+    int NormalMapIndex;
 };
 
 ConstantBuffer<PixelShaderConstants> PixelShaderConstantsBuffer : register(b0);
@@ -49,16 +50,58 @@ FragmentOutput main(FragmentInput Input)
     
     const SamplerState Sampler = SamplerDescriptorHeap[0/*PixelShaderConstantsBuffer.SamplerIndex*/];
     
-    Texture2D<float4> Texture;
-    if(/*Mat.AlbedoIndex != 0*/false)
+    float3 Color;
+    Texture2D<float4> AlbedoTexture;
+    if(Mat.AlbedoIndex != -1)
     {
-        Texture = ResourceDescriptorHeap[Mat.AlbedoIndex];
-        Output.FragmentColor = float4(Texture.Sample(Sampler, Input.UV).xyz, 1.f);
+        AlbedoTexture = ResourceDescriptorHeap[Mat.AlbedoIndex];
+        Color = AlbedoTexture.Sample(Sampler, Input.UV).xyz;
     }
     else
     {
-        Output.FragmentColor = float4(Mat.Color, 1.f);
+        Color = Mat.Color;
     }
+    
+    float3 Normal;
+    if (Mat.NormalMapIndex != -1)
+    {
+        Texture2D<float4> NormalMapTexture;
+        NormalMapTexture = ResourceDescriptorHeap[Mat.NormalMapIndex];
+        Normal = NormalMapTexture.Sample(Sampler, Input.UV).xyz;
+        Normal = normalize(Normal * 2.f - 1.f);
+        Normal = normalize(mul(Input.TBN, Normal));
+    }
+    else
+    {
+        Normal = Input.Normal;
+    }
+    Normal = Input.Normal;
+    
+    float3 LightPos = float3(0, 2, 0);
+    float3 LightColor = float3(1, 1, 1);
+    float3 LightToPosDir = normalize(LightPos - Input.WorldPosition);
+    
+    float Delta = dot(Normal, LightToPosDir);
+    if(Delta > 0.8)
+    {
+        Color = Color * 1.2;
+    }
+    else if (Delta > 0.6)
+    {
+        Color = Color * 0.8;
+    }
+    else if (Delta > 0.4)
+    {
+        Color = Color * 0.6;
+    }
+    else
+    {
+        Color = Color * 0.2;
+    }
+    
+    //Output.FragmentColor = float4(Color, 1.f);
+    Output.FragmentColor = float4(Normal, 1.f);
+    //Output.FragmentColor = float4(Delta, Delta, Delta, 1.f);
     
     return Output;
 }

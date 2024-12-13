@@ -10,8 +10,8 @@ namespace aZero
 		class StaticMeshComponent
 		{
 		public:
-			Asset::Mesh m_MeshReference;
-			Asset::Material m_MaterialReference;
+			std::shared_ptr<Asset::Mesh> m_MeshReference;
+			std::shared_ptr<Asset::Material> m_MaterialReference;
 
 			StaticMeshComponent() = default;
 			

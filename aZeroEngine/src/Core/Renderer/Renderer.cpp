@@ -116,7 +116,7 @@ namespace aZero
 				&m_ResourceRecycler);
 
 			D3D12_RENDER_TARGET_VIEW_DESC RtvDesc;
-			RtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			RtvDesc.Format = Desc.Format;
 			RtvDesc.Texture2D.MipSlice = 0;
 			RtvDesc.Texture2D.PlaneSlice = 0;
 			RtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
@@ -215,7 +215,7 @@ namespace aZero
 			m_FinalRenderSurface.Init(
 				m_Device,
 				DXM::Vector3(m_RenderResolution.x, m_RenderResolution.y, 1),
-				DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM,
+				m_RTVClearColor.Format,
 				D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
 				1,
 				D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -224,7 +224,7 @@ namespace aZero
 			);
 
 			D3D12_RENDER_TARGET_VIEW_DESC RtvDesc;
-			RtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			RtvDesc.Format = m_FinalRenderSurface.GetResource()->GetDesc().Format;
 			RtvDesc.Texture2D.MipSlice = 0;
 			RtvDesc.Texture2D.PlaneSlice = 0;
 			RtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
@@ -245,7 +245,7 @@ namespace aZero
 				CBOverrides.push_back({ 1 });
 
 				std::vector<D3D12::Shader::RenderTargetOverride> RTOverrides;
-				RTOverrides.push_back({ 0, DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM });
+				RTOverrides.push_back({ 0, m_FinalRenderSurface.GetResource()->GetDesc().Format });
 				BasePassPS.CompileFromFile(this->GetCompiler(), SHADER_SRC_PATH("BasePass.ps"), CBOverrides, RTOverrides);
 
 				Pass.Init(m_Device, BasePassVS, BasePassPS, DXGI_FORMAT_D24_UNORM_S8_UINT);
@@ -357,7 +357,7 @@ namespace aZero
 					Pass.SetShaderResource(CmdList, "PerDrawConstantsBuffer", &PerDrawConstants, sizeof(PerDrawConstants), D3D12::SHADER_TYPE::VS);
 					Pass.SetShaderResource(CmdList, "PerDrawConstantsBuffer", &PerDrawConstants, sizeof(PerDrawConstants), D3D12::SHADER_TYPE::PS);
 
-					CmdList->DrawInstanced(m_Entity_To_Mesh.at(Entity.GetEntity().GetID()).GetAssetData()->Indices.size(), 1, 0, 0);
+					CmdList->DrawInstanced(m_Entity_To_Mesh.at(Entity.GetEntity().GetID())->GetAssetData().Indices.size(), 1, 0, 0);
 				}
 			}
 		}

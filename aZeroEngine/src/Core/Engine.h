@@ -24,17 +24,16 @@ namespace aZero
 		Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
 		HINSTANCE m_AppInstance;
 
-		ECS::EntityManager m_EntityManager;
-		ECS::ComponentManagerDecl m_ComponentManager;
-
 		std::unordered_map<std::string, Scene> m_Scenes;
 		std::shared_ptr<Window> m_MainWindow = nullptr;
 		
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
 
+		ECS::EntityManager m_EntityManager;
+		ECS::ComponentManagerDecl m_ComponentManager;
+
 	public:
-		Asset::Mesh Mesh;
-		Asset::Material Material;
+		std::shared_ptr<Asset::Texture> m_DefaultTexture;
 		
 		Engine(HINSTANCE AppInstance, const DXM::Vector2& WindowResolution)
 			:m_AppInstance(AppInstance)
@@ -68,19 +67,11 @@ namespace aZero
 			m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(MAX_ENTITIES);
 			m_ComponentManager.GetComponentArray<TickComponent_Interface>().Init(MAX_ENTITIES);
 
-			Mesh.LoadFromFile(ASSET_PATH + "meshes/soldier.fbx");
-			m_Renderer->m_Entity_To_Mesh.emplace(UINT_MAX, Mesh);
-			m_Renderer->MarkRenderStateDirty(Mesh);
-
-			std::shared_ptr<Asset::Texture> Texture = std::make_shared<Asset::Texture>();
-			Texture->LoadFromFile(ASSET_PATH + "textures/toySolderAlbedo.png");
-			m_Renderer->MarkRenderStateDirty(*Texture.get());
-
-			Texture->m_DescriptorIndex = 1; // Test to set
-
-			Material.SetAlbedoTexture(Texture);
-			Material.SetColor({ 1,2,3 });
-			m_Renderer->MarkRenderStateDirty(Material);
+			m_DefaultTexture = std::make_shared<Asset::Texture>();
+			if (m_DefaultTexture->LoadFromFile(ASSET_PATH + "textures/defaultTexture.jpg"))
+			{
+				m_Renderer->MarkRenderStateDirty(*m_DefaultTexture.get());
+			}
 
 			m_Renderer->m_GraphicsQueue.ExecuteContext(m_Renderer->m_GraphicsCommandContext);
 		}

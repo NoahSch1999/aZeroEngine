@@ -103,6 +103,7 @@ namespace aZero
 
 				D3D12_RASTERIZER_DESC RasterDesc{};
 				RasterDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+				RasterDesc.FrontCounterClockwise = true;
 				PipelineStateDesc.RasterizerState = RasterDesc;
 
 				D3D12_BLEND_DESC BlendDesc = CD3DX12_BLEND_DESC(D3D12_DEFAULT);

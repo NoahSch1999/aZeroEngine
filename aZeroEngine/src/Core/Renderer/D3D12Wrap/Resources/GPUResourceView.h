@@ -30,6 +30,8 @@ namespace aZero
 				}
 				return *this;
 			}
+
+			uint32_t GetDescriptorIndex() const { return m_Descriptor.GetHeapIndex(); }
 		};
 
 		class UnorderedAccessView : public GPUResourceView
@@ -181,7 +183,7 @@ namespace aZero
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t NumMipLevels = 1,
-				uint32_t MostDetailedMip = 1,
+				uint32_t MostDetailedMip = 0,
 				uint32_t PlaneSlice = 0,
 				uint32_t MinAccessibleMipLevel = 0
 			)
@@ -195,7 +197,7 @@ namespace aZero
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t NumMipLevels = 1,
-				uint32_t MostDetailedMip = 1,
+				uint32_t MostDetailedMip = 0,
 				uint32_t PlaneSlice = 0,
 				uint32_t MinAccessibleMipLevel = 0
 			)

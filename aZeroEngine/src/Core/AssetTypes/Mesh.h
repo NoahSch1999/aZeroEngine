@@ -23,7 +23,7 @@ namespace aZero
 			double BoundingSphereRadius;
 		};
 
-		bool LoadFBXFile(MeshData& OutMesh, const std::string& Path);
+		bool LoadFBXFile(const std::string& Path, MeshData& OutMesh);
 
 		struct MeshGPUHandle
 		{
@@ -41,8 +41,6 @@ namespace aZero
 
 		class Mesh : public RenderFileAsset<MeshData, MeshGPUHandle>
 		{
-		private:
-
 		public:
 			Mesh() = default;
 
@@ -50,16 +48,13 @@ namespace aZero
 			{
 				if (this->HasRenderState())
 				{
-					if (m_AssetGPUHandle.use_count() == 1)
-					{
-						this->RemoveRenderState();
-					}
+					this->RemoveRenderState();
 				}
 			}
 
 			virtual bool HasRenderState() const override
 			{
-				if (m_AssetGPUHandle->m_VertexBufferAllocHandle.IsValid())
+				if (m_AssetGPUHandle.m_VertexBufferAllocHandle.IsValid())
 				{
 					return true;
 				}
@@ -78,9 +73,13 @@ namespace aZero
 					}
 
 					MeshData NewMesh;
-					if (LoadFBXFile(NewMesh, Path))
+					if (LoadFBXFile(Path, NewMesh))
 					{
 						this->SetAssetData(std::move(NewMesh));
+					}
+					else
+					{
+						return false;
 					}
 				}
 
