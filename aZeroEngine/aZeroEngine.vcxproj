@@ -174,18 +174,18 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
     <LinkIncremental>
     </LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\lib\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
     <LinkIncremental>
     </LinkIncremental>
   </PropertyGroup>
@@ -195,7 +195,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>;$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
       <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -212,7 +212,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>;$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
       <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -230,13 +230,13 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
       <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;DirectXTK12.lib;assimp-vc143-mtd.lib;%(AdditionalDependencies);d3dcompiler.lib;;zlibstaticd.lib;dxguid.lib;dxcompiler.lib</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;DirectXTK12.lib;assimp-vc143-mt.lib;%(AdditionalDependencies);d3dcompiler.lib;;zlibstaticd.lib;dxguid.lib;dxcompiler.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -248,7 +248,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
       <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
