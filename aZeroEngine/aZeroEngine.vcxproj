@@ -230,7 +230,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Projects\Programming\aZeroEngine\aZeroEngine\aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
       <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -248,7 +248,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Projects\Programming\aZeroEngine\aZeroEngine\aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)aZeroEngine\src;%(AdditionalIncludeDirectories);$(SolutionDir)src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\include;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectX12Headers;$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12;$(SolutionDir)aZeroEngine\src\ThirdParty</AdditionalIncludeDirectories>
       <AdditionalOptions>/diagnostics:caret /diagnostics:color %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
