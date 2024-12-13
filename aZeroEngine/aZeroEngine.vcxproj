@@ -174,18 +174,18 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Debug;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Debug;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
     <LinkIncremental>
     </LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Bin\Windows10_2022\x64\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
+    <LibraryPath>$(SolutionDir)aZeroEngine\src\ThirdParty\DirectXTK12\Release;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp;$(SolutionDir)aZeroEngine\src\ThirdParty\assimp\contrib\zlib\Release;$(LibraryPath);$(SolutionDir)aZeroEngine\src\ThirdParty\DXCompiler\lib\x64</LibraryPath>
     <LinkIncremental>
     </LinkIncremental>
   </PropertyGroup>
@@ -256,7 +256,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;DirectXTK12.lib;assimp-vc143-mt.lib;%(AdditionalDependencies);d3dcompiler.lib;;zlibstatic.lib;dxguid.lib;dxcompiler.lib</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;DirectXTK12.lib;assimp-vc143-mt.lib;%(AdditionalDependencies);zlibstatic.lib;dxguid.lib;dxcompiler.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
