@@ -17,12 +17,12 @@
 mono_crash.*
 
 # Build results
-[Dd]ebug/
+#[Dd]ebug/
 [Dd]ebugPublic/
-[Rr]elease/
+#[Rr]elease/
 [Rr]eleases/
-x64/
-x86/
+#x64/
+#x86/
 [Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
@@ -398,3 +398,14 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+aZeroEngine/x64/Debug/aZeroEngine.exe.recipe
+aZeroEngine/x64/Debug/aZeroEngine.vcxproj.FileListAbsolute.txt
+aZeroEngine/x64/Debug/vc143.idb
+aZeroEngine/x64/Release/aZeroEngine.exe.recipe
+aZeroEngine/x64/Release/aZeroEngine.vcxproj.FileListAbsolute.txt
+x64/Debug/aZeroEngine.exe
+x64/Debug/aZeroEngine.exp
+x64/Debug/aZeroEngine.lib
+x64/Release/aZeroEngine.exe
+x64/Release/aZeroEngine.exp
+x64/Release/aZeroEngine.lib
