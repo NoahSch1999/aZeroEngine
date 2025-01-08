@@ -1,10 +1,3 @@
-struct PrimitiveRenderData
-{
-    float4x4 WorldMatrix;
-    unsigned int MeshEntryIndex;
-    unsigned int MaterialIndex;
-};
-
 struct FragmentInput
 {
     float4 Position : SV_Position;
@@ -24,9 +17,9 @@ struct PixelShaderConstants
     int SamplerIndex;
 };
 
-struct PerDrawConstants
+struct PerBatchConstants
 {
-    int PrimitiveIndex;
+    unsigned int MaterialEntryIndex;
 };
 
 struct Material
@@ -37,22 +30,20 @@ struct Material
 };
 
 ConstantBuffer<PixelShaderConstants> PixelShaderConstantsBuffer : register(b0);
-ConstantBuffer<PerDrawConstants> PerDrawConstantsBuffer : register(b1);
-StructuredBuffer<PrimitiveRenderData> PrimitiveRenderDataBuffer : register(t0);
+ConstantBuffer<PerBatchConstants> PerBatchConstantsBuffer : register(b1);
 StructuredBuffer<Material> MaterialBuffer : register(t1);
 
 FragmentOutput main(FragmentInput Input)
 {
     FragmentOutput Output;
     
-    const PrimitiveRenderData PrimData = PrimitiveRenderDataBuffer.Load(PerDrawConstantsBuffer.PrimitiveIndex);
-    const Material Mat = MaterialBuffer.Load(PrimData.MaterialIndex);
+    const Material Mat = MaterialBuffer.Load(PerBatchConstantsBuffer.MaterialEntryIndex);
     
-    const SamplerState Sampler = SamplerDescriptorHeap[0/*PixelShaderConstantsBuffer.SamplerIndex*/];
+    const SamplerState Sampler = SamplerDescriptorHeap[0 /*PixelShaderConstantsBuffer.SamplerIndex*/];
     
-    float3 Color;
+    float3 Color = float3(1, 0, 0);
     Texture2D<float4> AlbedoTexture;
-    if(Mat.AlbedoIndex != -1)
+    if (Mat.AlbedoIndex != -1)
     {
         AlbedoTexture = ResourceDescriptorHeap[Mat.AlbedoIndex];
         Color = AlbedoTexture.Sample(Sampler, Input.UV).xyz;
@@ -68,40 +59,21 @@ FragmentOutput main(FragmentInput Input)
         Texture2D<float4> NormalMapTexture;
         NormalMapTexture = ResourceDescriptorHeap[Mat.NormalMapIndex];
         Normal = NormalMapTexture.Sample(Sampler, Input.UV).xyz;
-        Normal = normalize(Normal * 2.f - 1.f);
+        Normal = Normal * 2.f - 1.f;
         Normal = normalize(mul(Input.TBN, Normal));
     }
     else
     {
-        Normal = Input.Normal;
+        Normal = normalize(Input.Normal);
     }
-    Normal = Input.Normal;
     
-    float3 LightPos = float3(0, 2, 0);
+    float3 LightPos = float3(0, 0, -5);
     float3 LightColor = float3(1, 1, 1);
     float3 LightToPosDir = normalize(LightPos - Input.WorldPosition);
     
     float Delta = dot(Normal, LightToPosDir);
-    if(Delta > 0.8)
-    {
-        Color = Color * 1.2;
-    }
-    else if (Delta > 0.6)
-    {
-        Color = Color * 0.8;
-    }
-    else if (Delta > 0.4)
-    {
-        Color = Color * 0.6;
-    }
-    else
-    {
-        Color = Color * 0.2;
-    }
-    
-    //Output.FragmentColor = float4(Color, 1.f);
-    Output.FragmentColor = float4(Normal, 1.f);
-    //Output.FragmentColor = float4(Delta, Delta, Delta, 1.f);
+    Color *= Delta;
+    Output.FragmentColor = float4(Color, 1.f);
     
     return Output;
 }

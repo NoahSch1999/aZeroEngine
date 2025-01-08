@@ -7,14 +7,8 @@
 #include <string>
 
 #include "Core/Renderer/D3D12Wrap/Window/Window.h"
-#include "Core/D3D12Include.h"
 #include "Scene/Scene.h"
 #include "Renderer/RenderInterface.h"
-#include "AssetTypes/Texture.h"
-
-#define ASSET_PATH std::string("C:/Projects/Programming/aZeroEngine/aZeroEngine/assets/")
-
-// https://shader-slang.com/slang/user-guide/get-started.html
 
 namespace aZero
 {
@@ -23,91 +17,70 @@ namespace aZero
 	private:
 		Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
 		HINSTANCE m_AppInstance;
-
-		std::unordered_map<std::string, Scene> m_Scenes;
-		std::shared_ptr<Window> m_MainWindow = nullptr;
 		
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
 
-		ECS::EntityManager m_EntityManager;
-		ECS::ComponentManagerDecl m_ComponentManager;
+		std::shared_ptr<Asset::Mesh> m_DefaultCube;
+		std::shared_ptr<Asset::Texture> m_DefaultTexture;
+		std::shared_ptr<Asset::Material> m_DefaultMaterial;
+
+		void LoadDefaultAssets()
+		{
+			m_DefaultCube = m_Renderer->m_AssetManager->CreateAsset<Asset::Mesh>();
+			m_DefaultCube->LoadFromFile(ASSET_PATH + "meshes/defaultCube.fbx");
+			m_Renderer->MarkRenderStateDirty(m_DefaultCube);
+
+			m_DefaultTexture = m_Renderer->m_AssetManager->CreateAsset<Asset::Texture>();
+			m_DefaultTexture->LoadFromFile(ASSET_PATH + "textures/defaultTexture.jpg");
+			m_Renderer->MarkRenderStateDirty(m_DefaultTexture);
+
+			m_DefaultMaterial = m_Renderer->m_AssetManager->CreateAsset<Asset::Material>();
+			Asset::MaterialData MatData;
+			MatData.m_AlbedoTexture = m_DefaultTexture;
+			m_DefaultMaterial->SetData(std::move(MatData));
+			m_Renderer->MarkRenderStateDirty(m_DefaultMaterial);
+		}
 
 	public:
-		std::shared_ptr<Asset::Texture> m_DefaultTexture;
-		
-		Engine(HINSTANCE AppInstance, const DXM::Vector2& WindowResolution)
+		Engine(HINSTANCE AppInstance, const DXM::Vector2& WindowResolution, uint32_t BufferCount)
 			:m_AppInstance(AppInstance)
 		{
 			HRESULT Hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(m_Device.GetAddressOf()));
 			if (FAILED(Hr))
 			{
-				// DEBUG MACRO
-				throw;
+				throw std::runtime_error("Engine() => Failed to create ID3D12Device");
 			}
 
 			Hr = CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
 			if (FAILED(Hr))
 			{
-				throw;
+				throw std::runtime_error("Engine() => Failed to call CoInitializeEx()");
 			}
 
-			m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), WindowResolution);
+			m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), WindowResolution, BufferCount);
 
-			// Temp stuff
-			m_MainWindow = std::make_shared<Window>(
-				m_Renderer->GetGraphicsQueue(),
-				m_AppInstance,
-				WndProc,
-				DXGI_FORMAT_R8G8B8A8_UNORM,
-				WindowResolution,
-				false,
-				"aZero Engine");
-
-			m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(MAX_ENTITIES);
-			m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(MAX_ENTITIES);
-			m_ComponentManager.GetComponentArray<TickComponent_Interface>().Init(MAX_ENTITIES);
-
-			m_DefaultTexture = std::make_shared<Asset::Texture>();
-			if (m_DefaultTexture->LoadFromFile(ASSET_PATH + "textures/defaultTexture.jpg"))
-			{
-				m_Renderer->MarkRenderStateDirty(*m_DefaultTexture.get());
-			}
+			this->LoadDefaultAssets();
 
 			m_Renderer->m_GraphicsQueue.ExecuteContext(m_Renderer->m_GraphicsCommandContext);
 		}
 
+		~Engine()
+		{
+			this->FlushRenderingCommands();
+		}
+
 		void BeginFrame()
 		{
-			if (m_MainWindow->IsOpen())
-			{
-				m_MainWindow->HandleMessages();
-			}
-
-			if (m_MainWindow->IsOpen())
-			{
-				if (m_MainWindow->GetClientDimensions().x != m_Renderer->GetRenderResolution().x
-					|| m_MainWindow->GetClientDimensions().y != m_Renderer->GetRenderResolution().y)
-				{
-					m_Renderer->FlushImmediate();
-					m_Renderer->ChangeRenderResolution(m_MainWindow->GetClientDimensions());
-
-					// NOTE: No resource input for the new bbs recycler here... but fine since we flush before anyways (?)
-					m_MainWindow->GetSwapChain().Resize(m_MainWindow->GetClientDimensions());
-				}
-			}
-		}
-
-		void Update()
-		{
-
-		}
-
-		void Render()
-		{
 			m_Renderer->BeginFrame();
+		}
 
-			m_Renderer->Render(m_MainWindow->GetSwapChain());
+		void Render(NewScene::Scene& Scene, std::shared_ptr<Window::RenderWindow> Window)
+		{
+			m_Renderer->Render(Scene, Window);
+		}
 
+		void EndFrame()
+		{
 			m_Renderer->EndFrame();
 		}
 
@@ -116,30 +89,34 @@ namespace aZero
 			m_Renderer->FlushImmediate();
 		}
 
-		std::shared_ptr<Window> GetWindow() { return m_MainWindow; }
-
-		Scene* CreateScene(const std::string& Name)
+		std::shared_ptr<Window::RenderWindow> CreateRenderWindow(DXM::Vector2 Dimensions, const std::string& Name)
 		{
-			if (m_Scenes.count(Name) == 0)
-			{
-				Rendering::RenderScene& RenderScene = m_Renderer->CreateScene(Name);
-				m_Scenes.emplace(Name, Scene(Name, RenderScene, m_EntityManager, m_ComponentManager));
-				return &m_Scenes.at(Name);
-			}
-			
-			return nullptr;
+			// TODO: Add handling if name is already taken
+			return std::make_shared<Window::RenderWindow>(
+				m_AppInstance,
+				m_Renderer->m_GraphicsQueue,
+				Name,
+				Dimensions,
+				&m_Renderer->m_ResourceRecycler,
+				m_Renderer->m_BufferCount
+				);
 		}
 
-		void SetScene(Scene* InScene)
+		NewScene::Scene CreateScene()
 		{
-			m_Renderer->SetScene(InScene);
+			static NewScene::SceneID NextId = 0;
+			const NewScene::SceneID NewId = NextId;
+			NextId++;
+			return NewScene::Scene(NewId, m_Device.Get());
 		}
 
 		Rendering::RenderInterface CreateRenderInterface()
 		{
-			return Rendering::RenderInterface(*m_Renderer.get(), m_ComponentManager);
+			return Rendering::RenderInterface(*m_Renderer.get());
 		}
 
-		ECS::ComponentManagerDecl& GetComponentManager() { return m_ComponentManager; }
+		std::shared_ptr<Asset::Mesh> GetCubeMesh() { return m_DefaultCube; }
+
+		std::shared_ptr<Asset::Material> GetDefaultMaterial() { return m_DefaultMaterial; }
 	};
 }

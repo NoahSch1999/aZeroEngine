@@ -1,6 +1,7 @@
 #pragma once
 #include "Core/Renderer/D3D12Wrap/Resources/LinearFrameAllocator.h"
 #include "Core/Renderer/D3D12Wrap/Resources/FreelistBuffer.h"
+#include "Core/Renderer/RenderAsset.h"
 
 namespace aZero
 {
@@ -10,6 +11,13 @@ namespace aZero
 		{
 			DXM::Matrix WorldMatrix;
 			uint32_t MeshEntryIndex;
+			uint32_t MaterialIndex;
+		};
+
+		enum PRIMITIVE_DATA_OFFSET { 
+			WORLDMATRIX = 0, 
+			MESHINDEX = sizeof(DXM::Matrix), 
+			MATERIALINDEX = sizeof(DXM::Matrix) + sizeof(uint32_t)
 		};
 
 		struct PointLightRenderData
@@ -37,15 +45,16 @@ namespace aZero
 		{
 		private:
 			D3D12::FreelistBuffer m_PrimitiveDataBuffer;
-			std::unordered_map<uint64_t, DS::FreelistAllocator::AllocationHandle> m_EntityID_To_PrimitiveHandle;
 
 			D3D12::FreelistBuffer m_PointLightBuffer;
-			std::unordered_map<uint64_t, DS::FreelistAllocator::AllocationHandle> m_EntityID_To_PointLightHandle;
+			std::unordered_map<uint64_t, DS::FreelistAllocator::AllocationHandle> m_EntityID_To_PointLightHandle; // Temp
 
 		public:
+			std::unordered_map<uint64_t, DS::FreelistAllocator::AllocationHandle> m_EntityID_To_PrimitiveHandle; // Temp
+			std::unordered_map<uint32_t, std::shared_ptr<Asset::Mesh>> m_Entity_To_Mesh;
 
 			template<typename RenderDataType>
-			ID3D12Resource* GetRenderBuffer()
+			ID3D12Resource* GetRenderBuffer() const
 			{
 				if constexpr (std::is_same_v<RenderDataType, PrimitiveRenderData>)
 				{
@@ -74,6 +83,8 @@ namespace aZero
 
 				m_EntityID_To_PointLightHandle = std::move(Other.m_EntityID_To_PointLightHandle);
 				m_PointLightBuffer = std::move(Other.m_PointLightBuffer);
+
+				m_Entity_To_Mesh = std::move(Other.m_Entity_To_Mesh);
 			}
 
 			RenderScene& operator=(RenderScene&& Other) noexcept
@@ -85,6 +96,8 @@ namespace aZero
 
 					m_EntityID_To_PointLightHandle = std::move(Other.m_EntityID_To_PointLightHandle);
 					m_PointLightBuffer = std::move(Other.m_PointLightBuffer);
+
+					m_Entity_To_Mesh = std::move(Other.m_Entity_To_Mesh);
 				}
 				return *this;
 			}
@@ -136,16 +149,18 @@ namespace aZero
 				}
 			}
 
-			void UpdatePrimitive(uint32_t Index, void* Data, D3D12::LinearFrameAllocator& Allocator, uint32_t ElementDataOffset = 0, uint32_t NumBytes = sizeof(PrimitiveRenderData))
+			//void Update
+
+			void UpdatePrimitive(uint32_t Index, void* Data, D3D12::LinearFrameAllocator& Allocator, PRIMITIVE_DATA_OFFSET ElementOffset = PRIMITIVE_DATA_OFFSET::WORLDMATRIX, uint32_t NumBytes = sizeof(PrimitiveRenderData))
 			{
 				if (m_EntityID_To_PrimitiveHandle.count(Index) != 0)
 				{
 					DS::FreelistAllocator::AllocationHandle& Handle = m_EntityID_To_PrimitiveHandle.at(Index);
-					m_PrimitiveDataBuffer.Write(Allocator, Data, Handle.GetStartOffset() + ElementDataOffset, NumBytes);
+					m_PrimitiveDataBuffer.Write(Allocator, Data, Handle.GetStartOffset() + ElementOffset, NumBytes);
 				}
 			}
 
-			void UpdatePointLight(uint32_t Index, void* Data, D3D12::LinearFrameAllocator& Allocator, uint32_t ElementDataOffset = 0, uint32_t NumBytes = sizeof(PointLightRenderData))
+			void UpdatePointLight(uint32_t Index, void* Data, D3D12::LinearFrameAllocator& Allocator)
 			{
 				if (m_EntityID_To_PointLightHandle.count(Index) != 0)
 				{

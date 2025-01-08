@@ -3,6 +3,11 @@
 #include "Shader.h"
 #include "DXCompiler/inc/dxcapi.h"
 
+#ifdef _DEBUG
+#include <fstream>
+#include <algorithm>
+#endif
+
 DXGI_FORMAT ReflectionMaskToDXGIFormat(BYTE Mask)
 {
 	DXGI_FORMAT Format;
@@ -30,6 +35,28 @@ DXGI_FORMAT ReflectionMaskToDXGIFormat(BYTE Mask)
 	return Format;
 }
 
+uint32_t ReflectionMaskToNumComponents(BYTE Mask)
+{
+	if (Mask == 15)
+	{
+		return 4;
+	}
+	else if (Mask == 7)
+	{
+		return 3;
+	}
+	else if (Mask == 3)
+	{
+		return 2;
+	}
+	else if (Mask == 1)
+	{
+		return 1;
+	}
+		
+	return std::numeric_limits<uint32_t>::max();
+}
+
 bool aZero::D3D12::Shader::ExtractShaderTypeFromFilepath(const std::string& Path, std::string& OutputStr)
 {
 	if (Path.ends_with(".vs.hlsl"))
@@ -55,10 +82,7 @@ bool aZero::D3D12::Shader::ExtractShaderTypeFromFilepath(const std::string& Path
 	return true;
 }
 
-void aZero::D3D12::Shader::GenerateReflectionData(IDxcResult& CompiledShaderResult, 
-	IDxcUtils& Utils, 
-	std::optional<std::vector<RootConstantOverride>> RootConstOverride,
-	std::optional<std::vector<RenderTargetOverride>> RTOverride)
+void aZero::D3D12::Shader::GenerateReflectionData(IDxcResult& CompiledShaderResult, IDxcUtils& Utils)
 {
 	CComPtr<IDxcBlob> ReflectionData = nullptr;
 	const HRESULT ReflectionDataOutputRes = CompiledShaderResult.GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&ReflectionData), nullptr);
@@ -100,7 +124,7 @@ void aZero::D3D12::Shader::GenerateReflectionData(IDxcResult& CompiledShaderResu
 					.Format = ReflectionMaskToDXGIFormat(SignatureParameterDesc.Mask),
 					.InputSlot = 0u,
 					.AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT,
-					.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, // Might be problem with instanced rendering
+					.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, // No way to get this via dxcompiler :(
 					.InstanceDataStepRate = 0u,
 				}
 			);
@@ -108,27 +132,12 @@ void aZero::D3D12::Shader::GenerateReflectionData(IDxcResult& CompiledShaderResu
 	}
 	else if (m_Type == SHADER_TYPE::PS)
 	{
-		m_RenderTargetFormats.reserve(ShaderDesc.OutputParameters);
+		m_RenderTargetMasks.reserve(ShaderDesc.OutputParameters);
 		for (uint32_t ParamIndex = 0; ParamIndex < ShaderDesc.OutputParameters; ParamIndex++)
 		{
 			D3D12_SIGNATURE_PARAMETER_DESC SignatureParameterDesc{};
 			ShaderReflection->GetOutputParameterDesc(ParamIndex, &SignatureParameterDesc);
-
-			DXGI_FORMAT Format = ReflectionMaskToDXGIFormat(SignatureParameterDesc.Mask);
-
-			if (RTOverride.has_value())
-			{
-				for (const RenderTargetOverride& Override : RTOverride.value())
-				{
-					if (Override.TargetSlot == ParamIndex)
-					{
-						Format = Override.Format;
-						break;
-					}
-				}
-			}
-
-			m_RenderTargetFormats.emplace_back(Format);
+			m_RenderTargetMasks.emplace_back(ReflectionMaskToNumComponents(SignatureParameterDesc.Mask));
 		}
 		ShaderVis = D3D12_SHADER_VISIBILITY_PIXEL;
 	}
@@ -154,56 +163,24 @@ void aZero::D3D12::Shader::GenerateReflectionData(IDxcResult& CompiledShaderResu
 
 		switch (ShaderInputBindDesc.Type)
 		{
-			// TODO: Handle more types?
 			case D3D_SIT_CBUFFER:
 			{
-				bool OverrideAsConstant = false;
-				if (RootConstOverride.has_value())
-				{
-					for (const RootConstantOverride& Override : RootConstOverride.value())
-					{
-						if (Override.BindingSlot == ShaderInputBindDesc.BindPoint)
-						{
-							OverrideAsConstant = true;
-							break;
-						}
-					}
-				}
+				ID3D12ShaderReflectionConstantBuffer* ShaderReflectionConstantBuffer = ShaderReflection->GetConstantBufferByIndex(ResourceIndex);
+				D3D12_SHADER_BUFFER_DESC ConstantBufferDesc{};
+				ShaderReflectionConstantBuffer->GetDesc(&ConstantBufferDesc);
 
-				if (OverrideAsConstant)
+				const D3D12_ROOT_PARAMETER RootParameter
 				{
-					ID3D12ShaderReflectionConstantBuffer* ShaderReflectionConstantBuffer = ShaderReflection->GetConstantBufferByIndex(ResourceIndex);
-					D3D12_SHADER_BUFFER_DESC ConstantBufferDesc{};
-					ShaderReflectionConstantBuffer->GetDesc(&ConstantBufferDesc);
-
-					const D3D12_ROOT_PARAMETER RootParameter
-					{
-						.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
-						.Constants{
-							.ShaderRegister = ShaderInputBindDesc.BindPoint,
-							.RegisterSpace = ShaderInputBindDesc.Space,
-							.Num32BitValues = ConstantBufferDesc.Size / sizeof(uint32_t)
-						},
-						.ShaderVisibility = ShaderVis
-					};
-					Info.m_ResourceType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-					m_RootParameters.push_back(RootParameter);
-				}
-				else
-				{
-					const D3D12_ROOT_PARAMETER RootParameter
-					{
-						.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV,
-						.Descriptor{
-							.ShaderRegister = ShaderInputBindDesc.BindPoint,
-							.RegisterSpace = ShaderInputBindDesc.Space
-						},
-						.ShaderVisibility = ShaderVis
-					};
-					Info.m_ResourceType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-					m_RootParameters.push_back(RootParameter);
-				}
-				
+					.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
+					.Constants{
+						.ShaderRegister = ShaderInputBindDesc.BindPoint,
+						.RegisterSpace = ShaderInputBindDesc.Space,
+						.Num32BitValues = ConstantBufferDesc.Size / sizeof(uint32_t)
+					},
+					.ShaderVisibility = ShaderVis
+				};
+				Info.m_ResourceType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+				m_RootParameters.push_back(RootParameter);
 
 				break;
 			}
@@ -246,10 +223,7 @@ void aZero::D3D12::Shader::GenerateReflectionData(IDxcResult& CompiledShaderResu
 	}
 }
 
-bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler, 
-	const std::string& FilePath, 
-	std::optional<std::vector<RootConstantOverride>> RootConstOverride,
-	std::optional<std::vector<RenderTargetOverride>> RTOverride)
+bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler, const std::string& FilePath)
 {
 	this->Reset();
 
@@ -258,7 +232,7 @@ bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler,
 
 	if (!IsShaderType)
 	{
-		DEBUG_PRINT("Shader::CompileFromFile() => Shader path (" + FilePath + ") isn't valid (filepath doesn't end with '.vs.hlsl', '.ps.hlsl' etc...");
+		DEBUG_PRINT("Shader path (" + FilePath + ") isn't valid (filepath doesn't end with '.vs.hlsl', '.ps.hlsl' etc...");
 		return false;
 	}
 
@@ -279,9 +253,12 @@ bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler,
 	const std::wstring PDBName(ShaderName.substr(0, LastDot) + L".pdb");
 
 	CompilationArgs.push_back(ShaderName.c_str());
-	CompilationArgs.push_back(L"-Zs");
+	CompilationArgs.push_back(DXC_ARG_DEBUG);
 	CompilationArgs.push_back(L"-Fd");
 	CompilationArgs.push_back(PDBName.c_str());
+	CompilationArgs.push_back(L"-Od");
+#else
+	CompilationArgs.push_back(L"-O0");
 #endif
 
 	CompilationArgs.push_back(L"-Qstrip_debug");
@@ -299,7 +276,7 @@ bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler,
 	const HRESULT FileLoadRes = Utils->LoadFile(FilePathWStr.c_str(), nullptr, &Blob);
 	if (FAILED(FileLoadRes))
 	{
-		DEBUG_PRINT("Shader::CompileFromFile() => Couldn't load shader at path: " + FilePath);
+		DEBUG_PRINT("Couldn't load shader at path: " + FilePath);
 		return false;
 	}
 
@@ -323,7 +300,7 @@ bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler,
 		if (Errors && Errors->GetStringLength() > 0)
 		{
 			const LPCSTR ErrorMsg = Errors->GetStringPointer();
-			DEBUG_PRINT("Shader::CompileFromFile() => " << ErrorMsg);
+			DEBUG_PRINT(ErrorMsg);
 		}
 
 		return false;
@@ -333,16 +310,41 @@ bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler,
 	const HRESULT ShaderBinaryOutputRes = CompilationRes->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&ShaderBinary), nullptr);
 	if (FAILED(ShaderBinaryOutputRes))
 	{
-		DEBUG_PRINT("Shader::CompileFromFile() => Failed to get shader binary blob");
+		DEBUG_PRINT("Failed to get shader binary blob");
 		return false;
 	}
 
+#ifdef _DEBUG
+	Microsoft::WRL::ComPtr<IDxcBlob> DebugData;
+	Microsoft::WRL::ComPtr<IDxcBlobUtf16> DebugDataPath;
+	const HRESULT PDBRes = CompilationRes->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(DebugData.GetAddressOf()), DebugDataPath.GetAddressOf());
+	if (FAILED(PDBRes))
+	{
+		DEBUG_PRINT("Failed to get pdb data");
+		return false;
+	}
+
+	std::vector<wchar_t> Path(200);
+	GetModuleFileNameW(NULL, &Path.at(0), Path.size());
+
+	std::wstring ExePath(Path.data());
+	ExePath = ExePath.substr(0, ExePath.find_last_of(L"\\"));
+	std::replace(ExePath.begin(), ExePath.end(), L'\\', L'/');
+
+	std::wstring OutputPathW(ExePath + L"/ShaderOutput/" + std::wstring(DebugDataPath->GetStringPointer()));
+	std::string OutputPath(OutputPathW.begin(), OutputPathW.end());
+
+	std::fstream File(OutputPath, std::ios::out | std::ios::trunc | std::ios::binary);
+	if(File.is_open())
+	{
+		File.write((char*)DebugData->GetBufferPointer(), DebugData->GetBufferSize());
+		File.close();
+	}
+#endif
+
 	m_CompiledShader = ShaderBinary;
 
-	this->GenerateReflectionData(*CompilationRes.p, *Utils.p, RootConstOverride, RTOverride);
+	this->GenerateReflectionData(*CompilationRes.p, *Utils.p);
 
-	// TODO: Generate pdb file as here: https://simoncoenen.com/blog/programming/graphics/DxcCompiling#:~:text=So%20now%2C%20it%E2%80%99s%20a%20lot%20more%20clear%20and%20easy%20to%20specifically%20get%20parts%20of%20the%20shader.%20Getting%20shader%20PDBs%20is%20done%20as%20follows%3A
-	// https://github.com/microsoft/DirectXShaderCompiler/wiki/Using-dxc.exe-and-dxcompiler.dll#reflection:~:text=separate%20reflection%20blobs.-,PDBs,-When%20your%20shader
-	
 	return true;
 }

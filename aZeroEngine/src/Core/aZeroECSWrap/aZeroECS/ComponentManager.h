@@ -25,6 +25,8 @@ namespace aZero
 			std::tuple<ComponentArray<Args>...> m_ComponentArrays;
 
 		public:
+			std::tuple<ComponentArray<Args>...>& GetComponentTuple() { return m_ComponentArrays; }
+
 			ComponentManager() = default;
 			~ComponentManager() = default;
 

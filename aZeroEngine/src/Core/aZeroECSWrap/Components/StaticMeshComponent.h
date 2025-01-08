@@ -1,7 +1,6 @@
 #pragma once
 #include "Core/D3D12Include.h"
-#include "Core/AssetTypes/Mesh.h"
-#include "Core/AssetTypes/Material.h"
+#include "Core/Renderer/RenderAsset.h"
 
 namespace aZero
 {

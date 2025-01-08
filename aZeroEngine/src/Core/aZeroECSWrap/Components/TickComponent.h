@@ -6,6 +6,7 @@ namespace aZero
 {
 	namespace ECS
 	{
+		// TODO: Scrap or rework
 		class TickComponent_Interface_Class
 		{
 		private:
@@ -38,7 +39,7 @@ namespace aZero
 				PostPhysicsUpdate_Override();
 			}
 		};
-		// TODO : Change from shared_ptr (It needs to be copyable for the ComponentArray::RemoveComponent function)
+
 		#define TickComponent_Interface std::shared_ptr<aZero::ECS::TickComponent_Interface_Class>
 
 		class ExampleTickComponent_Class : public TickComponent_Interface_Class

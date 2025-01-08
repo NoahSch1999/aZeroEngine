@@ -23,6 +23,7 @@ namespace aZero
 			D3D12::GPUBuffer m_StagingBuffer;
 			uint32_t m_CurrentAllocOffset = 0;
 
+			// TODO: Implement a more sophisticated approach without raw-pointers (both as hash and in the Allocation struct)
 			std::unordered_map<D3D12::GPUBuffer*, std::vector<Allocation>> m_Allocations;
 
 			uint32_t GetNextAllocOffset(uint32_t NumBytes)
@@ -77,19 +78,19 @@ namespace aZero
 			bool CanAllocate(uint32_t NumBytes)
 			{
 				const uint32_t OffsetAfterAlloc = m_CurrentAllocOffset + NumBytes;
-				const uint32_t MemorySize = m_StagingBuffer.GetResource()->GetDesc().Width;
+				const uint32_t MemorySize = static_cast<uint32_t>(m_StagingBuffer.GetResource()->GetDesc().Width);
 				return OffsetAfterAlloc <= MemorySize;
 			}
 
-			// TODO: Add so the copy range is checked so we dont overflow
 			void AddAllocation(void* Data, D3D12::GPUBuffer* DstResource, uint32_t DstOffset, uint32_t NumBytes)
 			{
-				// TODO: Use this::CanAllocate() to expand staging buffer if needed
-				if (DstResource->GetResource()->GetDesc().Width < (DstOffset + NumBytes))
+				const UINT64 DstResourceSize = DstResource->GetResource()->GetDesc().Width;
+				if (DstResourceSize < (DstOffset + NumBytes))
 				{
 					throw std::invalid_argument("LinearFrameAllocator::AddAllocation() => Out-of-range write to DstResource");
 				}
-				
+
+				// TODO: Expand staging buffer if needed
 				if (!this->CanAllocate(NumBytes))
 				{
 					throw std::invalid_argument("LinearFrameAllocator::AddAllocation() => Out-of-range write to this");
@@ -104,7 +105,6 @@ namespace aZero
 				Alloc.NumBytes = NumBytes;
 				Alloc.SrcBufferOffset = SrcAllocOffset;
 
-				// TODO: Add alloc merging based on dstresource hash
 				m_Allocations[DstResource].push_back(Alloc);
 			}
 

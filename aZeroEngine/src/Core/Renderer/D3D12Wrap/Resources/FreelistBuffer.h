@@ -18,7 +18,7 @@ namespace aZero
 		public:
 			FreelistBuffer() = default;
 
-			void Init(ID3D12Device* Device, uint64_t NumBytes, std::optional<ResourceRecycler*> OptResourceRecycler, D3D12::GPUResource::RWPROPERTY RWProperty)
+			void Init(ID3D12Device* Device, uint32_t NumBytes, std::optional<ResourceRecycler*> OptResourceRecycler, D3D12::GPUResource::RWPROPERTY RWProperty)
 			{
 				m_Buffer.Init(Device, RWProperty, NumBytes, OptResourceRecycler);
 				m_Allocator.Init(NumBytes);

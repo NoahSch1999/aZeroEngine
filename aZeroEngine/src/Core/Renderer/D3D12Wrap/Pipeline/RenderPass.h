@@ -31,11 +31,11 @@ namespace aZero
 
 			RenderPass() = default;
 
-			bool Init(ID3D12Device* Device, const Shader& VertexShader, const Shader& PixelShader, DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE)
+			bool Init(ID3D12Device* Device, const Shader& VertexShader, const Shader& PixelShader, const std::vector<DXGI_FORMAT>& RtvFormats, DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE)
 			{
 				if (VertexShader.GetType() != SHADER_TYPE::VS && VertexShader.GetType() != SHADER_TYPE::PS)
 				{
-					DEBUG_PRINT("RenderPass::Init() => One or more input shader didn't form a valid graphics pipeline");
+					DEBUG_PRINT("One or more input shader didn't form a valid graphics pipeline");
 					return false;
 				}
 
@@ -66,9 +66,9 @@ namespace aZero
 				std::vector<D3D12_STATIC_SAMPLER_DESC> StaticSamplers;
 
 				const D3D12_ROOT_SIGNATURE_DESC RootSignatureDesc{
-					(UINT)AllParams.size(),
+					static_cast<UINT>(AllParams.size()),
 					AllParams.data(),
-					StaticSamplers.size(), StaticSamplers.data(),
+					static_cast<UINT>(StaticSamplers.size()), StaticSamplers.data(),
 					D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
 					| D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED
 					| D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED };
@@ -79,14 +79,14 @@ namespace aZero
 				const HRESULT RSSerializeRes = D3D12SerializeRootSignature(&RootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, SerializeBlob.GetAddressOf(), ErrorBlob.GetAddressOf());
 				if (FAILED(RSSerializeRes))
 				{
-					DEBUG_PRINT("RenderPass::Init() => Failed to serialize graphics root signature");
+					DEBUG_PRINT("Failed to serialize graphics root signature");
 					return false;
 				}
 
 				const HRESULT RSRes = Device->CreateRootSignature(0, SerializeBlob->GetBufferPointer(), SerializeBlob->GetBufferSize(), IID_PPV_ARGS(m_RootSignature.GetAddressOf()));
 				if (FAILED(RSRes))
 				{
-					DEBUG_PRINT("RenderPass::Init() => Failed to create graphics root signature");
+					DEBUG_PRINT("Failed to create graphics root signature");
 					return false;
 				}
 
@@ -113,12 +113,23 @@ namespace aZero
 				PipelineStateDesc.InputLayout.pInputElementDescs = VertexShader.m_InputElementDescs.data();
 
 				PipelineStateDesc.PrimitiveTopologyType = TopologyType;
-				PipelineStateDesc.SampleMask = UINT_MAX;
+				PipelineStateDesc.SampleMask = std::numeric_limits<uint32_t>::max();
 
-				PipelineStateDesc.NumRenderTargets = PixelShader.m_RenderTargetFormats.size();
-				for (int i = 0; i < PixelShader.m_RenderTargetFormats.size(); i++)
+				PipelineStateDesc.NumRenderTargets = RtvFormats.size();
+				for (int i = 0; i < RtvFormats.size(); i++)
 				{
-					PipelineStateDesc.RTVFormats[i] = PixelShader.m_RenderTargetFormats[i];
+					const UINT RtvNumComponents = D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetNumComponentsInFormat(RtvFormats.at(i));
+					const uint32_t ExpectedNumComponents = PixelShader.m_RenderTargetMasks.at(i);
+					if (ExpectedNumComponents == static_cast<uint32_t>(RtvNumComponents))
+					{
+						PipelineStateDesc.RTVFormats[i] = RtvFormats.at(i);
+					}
+					else
+					{
+						const LPCSTR FormatName = D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetName(RtvFormats.at(i));
+						DEBUG_PRINT("Expected a DXGI_FORMAT with " << ExpectedNumComponents << " components but " << FormatName << " has " << RtvNumComponents << " components");
+						return false;
+					}
 				}
 
 				D3D12_DEPTH_STENCIL_DESC DepthStencilDesc{};
@@ -142,7 +153,7 @@ namespace aZero
 				const HRESULT PSORes = Device->CreateGraphicsPipelineState(&PipelineStateDesc, IID_PPV_ARGS(m_PipelineState.GetAddressOf()));
 				if (FAILED(PSORes))
 				{
-					DEBUG_PRINT("RenderPass::Init() => Failed to create graphics pipelinestate");
+					DEBUG_PRINT("Failed to create graphics pipelinestate");
 					return false;
 				}
 
@@ -153,7 +164,7 @@ namespace aZero
 			{
 				if (ComputeShader.GetType() != SHADER_TYPE::CS)
 				{
-					DEBUG_PRINT("RenderPass::Init() => Input shader didn't form a valid compute pipeline");
+					DEBUG_PRINT("Input shader didn't form a valid compute pipeline");
 					return false;
 				}
 
@@ -164,9 +175,9 @@ namespace aZero
 				std::vector<D3D12_STATIC_SAMPLER_DESC> StaticSamplers;
 
 				const D3D12_ROOT_SIGNATURE_DESC RootSignatureDesc{
-					(UINT)ComputeShader.m_RootParameters.size(),
+					static_cast<UINT>(ComputeShader.m_RootParameters.size()),
 					ComputeShader.m_RootParameters.data(),
-					StaticSamplers.size(), StaticSamplers.data(),
+					static_cast<UINT>(StaticSamplers.size()), StaticSamplers.data(),
 					D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
 					| D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED
 					| D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED };
@@ -177,14 +188,14 @@ namespace aZero
 				const HRESULT RSSerializeRes = D3D12SerializeRootSignature(&RootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, SerializeBlob.GetAddressOf(), ErrorBlob.GetAddressOf());
 				if (FAILED(RSSerializeRes))
 				{
-					DEBUG_PRINT("RenderPass::Init() => Failed to serialize compute root signature");
+					DEBUG_PRINT("Failed to serialize compute root signature");
 					return false;
 				}
 
 				const HRESULT RSRes = Device->CreateRootSignature(0, SerializeBlob->GetBufferPointer(), SerializeBlob->GetBufferSize(), IID_PPV_ARGS(m_RootSignature.GetAddressOf()));
 				if (FAILED(RSRes))
 				{
-					DEBUG_PRINT("RenderPass::Init() => Failed to create compute root signature");
+					DEBUG_PRINT("Failed to create compute root signature");
 					return false;
 				}
 
@@ -204,7 +215,7 @@ namespace aZero
 				const HRESULT PSORes = Device->CreateComputePipelineState(&PipelineDesc, IID_PPV_ARGS(m_PipelineState.GetAddressOf()));
 				if (FAILED(PSORes))
 				{
-					DEBUG_PRINT("RenderPass::Init() => Failed to create compute pipelinestate");
+					DEBUG_PRINT("Failed to create compute pipelinestate");
 					return false;
 				}
 
@@ -227,7 +238,7 @@ namespace aZero
 					}
 					else
 					{
-						DEBUG_PRINT("RenderPass::SetShaderResource() => Vertex shader has no parameter of name: " + ShaderResourceName);
+						DEBUG_PRINT("Vertex shader has no parameter of name: " + ShaderResourceName);
 						return;
 					}
 				}
@@ -239,7 +250,7 @@ namespace aZero
 					}
 					else
 					{
-						DEBUG_PRINT("RenderPass::SetShaderResource() => Pixel shader has no parameter of name: " + ShaderResourceName);
+						DEBUG_PRINT("Pixel shader has no parameter of name: " + ShaderResourceName);
 						return;
 					}
 				}
@@ -251,13 +262,13 @@ namespace aZero
 					}
 					else
 					{
-						DEBUG_PRINT("RenderPass::SetShaderResource() => Compute shader has no parameter of name: " + ShaderResourceName);
+						DEBUG_PRINT("Compute shader has no parameter of name: " + ShaderResourceName);
 						return;
 					}
 				}
 				else
 				{
-					DEBUG_PRINT("RenderPass::SetShaderResource() => Input shader type isn't supported");
+					DEBUG_PRINT("Input shader type isn't supported");
 					return;
 				}
 
@@ -269,7 +280,7 @@ namespace aZero
 					}
 					else
 					{
-						DEBUG_PRINT("RenderPass::SetShaderResource() => Input parameter '" + ShaderResourceName + "' is expected to be a root constant, but isn't");
+						DEBUG_PRINT("Input parameter '" + ShaderResourceName + "' is expected to be a root constant, but isn't");
 					}
 				}
 				else if(Type != SHADER_TYPE::NONE)
@@ -280,12 +291,12 @@ namespace aZero
 					}
 					else
 					{
-						DEBUG_PRINT("RenderPass::SetShaderResource() => Input parameter '" + ShaderResourceName + "' is expected to be a root constant, but isn't");
+						DEBUG_PRINT("Input parameter '" + ShaderResourceName + "' is expected to be a root constant, but isn't");
 					}
 				}
 				else
 				{
-					DEBUG_PRINT("RenderPass::SetShaderResource() => No resource set because input type is SHADER_TYPE::NONE");
+					DEBUG_PRINT("No resource set because input type is SHADER_TYPE::NONE");
 				}
 				
 			}
@@ -301,7 +312,7 @@ namespace aZero
 					}
 					else
 					{
-						DEBUG_PRINT("RenderPass::SetShaderResource() => Vertex shader has no parameter of name: " + ShaderResourceName);
+						DEBUG_PRINT("Vertex shader has no parameter of name: " + ShaderResourceName);
 						return;
 					}
 				}
@@ -313,7 +324,7 @@ namespace aZero
 					}
 					else
 					{
-						DEBUG_PRINT("RenderPass::SetShaderResource() => Pixel shader has no parameter of name: " + ShaderResourceName);
+						DEBUG_PRINT("Pixel shader has no parameter of name: " + ShaderResourceName);
 						return;
 					}
 				}
@@ -325,13 +336,13 @@ namespace aZero
 					}
 					else
 					{
-						DEBUG_PRINT("RenderPass::SetShaderResource() => Compute shader has no parameter of name: " + ShaderResourceName);
+						DEBUG_PRINT("Compute shader has no parameter of name: " + ShaderResourceName);
 						return;
 					}
 				}
 				else
 				{
-					DEBUG_PRINT("RenderPass::SetShaderResource() => Input shader type isn't supported");
+					DEBUG_PRINT("Input shader type isn't supported");
 					return;
 				}
 
@@ -356,7 +367,7 @@ namespace aZero
 						}
 						default:
 						{
-							DEBUG_PRINT("RenderPass::SetShaderResource() => Parameter doesn't have a supported parameter type or potentially a root constant");
+							DEBUG_PRINT("Parameter doesn't have a supported parameter type or potentially a root constant");
 						}
 					}
 				}
@@ -381,13 +392,13 @@ namespace aZero
 						}
 						default:
 						{
-							DEBUG_PRINT("RenderPass::SetShaderResource() => Parameter doesn't have a supported parameter type");
+							DEBUG_PRINT("Parameter doesn't have a supported parameter type");
 						}
 					}
 				}
 				else
 				{
-					DEBUG_PRINT("RenderPass::SetShaderResource() => No resource set because input type is SHADER_TYPE::NONE");
+					DEBUG_PRINT("No resource set because input type is SHADER_TYPE::NONE");
 				}
 			}
 		};

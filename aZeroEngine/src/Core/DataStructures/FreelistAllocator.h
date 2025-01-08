@@ -17,10 +17,9 @@ namespace aZero
 			uint32_t m_CurrentSize;
 			std::list<AllocationNode> m_FreeNodes;
 
+			// TODO: Optimize
 			void InsertNode(const AllocationNode& InNode)
 			{
-				// TODO - Make the new node be inserted into the list sorted by size?
-
 				std::list<AllocationNode>::iterator it;
 				for (it = m_FreeNodes.begin(); it != m_FreeNodes.end(); it++)
 				{
@@ -126,7 +125,6 @@ namespace aZero
 
 			void Resize(uint32_t NewSizeBytes)
 			{
-				// TODO: Handle?
 				DEBUG_FUNC([&] {
 					if (NewSizeBytes <= m_CurrentSize)
 					{

@@ -11,9 +11,6 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Core\FileAssets">
-      <UniqueIdentifier>{0ab58eda-8e6b-46f1-8336-054b568c2e79}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Core\aZeroECSWrap">
       <UniqueIdentifier>{474b69cb-4303-44b2-92f1-97e490a5a33d}</UniqueIdentifier>
     </Filter>
@@ -53,25 +50,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="src\Shaders\BasePass.vs.hlsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="src\Shaders\BasePass.ps.hlsl">
-      <Filter>Shaders</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Main</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\aZeroECSWrap\ComponentManagerInterface.cpp">
-      <Filter>Core\aZeroECSWrap</Filter>
-    </ClCompile>
     <ClCompile Include="src\Core\Renderer\Renderer.cpp">
       <Filter>Core\Renderer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\Renderer\D3D12Wrap\Window\SwapChain.cpp">
-      <Filter>Core\Renderer\D3D12Wrap\Window</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Window\Window.cpp">
       <Filter>Core\Renderer\D3D12Wrap\Window</Filter>
@@ -82,19 +67,19 @@
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Resources\GPUResource.cpp">
       <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\AssetTypes\Mesh.cpp">
-      <Filter>Core\FileAssets</Filter>
-    </ClCompile>
     <ClCompile Include="src\Core\Renderer\D3D12Wrap\Descriptors\Descriptor.cpp">
       <Filter>Core\Renderer\D3D12Wrap\Descriptors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Renderer\RenderAssetData.cpp">
+      <Filter>Core\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\STBIHack.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Scene\Scene.h">
       <Filter>Core\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\aZeroECSWrap\ComponentManagerInterface.h">
-      <Filter>Core\aZeroECSWrap</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\aZeroECSWrap\Components\DirectionalLightComponent.h">
       <Filter>Core\aZeroECSWrap\Components</Filter>
@@ -132,17 +117,8 @@
     <ClInclude Include="src\Core\aZeroECSWrap\aZeroECS\SparseLookupArray.h">
       <Filter>Core\aZeroECSWrap\aZeroECS</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\aZeroECSWrap\aZeroECS\System.h">
-      <Filter>Core\aZeroECSWrap\aZeroECS</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\aZeroECSWrap\aZeroECS\SystemManager.h">
-      <Filter>Core\aZeroECSWrap\aZeroECS</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\Renderer\Renderer.h">
       <Filter>Core\Renderer</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Window\SwapChain.h">
-      <Filter>Core\Renderer\D3D12Wrap\Window</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Window\Window.h">
       <Filter>Core\Renderer\D3D12Wrap\Window</Filter>
@@ -177,9 +153,6 @@
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\ResourceRecycler.h">
       <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\DataStructures\UniqueIndexList.h">
-      <Filter>Core\DataStructures</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\Renderer\RenderScene.h">
       <Filter>Core\Renderer</Filter>
     </ClInclude>
@@ -189,36 +162,49 @@
     <ClInclude Include="src\Core\DataStructures\FreelistAllocator.h">
       <Filter>Core\DataStructures</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\AssetTypes\Mesh.h">
-      <Filter>Core\FileAssets</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\AssetTypes\RenderFileAsset.h">
-      <Filter>Core\FileAssets</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\FreelistBuffer.h">
       <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\GPUResourceView.h">
       <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\AssetTypes\Texture.h">
-      <Filter>Core\FileAssets</Filter>
-    </ClInclude>
     <ClInclude Include="src\Core\DXCompilerInclude.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\EngineDebugMacros.h">
+    <ClInclude Include="src\Core\EngineDebug.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Pipeline\RenderPass.h">
       <Filter>Core\Renderer\D3D12Wrap\Pipeline</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\AssetTypes\Material.h">
-      <Filter>Core\FileAssets</Filter>
+    <ClInclude Include="src\Core\Misc\stb_Image_Include.h" />
+    <ClInclude Include="src\Core\Renderer\RenderGarbageCollector.h">
+      <Filter>Core\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\RenderAsset.h">
+      <Filter>Core\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\RenderAssetManager.h">
+      <Filter>Core\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\RenderAssetData.h">
+      <Filter>Core\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\aZeroECSWrap\Components\CameraComponent.h">
+      <Filter>Core\aZeroECSWrap\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\LinearBuffer.h">
+      <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="src\Shaders\TestShader.cs.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="src\Shaders\BasePass.vs.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="src\Shaders\BasePass.ps.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

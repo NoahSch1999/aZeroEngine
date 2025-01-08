@@ -1,129 +1,132 @@
 #include "Window.h"
-#include "SwapChain.h"
+
+#include "Core/Renderer/D3D12Wrap/Resources/ResourceRecycler.h"
+#include "Core/Renderer/D3D12Wrap/Resources/GPUResource.h"
+#include "Core/Renderer/D3D12Wrap/Commands/CommandQueue.h"
 
 LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-aZero::Window::Window::Window(const D3D12::CommandQueue& graphicsQueue, HINSTANCE appInstance,
-	WNDPROC winProcedure, DXGI_FORMAT backBufferFormat, const DXM::Vector2& dimensions, bool fullscreen, const std::string& windowName)
+void aZero::Window::RenderWindow::AllocateBackBuffers()
 {
-	Init(graphicsQueue, appInstance, winProcedure, backBufferFormat, dimensions, fullscreen, windowName);
+	if (m_BackBuffers.size() > 0)
+	{
+		for (Microsoft::WRL::ComPtr<ID3D12Resource>& BackBuffer : m_BackBuffers)
+		{
+			m_ResourceRecycler->RecycleResource(BackBuffer);
+		}
+	}
+
+	m_BackBuffers.resize(m_NumBackBuffers);
+
+	for (int BufferIndex = 0; BufferIndex < m_BackBuffers.size(); BufferIndex++)
+	{
+		Microsoft::WRL::ComPtr<ID3D12Resource> NewResource;
+		m_SwapChain->GetBuffer(BufferIndex, IID_PPV_ARGS(m_BackBuffers[BufferIndex].GetAddressOf()));
+	}
 }
 
-void aZero::Window::Init(const D3D12::CommandQueue& graphicsQueue, HINSTANCE appInstance,
-	WNDPROC winProcedure, DXGI_FORMAT backBufferFormat, const DXM::Vector2& dimensions, bool fullscreen, const std::string& windowName)
+aZero::Window::RenderWindow::RenderWindow(
+	HINSTANCE AppInstance,
+	const D3D12::CommandQueue& GraphicsQueue,
+	const std::string& Name,
+	const DXM::Vector2& Dimensions,
+	std::optional<D3D12::ResourceRecycler*> OptResourceRecycler,
+	std::uint32_t NumBackBuffers,
+	DXGI_FORMAT BackBufferFormat)
 {
-	m_renderSurfaceFormat = backBufferFormat;
-	m_lastWindowedDimensions = dimensions;
-	m_appInstance = appInstance;
-	m_windowName.assign(windowName.begin(), windowName.end()); // TODO - possible to get name via handle for unreg?
+	m_AppInstance = AppInstance;
+	m_Name.assign(Name.begin(), Name.end());
+	m_NumBackBuffers = NumBackBuffers;
+	m_ResourceRecycler = OptResourceRecycler.has_value() ? OptResourceRecycler.value() : nullptr;
 
 	WNDCLASS wc = { };
-	wc.lpfnWndProc = winProcedure;
-	wc.hInstance = m_appInstance;
-	wc.lpszClassName = m_windowName.c_str();
+	wc.lpfnWndProc = WndProc;
+	wc.hInstance = AppInstance;
+	wc.lpszClassName = m_Name.c_str();
 	RegisterClass(&wc);
 
-	m_windowHandle = CreateWindowEx(
+	m_WindowHandle = CreateWindowEx(
 		0,
-		m_windowName.c_str(),
-		m_windowName.c_str(),
+		m_Name.c_str(),
+		m_Name.c_str(),
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
-		dimensions.x, dimensions.y,
+		Dimensions.x, Dimensions.y,
 		NULL,
 		NULL,
-		m_appInstance,
+		AppInstance,
 		NULL
 	);
 
-	if (m_windowHandle == NULL)
+	if (m_WindowHandle == NULL)
 	{
-		throw std::invalid_argument("Window::Init() => Failed to create window");
+		throw std::invalid_argument("Failed to create window");
 	}
 
-	if (fullscreen)
+	ShowWindow(m_WindowHandle, SW_SHOWNORMAL);
+
+	ID3D12Device* Device;
+	const HRESULT GetDeviceRes = GraphicsQueue.GetCommandQueue()->GetDevice(IID_PPV_ARGS(&Device));
+	if (FAILED(GetDeviceRes))
 	{
-		SetFullscreen(true);
+		throw std::invalid_argument("Failed to get CommandQueue device");
 	}
 
-	ShowWindow(m_windowHandle, SW_SHOWNORMAL);
-
-	m_swapChain = std::make_unique<D3D12::SwapChain>(m_windowHandle, graphicsQueue, backBufferFormat, std::optional<D3D12::ResourceRecycler*>{});
-}
-
-aZero::Window::Window::~Window()
-{
-	DestroyWindow(m_windowHandle);
-	UnregisterClass(m_windowName.c_str(), m_appInstance);
-}
-
-void aZero::Window::Window::SetFullscreen(bool enabled)
-{
-	if (enabled)
+	const HRESULT DXGIRes = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(m_Factory.GetAddressOf()));
+	if (FAILED(DXGIRes))
 	{
-		m_lastWindowedDimensions = GetFullDimensions();
-
-		SetWindowLongPtr(m_windowHandle, GWL_STYLE, WS_POPUP | WS_VISIBLE);
-		SetWindowLongPtr(m_windowHandle, GWL_EXSTYLE, WS_EX_APPWINDOW);
-
-		const HMONITOR monitor = MonitorFromWindow(m_windowHandle, MONITOR_DEFAULTTONEAREST);
-		MONITORINFO monitorInfo{};
-		monitorInfo.cbSize = sizeof(monitorInfo);
-		GetMonitorInfoW(monitor, &monitorInfo);
-
-		SetWindowPos(m_windowHandle, nullptr,
-			monitorInfo.rcMonitor.left,
-			monitorInfo.rcMonitor.top,
-			monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left,
-			monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top,
-			SWP_NOZORDER);
+		throw std::invalid_argument("Failed to create DXGIFactory");
 	}
-	else
+
+	DXGI_SWAP_CHAIN_DESC1 SwapChainDesc;
+	SwapChainDesc.Width = Dimensions.x;
+	SwapChainDesc.Height = Dimensions.y;
+	SwapChainDesc.Format = BackBufferFormat;
+	SwapChainDesc.Stereo = false;
+	SwapChainDesc.SampleDesc.Count = 1;
+	SwapChainDesc.SampleDesc.Quality = 0;
+	SwapChainDesc.BufferCount = NumBackBuffers;
+	SwapChainDesc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
+	SwapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	SwapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+	SwapChainDesc.Flags =
+		(DXGI_SWAP_CHAIN_FLAG)(DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING)
+		| DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+
+	DXGI_SWAP_CHAIN_FULLSCREEN_DESC FullscreenDesc = {};
+	DEVMODEA DisplayInfo;
+	EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &DisplayInfo);
+
+	FullscreenDesc.RefreshRate.Numerator = DisplayInfo.dmDisplayFrequency;
+	FullscreenDesc.RefreshRate.Denominator = 1;
+	FullscreenDesc.Windowed = true;
+	FullscreenDesc.Scaling = DXGI_MODE_SCALING_STRETCHED;
+	FullscreenDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+
+	const HRESULT SwapChainRes = m_Factory->CreateSwapChainForHwnd(GraphicsQueue.GetCommandQueue(), m_WindowHandle,
+		&SwapChainDesc, &FullscreenDesc, nullptr, m_SwapChain.GetAddressOf());
+	if (FAILED(SwapChainRes))
 	{
-		SetWindowLongPtr(m_windowHandle, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
-		SetWindowLongPtr(m_windowHandle, GWL_EXSTYLE, WS_EX_OVERLAPPEDWINDOW | WS_EX_APPWINDOW);
-		SetWindowPos(m_windowHandle, NULL, 0, 0, m_lastWindowedDimensions.x, m_lastWindowedDimensions.y, 0);
+		throw std::invalid_argument("Failed to create swapchain");
 	}
+
+	this->AllocateBackBuffers();
 }
 
-bool aZero::Window::Window::IsOpen()
+aZero::Window::RenderWindow::~RenderWindow()
 {
-	HWND handle = FindWindow(m_windowName.c_str(), m_windowName.c_str());
-	return handle != NULL;
-}
-
-void aZero::Window::Window::Resize(const DXM::Vector2& dimensions, const DXM::Vector2& position)
-{
-	m_lastWindowedDimensions = dimensions;
-	SetWindowPos(m_windowHandle, NULL, position.x, position.y, dimensions.x, dimensions.y, 0);
-
-	m_swapChain->Resize(dimensions);
-}
-
-DXM::Vector2 aZero::Window::Window::GetClientDimensions() const
-{
-	RECT rect;
-	GetClientRect(m_windowHandle, &rect);
-	return DXM::Vector2(rect.right, rect.bottom);
-}
-
-DXM::Vector2 aZero::Window::Window::GetFullDimensions() const
-{
-	RECT rect;
-	GetWindowRect(m_windowHandle, &rect);
-	return DXM::Vector2(rect.right, rect.bottom);
-}
-
-void aZero::Window::Window::HandleMessages()
-{
-	MSG msg = { 0 };
-	bool msgReturn = 1;
-	while (PeekMessage(&msg, m_windowHandle, 0, 0, PM_REMOVE))
+	if (m_ResourceRecycler)
 	{
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
+		DestroyWindow(m_WindowHandle);
+		UnregisterClass(m_Name.c_str(), m_AppInstance);
+
+		for (Microsoft::WRL::ComPtr<ID3D12Resource>& BackBuffer : m_BackBuffers)
+		{
+			m_ResourceRecycler->RecycleResource(BackBuffer);
+		}
 	}
 }

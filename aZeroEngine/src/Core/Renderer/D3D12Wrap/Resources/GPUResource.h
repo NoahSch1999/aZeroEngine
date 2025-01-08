@@ -23,9 +23,9 @@ namespace aZero
 		private:
 			D3D12::ResourceRecycler* m_ResourceRecycler = nullptr;
 			Microsoft::WRL::ComPtr<ID3D12Resource> m_Resource = nullptr;
-			void* m_MappedPtr = nullptr;
 
 		protected:
+			void* m_MappedPtr = nullptr;
 
 			GPUResource(
 				ID3D12Device* Device, 
@@ -192,6 +192,14 @@ namespace aZero
 			{
 				GPUResource::Init(InResource, OptResourceRecycler);
 			}
+
+			void Write(void* Data, uint32_t NumBytes, uint32_t Offset = 0)
+			{
+				if (this->m_MappedPtr)
+				{
+					memcpy((char*)m_MappedPtr + Offset, Data, NumBytes);
+				}
+			}
 		};
 
 		class GPUTexture : public GPUResource
@@ -245,9 +253,9 @@ namespace aZero
 
 				Desc.Format = Format;
 				Desc.Alignment = 0;
-				Desc.Width = Dimensions.x;
-				Desc.Height = Dimensions.y;
-				Desc.DepthOrArraySize = Dimensions.z;
+				Desc.Width = static_cast<UINT64>(Dimensions.x);
+				Desc.Height = static_cast<UINT>(Dimensions.y);
+				Desc.DepthOrArraySize = static_cast<UINT16>(Dimensions.z);
 				Desc.MipLevels = MipLevels;
 				Desc.SampleDesc.Count = 1;
 				Desc.SampleDesc.Quality = 0;

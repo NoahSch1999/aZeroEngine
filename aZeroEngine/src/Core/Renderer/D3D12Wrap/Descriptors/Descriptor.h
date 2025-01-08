@@ -9,9 +9,9 @@ namespace aZero
 		{
 			friend class DescriptorHeap;
 		private:
+			int32_t m_HeapIndex = -1;
 			D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
 			D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle;
-			uint32_t m_HeapIndex;
 			DescriptorHeap* m_OwningHeap = nullptr;
 
 			Descriptor(const D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle,

@@ -112,7 +112,7 @@ namespace aZero
 					Lists.push_back(Context->GetCommandList());
 				}
 
-				m_Queue->ExecuteCommandLists(Lists.size(), Lists.data());
+				m_Queue->ExecuteCommandLists(static_cast<UINT>(Lists.size()), Lists.data());
 
 				return this->ForceSignal();
 			}

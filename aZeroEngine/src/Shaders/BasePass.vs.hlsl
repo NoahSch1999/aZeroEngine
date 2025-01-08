@@ -1,8 +1,6 @@
-struct PrimitiveRenderData
-{
-    row_major float4x4 WorldMatrix;
-    unsigned int MeshEntryIndex;
-};
+
+// Expects column-major matrix by default
+// Simplemath stores in row-major
 
 struct VertexData
 {
@@ -19,26 +17,32 @@ struct MeshEntry
     unsigned int NumIndices;
 };
 
-struct ViewMatrices
+struct CameraData
 {
-    row_major float4x4 ViewMatrix;
-    row_major float4x4 ProjectionMatrix;
+    row_major float4x4 ViewProjectionMatrix;
 };
 
-struct PerDrawConstants
+struct InstanceData
 {
-    int PrimitiveIndex;
+    row_major float4x4 WorldMatrix;
 };
 
-ConstantBuffer<ViewMatrices> ViewMatricesBuffer : register(b0);
-ConstantBuffer<PerDrawConstants> PerDrawConstantsBuffer : register(b1);
-StructuredBuffer<PrimitiveRenderData> PrimitiveRenderDataBuffer : register(t0);
+struct PerBatchConstants
+{
+    unsigned int StartInstanceOffset;
+    unsigned int MeshEntryIndex;
+};
+
+ConstantBuffer<CameraData> CameraDataBuffer : register(b0);
+ConstantBuffer<PerBatchConstants> PerBatchConstantsBuffer : register(b1);
+
 StructuredBuffer<VertexData> VertexBuffer : register(t1);
 StructuredBuffer<unsigned int> IndexBuffer : register(t2);
 StructuredBuffer<MeshEntry> MeshEntries : register(t3);
+StructuredBuffer<InstanceData> InstanceBuffer : register(t4);
 
 VertexData GetVertexFromID(
-    in const StructuredBuffer<VertexData> VertexBuffer, 
+    in const StructuredBuffer<VertexData> VertexBuffer,
     in const StructuredBuffer<uint> IndexBuffer,
     in MeshEntry Mesh, unsigned int ID)
 {
@@ -46,8 +50,11 @@ VertexData GetVertexFromID(
     return VertexBuffer.Load(Index + Mesh.VertexStartOffset);
 }
 
-// Expects column-major matrix by default
-// Simplemath stores in row-major
+struct InputData
+{
+    uint VertexID : SV_VertexID;
+    uint InstanceID : SV_InstanceID;
+};
 
 struct OutputData
 {
@@ -58,30 +65,26 @@ struct OutputData
     float3x3 TBN : TBN;
 };
 
-OutputData main(uint VertexID : SV_VertexID)
+OutputData main(InputData Input)
 {
-    const PrimitiveRenderData PrimitiveData = PrimitiveRenderDataBuffer.Load(PerDrawConstantsBuffer.PrimitiveIndex);
+    const MeshEntry Mesh = MeshEntries.Load(PerBatchConstantsBuffer.MeshEntryIndex);
+    const VertexData Vertex = GetVertexFromID(VertexBuffer, IndexBuffer, Mesh, Input.VertexID);
     
-    const MeshEntry Mesh = MeshEntries.Load(PrimitiveData.MeshEntryIndex);
-    const VertexData Vertex = GetVertexFromID(VertexBuffer, IndexBuffer, Mesh, VertexID); // 0 should be VS index
-    
-    const row_major float4x4 WorldMatrix = PrimitiveData.WorldMatrix;
+    const row_major float4x4 WorldMatrix = InstanceBuffer.Load(PerBatchConstantsBuffer.StartInstanceOffset + Input.InstanceID).WorldMatrix;
     
     OutputData Output;
     Output.Position = mul(float4(Vertex.Position, 1.f), WorldMatrix);
-    Output.WorldPosition = Output.Position;
-    Output.Position = mul(Output.Position, ViewMatricesBuffer.ViewMatrix);
-    Output.Position = mul(Output.Position, ViewMatricesBuffer.ProjectionMatrix);
+    Output.WorldPosition = Output.Position.xyz;
+    Output.Position = mul(Output.Position, CameraDataBuffer.ViewProjectionMatrix);
     
     Output.UV = Vertex.UV;
     
-    // Can be removed and the normal can be retrieved from the TBN matrix in the PS
-    const float3 Normal = normalize(mul(WorldMatrix, float4(Vertex.Normal, 0.f))).xyz;
-    const float3 Tangent = normalize(mul(WorldMatrix, float4(Vertex.Tangent, 0.f))).xyz;
-    const float3 Bitangent = normalize(cross(Tangent, Normal));
+    const float3 Normal = mul(float4(Vertex.Normal, 0.f), WorldMatrix).xyz;
+    const float3 Tangent = mul(float4(Vertex.Tangent, 0.f), WorldMatrix).xyz;
+    const float3 Bitangent = cross(Tangent, Normal);
     
     Output.Normal = Normal;
     Output.TBN = float3x3(Tangent, Bitangent, Normal);
     
-	return Output;
+    return Output;
 }

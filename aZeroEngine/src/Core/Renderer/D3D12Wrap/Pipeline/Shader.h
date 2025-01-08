@@ -18,21 +18,6 @@ namespace aZero
 		{
 			friend RenderPass;
 
-		public:
-			// For use when you need to override a cbuffer or constantbuffer<T> shader resource to be used as a root constant
-			struct RootConstantOverride
-			{
-				uint32_t BindingSlot;
-			};
-
-			// For use when you want to specify a specific DXGI_FORMAT for an rendertarget
-			// Default values are found in: Shader::ReflectionMaskToDXGIFormat()
-			struct RenderTargetOverride
-			{
-				uint32_t TargetSlot;
-				DXGI_FORMAT Format;
-			};
-
 		private:
 			SHADER_TYPE m_Type;
 			CComPtr<IDxcBlob> m_CompiledShader;
@@ -45,7 +30,7 @@ namespace aZero
 			std::unordered_map<std::string, ShaderResourceInfo> m_ResourceNameToInformation;
 			std::vector<D3D12_ROOT_PARAMETER> m_RootParameters;
 
-			std::vector<DXGI_FORMAT> m_RenderTargetFormats;
+			std::vector<uint32_t> m_RenderTargetMasks;
 			std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputElementDescs;
 			std::vector<std::string> m_InputElementSemanticNames; // TODO: Try remove
 
@@ -55,26 +40,20 @@ namespace aZero
 				m_CompiledShader = nullptr;
 				m_ResourceNameToInformation.clear();
 				m_RootParameters.clear();
-				m_RenderTargetFormats.clear();
+				m_RenderTargetMasks.clear();
 				m_InputElementDescs.clear();
 				m_InputElementSemanticNames.clear();
 			}
 
 			bool ExtractShaderTypeFromFilepath(const std::string& Path, std::string& OutputStr);
 
-			void GenerateReflectionData(IDxcResult& CompiledShaderResult, 
-				IDxcUtils& Utils, 
-				std::optional<std::vector<RootConstantOverride>> RootConstOverride,
-				std::optional<std::vector<RenderTargetOverride>> RTOverride);
+			void GenerateReflectionData(IDxcResult& CompiledShaderResult, IDxcUtils& Utils);
 
 		public:
 
 			Shader() = default;
 
-			bool CompileFromFile(IDxcCompiler3& Compiler,
-				const std::string& FilePath, 
-				std::optional<std::vector<RootConstantOverride>> RootConstOverride = std::optional<std::vector<RootConstantOverride>>{},
-				std::optional<std::vector<RenderTargetOverride>> RTOverride = std::optional<std::vector<RenderTargetOverride>>{});
+			bool CompileFromFile(IDxcCompiler3& Compiler, const std::string& FilePath);
 
 			SHADER_TYPE GetType() const { return m_Type; }
 		};

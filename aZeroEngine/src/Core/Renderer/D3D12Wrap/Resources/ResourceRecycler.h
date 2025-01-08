@@ -8,7 +8,6 @@ namespace aZero
 {
 	namespace D3D12
 	{
-		// TODO - Make it more efficient by minimizing the amount of dynamic memory allocations
 		class ResourceRecycler
 		{
 		private:

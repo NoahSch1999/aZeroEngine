@@ -24,7 +24,7 @@ namespace aZero
 			friend class ComponentArray;
 
 		private:
-			EntityID m_ID = UINT_MAX;
+			EntityID m_ID = std::numeric_limits<uint32_t>::max();
 			std::bitset<MAX_COMPONENT_COUNT> m_ComponentMask;
 
 		private:

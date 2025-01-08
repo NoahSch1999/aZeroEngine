@@ -20,8 +20,20 @@ namespace aZero
 
 			EntityManager(const EntityManager&) = delete;
 			EntityManager operator=(const EntityManager&) = delete;
-			EntityManager(EntityManager&& Other) = delete;
-			EntityManager& operator=(EntityManager&& Other) = delete;
+			EntityManager(EntityManager&& Other) noexcept
+			{
+				m_CurrentMax = Other.m_CurrentMax;
+				m_FreeEntityIDs = std::move(Other.m_FreeEntityIDs);
+			}
+			EntityManager& operator=(EntityManager&& Other) noexcept
+			{
+				if (this != &Other)
+				{
+					m_CurrentMax = Other.m_CurrentMax;
+					m_FreeEntityIDs = std::move(Other.m_FreeEntityIDs);
+				}
+				return *this;
+			}
 
 			/** Creates a new Entity object with a unique ID.
 			@return Entity
@@ -50,11 +62,11 @@ namespace aZero
 			*/
 			void RemoveEntity(Entity& Ent)
 			{
-				if (Ent.m_ID == UINT_MAX)
+				if (Ent.m_ID == std::numeric_limits<uint32_t>::max())
 					return;
 
 				m_FreeEntityIDs.push(Ent.m_ID);
-				Ent.m_ID = UINT_MAX;
+				Ent.m_ID = std::numeric_limits<uint32_t>::max();
 			}
 		};
 	}

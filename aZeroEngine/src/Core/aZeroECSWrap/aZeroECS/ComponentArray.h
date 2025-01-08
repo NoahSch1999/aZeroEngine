@@ -111,7 +111,7 @@ namespace aZero
 			*/
 			void AddComponent(Entity& Ent, ComponentType&& Component)
 			{
-				if (Ent.GetID() != UINT_MAX)
+				if (Ent.GetID() != std::numeric_limits<uint32_t>::max())
 				{
 					if (Ent.GetID() >= m_ComponentArray.GetArray().size())
 					{
@@ -123,7 +123,7 @@ namespace aZero
 
 			void AddComponent(Entity& Ent, ComponentType& Component)
 			{
-				if (Ent.GetID() != UINT_MAX)
+				if (Ent.GetID() != std::numeric_limits<uint32_t>::max())
 				{
 					if (Ent.GetID() >= m_ComponentArray.GetArray().size())
 					{

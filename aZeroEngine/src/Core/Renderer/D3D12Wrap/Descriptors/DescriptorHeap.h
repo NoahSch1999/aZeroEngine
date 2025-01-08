@@ -1,7 +1,7 @@
 #pragma once
+#include <set>
 
 #include "Descriptor.h"
-#include "Core/DataStructures/UniqueIndexList.h"
 
 namespace aZero
 {
@@ -15,7 +15,31 @@ namespace aZero
 			uint32_t m_DescriptorSize;
 			Descriptor m_StartDescriptor;
 			Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_Heap = nullptr;
-			aZero::DS::UniqueIndexList<uint32_t> m_IndexFreelist;
+
+			std::set<uint32_t> m_ReusedIndices;
+			uint32_t m_NextFreeIndex = (uint32_t)0;
+
+			uint32_t GetNextIndex()
+			{
+				uint32_t NextIndex;
+				if (!m_ReusedIndices.empty())
+				{
+					NextIndex = *m_ReusedIndices.begin();
+					m_ReusedIndices.erase(NextIndex);
+				}
+
+				NextIndex = m_NextFreeIndex;
+				m_NextFreeIndex++;
+				return NextIndex;
+			}
+
+			void RecycleIndex(uint32_t ToRecycle)
+			{
+				if (ToRecycle < m_NextFreeIndex)
+				{
+					m_ReusedIndices.insert(ToRecycle);
+				}
+			}
 
 		public:
 			DescriptorHeap() = default;
@@ -29,7 +53,8 @@ namespace aZero
 				m_DescriptorSize = Other.m_DescriptorSize;
 				m_StartDescriptor = std::move(Other.m_StartDescriptor);
 				m_Heap = std::move(m_Heap);
-				m_IndexFreelist = std::move(m_IndexFreelist);
+				m_ReusedIndices = std::move(m_ReusedIndices);
+				m_NextFreeIndex = Other.m_NextFreeIndex;
 			}
 
 			DescriptorHeap& operator=(DescriptorHeap&& Other) noexcept
@@ -40,7 +65,8 @@ namespace aZero
 					m_DescriptorSize = Other.m_DescriptorSize;
 					m_StartDescriptor = std::move(Other.m_StartDescriptor);
 					m_Heap = std::move(m_Heap);
-					m_IndexFreelist = std::move(m_IndexFreelist);
+					m_ReusedIndices = std::move(m_ReusedIndices);
+					m_NextFreeIndex = Other.m_NextFreeIndex;
 				}
 				return *this;
 			}
@@ -88,7 +114,7 @@ namespace aZero
 
 			void GetDescriptor(Descriptor& OutDescriptor)
 			{
-				const uint32_t DescriptorIndex = m_IndexFreelist.GetIndex();
+				const uint32_t DescriptorIndex = this->GetNextIndex();
 				if (DescriptorIndex >= m_Heap->GetDesc().NumDescriptors)
 				{
 					throw std::invalid_argument("DescriptorHeap::GetDescriptor() => Out of descriptors");
@@ -111,7 +137,7 @@ namespace aZero
 			{
 				if (Descriptor.GetHeapIndex() >= 0)
 				{
-					m_IndexFreelist.RecycleIndex(Descriptor.GetHeapIndex());
+					this->RecycleIndex(Descriptor.GetHeapIndex());
 					Descriptor.m_OwningHeap = nullptr;
 				}
 			}

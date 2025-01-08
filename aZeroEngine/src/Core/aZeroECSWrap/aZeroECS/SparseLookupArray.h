@@ -6,6 +6,7 @@ namespace aZero
 {
 	namespace DataStructures
 	{
+		// TODO: Try remove?
 		template <typename ElementType>
 		class SparseLookupArray
 		{
@@ -24,12 +25,12 @@ namespace aZero
 
 			void Init(unsigned int StartNumElements = 0)
 			{
-				m_IDtoElementIndexMap.resize(StartNumElements, UINT_MAX);
+				m_IDtoElementIndexMap.resize(StartNumElements, std::numeric_limits<uint32_t>::max());
 			}
 
 			void ForceExpand(unsigned int AdditionalElements)
 			{
-				m_IDtoElementIndexMap.resize(m_IDtoElementIndexMap.size() + AdditionalElements, UINT_MAX);
+				m_IDtoElementIndexMap.resize(m_IDtoElementIndexMap.size() + AdditionalElements, std::numeric_limits<uint32_t>::max());
 			}
 
 			void Add(unsigned int ID, ElementType&& Data)
@@ -40,7 +41,7 @@ namespace aZero
 					throw;
 				}
 
-				if (m_IDtoElementIndexMap.at(ID) != UINT_MAX)
+				if (m_IDtoElementIndexMap.at(ID) != std::numeric_limits<uint32_t>::max())
 				{
 					// Replace existing data
 					m_Elements.at(m_IDtoElementIndexMap.at(ID)) = Data;
@@ -52,15 +53,15 @@ namespace aZero
 				m_Elements.emplace_back(std::forward<ElementType>(Data));
 			}
 
-			void Add(unsigned int ID, ElementType& Data)
+			void Add(uint32_t ID, ElementType& Data)
 			{
-				if (ID >= m_IDtoElementIndexMap.size())
+				if (ID >= static_cast<uint32_t>(m_IDtoElementIndexMap.size()))
 				{
 					// Out-of-range
 					throw;
 				}
 
-				if (m_IDtoElementIndexMap.at(ID) != UINT_MAX)
+				if (m_IDtoElementIndexMap.at(ID) != std::numeric_limits<uint32_t>::max())
 				{
 					// Replace existing data
 					m_Elements.at(m_IDtoElementIndexMap.at(ID)) = Data;
@@ -72,11 +73,11 @@ namespace aZero
 				m_Elements.emplace_back(Data);
 			}
 
-			void Remove(unsigned int ID)
+			void Remove(uint32_t ID)
 			{
 				if (ID >= m_IDtoElementIndexMap.size())
 				{
-					if (ID == UINT_MAX)
+					if (ID == std::numeric_limits<uint32_t>::max())
 					{
 						return;
 					}
@@ -84,29 +85,29 @@ namespace aZero
 					// Out-of-range
 					throw;
 				}
-				const unsigned int ElementIndex = m_IDtoElementIndexMap.at(ID);
+				const uint32_t ElementIndex = m_IDtoElementIndexMap.at(ID);
 
-				if (ElementIndex == UINT_MAX)
+				if (ElementIndex == std::numeric_limits<uint32_t>::max())
 				{
 					return;
 				}
 
 				m_ElementIndexToIDMap.erase(ElementIndex);
-				m_IDtoElementIndexMap.at(ID) = UINT_MAX;
+				m_IDtoElementIndexMap.at(ID) = std::numeric_limits<uint32_t>::max();
 
 				// Move last element to ElementIndex
 				if (m_Elements.size() - 1 != 0)
 				{
 					m_Elements.at(ElementIndex) = m_Elements.at(m_Elements.size() - 1);
-					const unsigned int LastElementID = m_ElementIndexToIDMap.at(m_Elements.size() - 1);
+					const uint32_t LastElementID = m_ElementIndexToIDMap.at(m_Elements.size() - 1);
 					m_IDtoElementIndexMap.at(LastElementID) = ElementIndex;
 				}
 				m_Elements.resize(m_Elements.size() - 1); // Change to holding the size with an int to avoid reallocs...
 			}
 
-			bool Exists(unsigned int ID) const
+			bool Exists(uint32_t ID) const
 			{
-				return m_IDtoElementIndexMap.at(ID) != UINT_MAX;
+				return m_IDtoElementIndexMap.at(ID) != std::numeric_limits<uint32_t>::max();
 			}
 
 			ElementType* Get(unsigned int ID)

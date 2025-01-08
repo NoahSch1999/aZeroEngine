@@ -9,9 +9,9 @@ namespace aZero
 		class GPUResourceView
 		{
 		protected:
-			D3D12::Descriptor m_Descriptor;
 
 		public:
+			D3D12::Descriptor m_Descriptor;
 			GPUResourceView() = default;
 
 			GPUResourceView(const GPUResourceView& Other) = delete;
@@ -217,7 +217,7 @@ namespace aZero
 					Desc.Texture2D.MipLevels = NumMipLevels;
 					Desc.Texture2D.MostDetailedMip = MostDetailedMip;
 					Desc.Texture2D.PlaneSlice = PlaneSlice;
-					Desc.Texture2D.ResourceMinLODClamp = MinAccessibleMipLevel;
+					Desc.Texture2D.ResourceMinLODClamp = static_cast<FLOAT>(MinAccessibleMipLevel);
 				}
 				else if (ResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D)
 				{
