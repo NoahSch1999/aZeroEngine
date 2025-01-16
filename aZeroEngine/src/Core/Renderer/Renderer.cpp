@@ -81,6 +81,8 @@ namespace aZero
 			DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_Compiler));
 
 			SetupRenderPipeline();
+
+			InitPrimitiveBatchPipeline();
 		}
 
 		void Renderer::BeginFrame()
@@ -89,20 +91,107 @@ namespace aZero
 			this->GetFrameAllocator().GetCommandContext().StartRecording();
 		}
 
+		void Renderer::RenderPrimitiveBatch(const PrimitiveBatch& Batch, const Scene::Scene::Camera& Camera)
+		{
+			if (Batch.IsDrawable())
+			{
+				ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
+
+				this->GetFrameAllocator().AddAllocation(Batch.GetData(), &m_BatchVertexBuffer, 0, Batch.GetNumBytes());
+				this->GetFrameAllocator().RecordAllocations();
+
+				this->GetFrameAllocator().GetCommandContext().StopRecording();
+				m_GraphicsQueue.ExecuteContext(this->GetFrameAllocator().GetCommandContext());
+
+				ID3D12DescriptorHeap* Heaps[2] = { m_ResourceHeap.GetDescriptorHeap(), m_SamplerHeap.GetDescriptorHeap() };
+				CmdList->SetDescriptorHeaps(2, Heaps);
+
+				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> RTVHandles = { m_FinalRenderSurfaceRTV.GetCPUHandle() };
+				D3D12_CPU_DESCRIPTOR_HANDLE DSVHandle = m_SceneDepthTextureDSV.GetCPUHandle();
+				CmdList->OMSetRenderTargets(static_cast<UINT>(RTVHandles.size()), RTVHandles.data(), false, &DSVHandle);
+
+				D3D12::RenderPass* Pass = nullptr;
+				const PrimitiveBatch::RenderLayer RenderLayer = Batch.GetLayer();
+				const D3D_PRIMITIVE_TOPOLOGY PrimitiveType = Batch.GetPrimitiveType();
+				if (RenderLayer == PrimitiveBatch::RenderLayer::DEPTH)
+				{
+					if (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_POINTLIST)
+					{
+						Pass = &m_BatchPassDepthP;
+					}
+					else if (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_LINELIST)
+					{
+						Pass = &m_BatchPassDepthL;
+					}
+					else if (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+					{
+						Pass = &m_BatchPassDepthT;
+					}
+				}
+				else if (RenderLayer == PrimitiveBatch::RenderLayer::NO_DEPTH)
+				{
+					if (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_POINTLIST)
+					{
+						Pass = &m_BatchPassNoDepthP;
+					}
+					else if (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_LINELIST)
+					{
+						Pass = &m_BatchPassNoDepthL;
+					}
+					else if (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+					{
+						Pass = &m_BatchPassNoDepthT;
+					}
+				}
+
+				CmdList->SetPipelineState(Pass->GetPipelineState());
+				CmdList->SetGraphicsRootSignature(Pass->GetRootSignature());
+
+				CmdList->IASetPrimitiveTopology(PrimitiveType);
+
+				CmdList->RSSetViewports(1, &Camera.Viewport);
+				CmdList->RSSetScissorRects(1, &Camera.ScizzorRect);
+
+				struct VertexShaderConstants
+				{
+					DXM::Matrix ViewProjectionMatrix;
+				};
+
+				VertexShaderConstants VSConstants;
+				VSConstants.ViewProjectionMatrix = Camera.ViewMatrix * Camera.ProjMatrix;
+
+				Pass->SetShaderResource(CmdList, "CameraDataBuffer", &VSConstants, sizeof(VertexShaderConstants), D3D12::SHADER_TYPE::VS);
+
+				D3D12_VERTEX_BUFFER_VIEW VBView;
+				VBView.BufferLocation = m_BatchVertexBuffer.GetResource()->GetGPUVirtualAddress();
+				VBView.SizeInBytes = Batch.GetNumBytes();
+				VBView.StrideInBytes = sizeof(PrimitiveBatch::Point);
+				CmdList->IASetVertexBuffers(0, 1, &VBView);
+
+				CmdList->DrawInstanced(static_cast<UINT>(Batch.GetNumPoints()), 1, 0, 0);
+
+				m_GraphicsCommandContext.StopRecording();
+				m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
+			}
+		}
+
 		void Renderer::GetRelevantStaticMeshes(
-			NewScene::Scene& Scene,
-			const NewScene::Scene::Camera& Camera,
+			Scene::Scene& Scene,
+			const DirectX::BoundingFrustum& Frustum,
+			const DXM::Matrix& ViewMatrix,
 			StaticMeshBatches& OutStaticMeshBatches)
 		{
 			// TODO: Perform all gpu writes in the loops to avoid having to iterate the arrays again
 			//		Ex. ::WorldMatrices should be a upload heap buffer 
-			
+
 			// TODO: This should be done on a list of primitives after octree etc
-			for (const auto& StaticMesh : Scene.GetPrimitives<NewScene::Scene::StaticMesh>())
+			for (const auto& StaticMesh : Scene.GetObjects<Scene::Scene::StaticMesh>())
 			{
-				// TODO: If passed frustrum culling using StaticMesh.Bounds and Camera
-				if (true)
+				const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(StaticMesh.DXBounds.Center, ViewMatrix), StaticMesh.DXBounds.Radius);
+				if (Frustum.Intersects(Sphere))
 				{
+				/*if (Camera.Frustum.IsCollidingSphere(Sphere.Center, Sphere.Radius))
+				{*/
 					const uint32_t MeshIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Mesh.get()).value()->MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshEntry::GPUData);
 					const uint32_t MaterialIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Material.get()).value()->MaterialAllocHandle.GetStartOffset() / sizeof(Asset::MaterialData::MaterialRenderData);
 
@@ -116,7 +205,7 @@ namespace aZero
 			}
 
 			// TODO: Handle case where scene doesnt have for frame index
-			std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetPrimitives<NewScene::Scene::StaticMesh>().m_RenderBuffers;
+			std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetObjects<Scene::Scene::StaticMesh>().m_RenderBuffers;
 			if (RenderBuffers.size() != m_BufferCount)
 			{
 				RenderBuffers.resize(m_BufferCount);
@@ -128,7 +217,7 @@ namespace aZero
 			{
 				InstanceBuffer.Init(m_Device,
 					D3D12::GPUBuffer::RWPROPERTY::CPUWRITE,
-					sizeof(StaticMeshBatches::PerInstanceData) * std::max(static_cast<size_t>(1), Scene.GetPrimitives<NewScene::Scene::StaticMesh>().size()),
+					sizeof(StaticMeshBatches::PerInstanceData) * std::max(static_cast<size_t>(1), Scene.GetObjects<Scene::Scene::StaticMesh>().size()),
 					&m_ResourceRecycler
 				);
 			}
@@ -152,10 +241,51 @@ namespace aZero
 			}
 		}
 
-		void Renderer::GetRelevantPointLights(NewScene::Scene& Scene, const NewScene::Scene::Camera& Camera, uint32_t& NumPointLights)
+		void Renderer::GetDirectionalLights(Scene::Scene& Scene,
+			uint32_t& NumDirectionalLights)
 		{
 			// TODO: Handle case where scene doesnt have for frame index
-			std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetPrimitives<NewScene::Scene::PointLight>().m_RenderBuffers;
+			std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetObjects<DirectionalLightData>().m_RenderBuffers;
+			if (RenderBuffers.size() != m_BufferCount)
+			{
+				RenderBuffers.resize(m_BufferCount);
+			}
+
+			D3D12::LinearBuffer& DirLightBuffer = RenderBuffers.at(m_FrameIndex);
+			DirLightBuffer.Reset();
+			if (!DirLightBuffer.IsInitalized())
+			{
+				DirLightBuffer.Init(m_Device,
+					D3D12::GPUBuffer::RWPROPERTY::CPUWRITE,
+					sizeof(DirectionalLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<DirectionalLightData>().size()),
+					&m_ResourceRecycler
+				);
+			}
+			else
+			{
+				// Get size and resize if needed / handle shrinking at some point
+			}
+
+			for (const auto& PointLight : Scene.GetObjects<DirectionalLightData>())
+			{
+				// TODO: Add culling when we dont have a range anymore but instead a falloff factor
+				/*const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(PointLight.Position, ViewMatrix), PointLight.Range);
+				if (Frustum.Intersects(Sphere))
+				{*/
+				DirLightBuffer.Write((void*)&PointLight, sizeof(DirectionalLightData));
+				//}
+			}
+
+			NumDirectionalLights = DirLightBuffer.GetOffset() / sizeof(DirectionalLightData);
+		}
+
+		void Renderer::GetRelevantPointLights(Scene::Scene& Scene, 
+			const DirectX::BoundingFrustum& Frustum,
+			const DXM::Matrix& ViewMatrix, 
+			uint32_t& NumPointLights)
+		{
+			// TODO: Handle case where scene doesnt have for frame index
+			std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetObjects<PointLightData>().m_RenderBuffers;
 			if (RenderBuffers.size() != m_BufferCount)
 			{
 				RenderBuffers.resize(m_BufferCount);
@@ -167,7 +297,7 @@ namespace aZero
 			{
 				PointLightBuffer.Init(m_Device,
 					D3D12::GPUBuffer::RWPROPERTY::CPUWRITE,
-					sizeof(NewScene::Scene::PointLight) * std::max(static_cast<size_t>(1), Scene.GetPrimitives<NewScene::Scene::PointLight>().size()),
+					sizeof(PointLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<PointLightData>().size()),
 					&m_ResourceRecycler
 				);
 			}
@@ -176,19 +306,56 @@ namespace aZero
 				// Get size and resize if needed / handle shrinking at some point
 			}
 
-			for (const auto& PointLight : Scene.GetPrimitives<NewScene::Scene::PointLight>())
+			for (const auto& PointLight : Scene.GetObjects<PointLightData>())
 			{
-				// TODO: If passed frustrum culling using PointLight.Range and Camera
-				if (true)
-				{
-					PointLightBuffer.Write((void*)&PointLight, sizeof(NewScene::Scene::PointLight));
-				}
+				// TODO: Add culling when we dont have a range anymore but instead a falloff factor
+				/*const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(PointLight.Position, ViewMatrix), PointLight.Range);
+				if (Frustum.Intersects(Sphere))
+				{*/
+					PointLightBuffer.Write((void*)&PointLight, sizeof(PointLightData));
+				//}
 			}
 
-			NumPointLights = PointLightBuffer.GetOffset() / sizeof(NewScene::Scene::PointLight);
+			NumPointLights = PointLightBuffer.GetOffset() / sizeof(PointLightData);
 		}
 
-		void Renderer::Render(NewScene::Scene& Scene, std::shared_ptr<Window::RenderWindow> Window)
+		void Renderer::GetRelevantSpotLights(Scene::Scene& Scene,
+			const DirectX::BoundingFrustum& Frustum,
+			const DXM::Matrix& ViewMatrix,
+			uint32_t& NumSpotLights)
+		{
+			// TODO: Handle case where scene doesnt have for frame index
+			std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetObjects<SpotLightData>().m_RenderBuffers;
+			if (RenderBuffers.size() != m_BufferCount)
+			{
+				RenderBuffers.resize(m_BufferCount);
+			}
+
+			D3D12::LinearBuffer& SpotLightBuffer = RenderBuffers.at(m_FrameIndex);
+			SpotLightBuffer.Reset();
+			if (!SpotLightBuffer.IsInitalized())
+			{
+				SpotLightBuffer.Init(m_Device,
+					D3D12::GPUBuffer::RWPROPERTY::CPUWRITE,
+					sizeof(SpotLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<SpotLightData>().size()),
+					&m_ResourceRecycler
+				);
+			}
+			else
+			{
+				// Get size and resize if needed / handle shrinking at some point
+			}
+
+			for (const auto& PointLight : Scene.GetObjects<SpotLightData>())
+			{
+				// TODO: Add culling
+				SpotLightBuffer.Write((void*)&PointLight, sizeof(SpotLightData));
+			}
+
+			NumSpotLights = SpotLightBuffer.GetOffset() / sizeof(SpotLightData);
+		}
+
+		void Renderer::Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*> Batches, std::shared_ptr<Window::RenderWindow> Window)
 		{
 			m_FrameWindows.insert(Window);
 
@@ -197,23 +364,37 @@ namespace aZero
 
 			this->ClearRenderSurfaces();
 
-			for (auto& Camera : Scene.GetPrimitives<NewScene::Scene::Camera>())
+			for (auto& Camera : Scene.GetObjects<Scene::Scene::Camera>())
 			{
 				if (Camera.IsActive)
 				{
-					StaticMeshBatches AllStaticMeshBatches;
-					// SkeletalMeshBatches AllSkeletalMeshBatches;
+					DirectX::BoundingFrustum Frustum = DirectX::BoundingFrustum(Camera.ProjMatrix, true);
+
+					uint32_t NumDirectionalLights;
+					this->GetDirectionalLights(Scene, NumDirectionalLights);
+
 					uint32_t NumPointLights;
+					this->GetRelevantPointLights(Scene, Frustum, Camera.ViewMatrix, NumPointLights);
 
-					this->GetRelevantStaticMeshes(Scene, Camera, AllStaticMeshBatches);
+					uint32_t NumSpotLights;
+					this->GetRelevantSpotLights(Scene, Frustum, Camera.ViewMatrix, NumSpotLights);
 
+					StaticMeshBatches AllStaticMeshBatches;
+					this->GetRelevantStaticMeshes(Scene, Frustum, Camera.ViewMatrix, AllStaticMeshBatches);
+
+					// SkeletalMeshBatches AllSkeletalMeshBatches;
 					this->GetRelevantSkeletalMeshes(Scene, Camera /*, AllSkeletalMeshBatches*/);
 
-					this->GetRelevantPointLights(Scene, Camera, NumPointLights);
-
-					this->RenderStaticMeshes(Scene, Camera, AllStaticMeshBatches, NumPointLights);
+					this->RenderStaticMeshes(Scene, Camera, AllStaticMeshBatches, NumDirectionalLights, NumPointLights, NumSpotLights);
 
 					this->RenderSkeletalMeshes(Scene, Camera /*, AllSkeletalMeshBatches, NumPointLights*/);
+
+					// Do post proccessing per camera
+
+					for (const PrimitiveBatch* Batch : Batches)
+					{
+						this->RenderPrimitiveBatch(*Batch, Camera);
+					}
 				}
 			}
 
@@ -251,8 +432,6 @@ namespace aZero
 					Allocator.GetCommandContext().FreeCommandBuffer();
 				}
 			}
-
-			m_FrameWindows.clear();
 
 			m_AssetManager->ClearGarbage<Asset::Mesh>();
 			m_AssetManager->ClearGarbage<Asset::Texture>();
@@ -325,7 +504,8 @@ namespace aZero
 
 			m_Device->CreateDepthStencilView(m_SceneDepthTexture.GetResource(), &DsvDesc, m_SceneDepthTextureDSV.GetCPUHandle());
 
-			m_RTVClearColor.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			m_RTVClearColor.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+			//m_RTVClearColor.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
 			m_RTVClearColor.Color[0] = 0.2f;
 			m_RTVClearColor.Color[1] = 0.2f;
 			m_RTVClearColor.Color[2] = 0.2f;
@@ -362,6 +542,24 @@ namespace aZero
 			}
 		}
 
+		void Renderer::InitPrimitiveBatchPipeline()
+		{
+			m_BatchVertexBuffer.Init(m_Device, D3D12::GPUResource::GPUONLY, sizeof(PrimitiveBatch::Point) * 10000, &m_ResourceRecycler);
+
+			D3D12::Shader PassVS;
+			PassVS.CompileFromFile(this->GetCompiler(), SHADER_SRC_PATH("PrimitiveBatch.vs"));
+
+			D3D12::Shader PassPS;
+			PassPS.CompileFromFile(this->GetCompiler(), SHADER_SRC_PATH("PrimitiveBatch.ps"));
+
+			m_BatchPassDepthP.Init(m_Device, PassVS, PassPS, { m_FinalRenderSurface.GetResource()->GetDesc().Format }, DXGI_FORMAT_D24_UNORM_S8_UINT, D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT);
+			m_BatchPassNoDepthP.Init(m_Device, PassVS, PassPS, { m_FinalRenderSurface.GetResource()->GetDesc().Format }, DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT);
+			m_BatchPassDepthL.Init(m_Device, PassVS, PassPS, { m_FinalRenderSurface.GetResource()->GetDesc().Format }, DXGI_FORMAT_D24_UNORM_S8_UINT, D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
+			m_BatchPassNoDepthL.Init(m_Device, PassVS, PassPS, { m_FinalRenderSurface.GetResource()->GetDesc().Format }, DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
+			m_BatchPassDepthT.Init(m_Device, PassVS, PassPS, { m_FinalRenderSurface.GetResource()->GetDesc().Format }, DXGI_FORMAT_D24_UNORM_S8_UINT, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+			m_BatchPassNoDepthT.Init(m_Device, PassVS, PassPS, { m_FinalRenderSurface.GetResource()->GetDesc().Format }, DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+		}
+
 		void Renderer::RecordAssetManagerCommands()
 		{
 			D3D12::LinearFrameAllocator& FrameAllocator = m_FrameAllocators[m_FrameIndex];
@@ -370,8 +568,11 @@ namespace aZero
 			m_GraphicsQueue.ExecuteContext(FrameAllocator.GetCommandContext());
 		}
 
-		void Renderer::RenderStaticMeshes(NewScene::Scene& InScene, const NewScene::Scene::Camera& Camera,
-			const StaticMeshBatches& StaticMeshBatches, uint32_t NumPointLights)
+		void Renderer::RenderStaticMeshes(Scene::Scene& InScene, const Scene::Scene::Camera& Camera,
+			const StaticMeshBatches& StaticMeshBatches, 
+			uint32_t NumDirectionalLights,
+			uint32_t NumPointLights,
+			uint32_t NumSpotLights)
 		{
 			ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
 
@@ -395,11 +596,11 @@ namespace aZero
 
 				struct PixelShaderConstants
 				{
-					int SamplerIndex;
+					uint32_t SamplerIndex;
 				};
 
 				VertexShaderConstants VSConstants;
-				VSConstants.ViewProjectionMatrix = Camera.ViewProjectionMatrix;
+				VSConstants.ViewProjectionMatrix = Camera.ViewMatrix * Camera.ProjMatrix;
 
 				Pass.SetShaderResource(CmdList, "CameraDataBuffer", &VSConstants, sizeof(VertexShaderConstants), D3D12::SHADER_TYPE::VS);
 
@@ -423,22 +624,43 @@ namespace aZero
 
 				// TODO: Set, but need to init sampler etc first
 				PixelShaderConstants PSConstants;
-				PSConstants.SamplerIndex = 0;
-				//Pass.SetShaderResource(CmdList, "PixelShaderConstants", &PSConstants, sizeof(PixelShaderConstants), D3D12::SHADER_TYPE::PS);
+				PSConstants.SamplerIndex = m_DefaultSamplerDescriptor.GetHeapIndex();
+				Pass.SetShaderResource(CmdList, "PixelShaderConstants", &PSConstants, sizeof(PixelShaderConstants), D3D12::SHADER_TYPE::PS);
 
 				Pass.SetShaderResource(CmdList, "InstanceBuffer", 
-					InScene.m_RenderProxy.GetPrimitives<NewScene::Scene::StaticMesh>().m_RenderBuffers.at(m_FrameIndex).GetVirtualAddress(), D3D12::SHADER_TYPE::VS);
+					InScene.m_RenderProxy.GetObjects<Scene::Scene::StaticMesh>().m_RenderBuffers.at(m_FrameIndex).GetVirtualAddress(), D3D12::SHADER_TYPE::VS);
 
-				// TODO: Do point light stuff using "NumPointLights"
+				Pass.SetShaderResource(CmdList, "DirectionalLightBuffer",
+					InScene.m_RenderProxy.GetObjects<DirectionalLightData>().m_RenderBuffers.at(m_FrameIndex).GetVirtualAddress(), D3D12::SHADER_TYPE::PS);
+
+				Pass.SetShaderResource(CmdList, "PointLightBuffer",
+					InScene.m_RenderProxy.GetObjects<PointLightData>().m_RenderBuffers.at(m_FrameIndex).GetVirtualAddress(), D3D12::SHADER_TYPE::PS);
+
+				Pass.SetShaderResource(CmdList, "SpotLightBuffer",
+					InScene.m_RenderProxy.GetObjects<SpotLightData>().m_RenderBuffers.at(m_FrameIndex).GetVirtualAddress(), D3D12::SHADER_TYPE::PS);
 
 				struct PerBatchConstantsVS
 				{
-					unsigned int StartInstanceOffset;
-					unsigned int MeshEntryIndex;
+					uint32_t StartInstanceOffset;
+					uint32_t MeshEntryIndex;
 				};
+
+				struct PerBatchConstantsPS
+				{
+					uint32_t MaterialIndex;
+					uint32_t NumDirectionalLights;
+					uint32_t NumPointLights;
+					uint32_t NumSpotLights;
+				};
+
+				PerBatchConstantsPS RootConstantsPS;
+				RootConstantsPS.NumDirectionalLights = NumDirectionalLights;
+				RootConstantsPS.NumPointLights = NumPointLights;
+				RootConstantsPS.NumSpotLights = NumSpotLights;
 
 				for (auto& [MaterialIndex, MeshToBatchMap] : StaticMeshBatches.Batches)
 				{
+					RootConstantsPS.MaterialIndex = MaterialIndex;
 					for (auto& [MeshIndex, Batch] : MeshToBatchMap)
 					{
 						PerBatchConstantsVS VSConstants;
@@ -447,11 +669,14 @@ namespace aZero
 
 						const uint32_t NumInstances = Batch.InstanceData.size();
 						Pass.SetShaderResource(CmdList, "PerBatchConstantsBuffer", (void*)&VSConstants, sizeof(VSConstants), D3D12::SHADER_TYPE::VS);
-						Pass.SetShaderResource(CmdList, "PerBatchConstantsBuffer", (void*)&MaterialIndex, sizeof(MaterialIndex), D3D12::SHADER_TYPE::PS);
+						Pass.SetShaderResource(CmdList, "PerBatchConstantsBuffer", (void*)&RootConstantsPS, sizeof(PerBatchConstantsPS), D3D12::SHADER_TYPE::PS);
 	
 						CmdList->DrawInstanced(static_cast<UINT>(Batch.NumVertices), NumInstances, 0, 0);
 					}
 				}
+
+				m_GraphicsCommandContext.StopRecording();
+				m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 			}
 		}
 

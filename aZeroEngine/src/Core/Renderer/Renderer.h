@@ -7,14 +7,7 @@
 #include "Core/Renderer/D3D12Wrap/Descriptors/DescriptorHeap.h"
 #include "Core/Renderer/D3D12Wrap/Resources/FreelistBuffer.h"
 #include "Core/Renderer/RenderAssetManager.h"
-
-// TODO: Try to remove this being a dynamic string allocation etc...
-// TODO: Add path for compiled shaders
-#define SHADER_COMPILED_DIRECTORY std::string("?")
-#define SHADER_COMPILED_PATH(ShaderName) (SHADER_COMPILED_DIRECTORY + std::string(ShaderName) + std::string(".?"))
-
-#define SHADER_SRC_DIRECTORY std::string("src/Shaders/")
-#define SHADER_SRC_PATH(ShaderName) (SHADER_SRC_DIRECTORY + std::string(ShaderName) + std::string(".hlsl"))
+#include "Core/Renderer/PrimitiveBatch.h"
 
 #define ASSET_PATH std::string("C:/Projects/Programming/aZeroEngine/aZeroEngine/assets/")
 
@@ -77,9 +70,22 @@ namespace aZero
 			D3D12_CLEAR_VALUE m_DSVClearColor;
 
 			D3D12::RenderPass Pass;
+
+			// TODO: Make resizable
+			D3D12::GPUBuffer m_BatchVertexBuffer;
+
+			D3D12::RenderPass m_BatchPassDepthP;
+			D3D12::RenderPass m_BatchPassNoDepthP;
+
+			D3D12::RenderPass m_BatchPassDepthL;
+			D3D12::RenderPass m_BatchPassNoDepthL;
+
+			D3D12::RenderPass m_BatchPassDepthT;
+			D3D12::RenderPass m_BatchPassNoDepthT;
 			//
 
 			std::set<std::shared_ptr<Window::RenderWindow>> m_FrameWindows;
+
 		private:
 
 			D3D12::LinearFrameAllocator& GetFrameAllocator()
@@ -100,24 +106,43 @@ namespace aZero
 
 			void RecordAssetManagerCommands();
 
+			void InitPrimitiveBatchPipeline();
+
+			void RenderPrimitiveBatch(const PrimitiveBatch& Batch, const Scene::Scene::Camera& Camera);
+
 			void GetRelevantStaticMeshes(
-				NewScene::Scene& Scene,
-				const NewScene::Scene::Camera& Camera,
+				Scene::Scene& Scene,
+				const DirectX::BoundingFrustum& Frustum,
+				const DXM::Matrix& ViewMatrix,
 				StaticMeshBatches& OutStaticMeshBatches);
 
 			void RenderStaticMeshes(
-				NewScene::Scene& InScene, 
-				const NewScene::Scene::Camera& Camera,
+				Scene::Scene& InScene, 
+				const Scene::Scene::Camera& Camera,
 				const StaticMeshBatches& StaticMeshBatches,
-				uint32_t NumPointLights);
+				uint32_t NumDirectionalLights,
+				uint32_t NumPointLights,
+				uint32_t NumSpotLights
+				);
 
 			// TODO: Impl
-			void GetRelevantSkeletalMeshes(NewScene::Scene& Scene, const NewScene::Scene::Camera& Camera) { }
+			void GetRelevantSkeletalMeshes(Scene::Scene& Scene, const Scene::Scene::Camera& Camera) { }
 
 			// TODO: Impl
-			void RenderSkeletalMeshes(NewScene::Scene& InScene, const NewScene::Scene::Camera& Camera) { }
+			void RenderSkeletalMeshes(Scene::Scene& InScene, const Scene::Scene::Camera& Camera) { }
 
-			void GetRelevantPointLights(NewScene::Scene& Scene, const NewScene::Scene::Camera& Camera, uint32_t& NumPointLights);
+			void GetDirectionalLights(Scene::Scene& Scene,
+				uint32_t& NumDirectionalLights);
+
+			void GetRelevantPointLights(Scene::Scene& Scene, 
+				const DirectX::BoundingFrustum& Frustum,
+				const DXM::Matrix& ViewMatrix,
+				uint32_t& NumPointLights);
+
+			void GetRelevantSpotLights(Scene::Scene& Scene,
+				const DirectX::BoundingFrustum& Frustum,
+				const DXM::Matrix& ViewMatrix,
+				uint32_t& NumSpotLights);
 
 			void ClearRenderSurfaces();
 
@@ -127,9 +152,7 @@ namespace aZero
 
 			void BeginFrame();
 
-			void Render(Scene& Scene, std::shared_ptr<Window::RenderWindow> Window);
-
-			void Render(NewScene::Scene& Scene, std::shared_ptr<Window::RenderWindow> Window);
+			void Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*> Batches, std::shared_ptr<Window::RenderWindow> Window);
 
 			void EndFrame();
 
@@ -146,6 +169,12 @@ namespace aZero
 			~Renderer()
 			{
 				m_GraphicsQueue.FlushCommands();
+			}
+
+			// TODO: Impl
+			void ChangeRenderResolution(const DXM::Vector2& Dimensions)
+			{
+
 			}
 
 			IDxcCompiler3& GetCompiler() { return *m_Compiler.p; }
@@ -207,7 +236,8 @@ namespace aZero
 					NewEntry.Texture.Init(
 						m_Device,
 						{ Data.m_Dimensions.x, Data.m_Dimensions.y, 1 },
-						DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
+						Data.m_Format,
+						D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
 						1, // TODO: Mip should be in the m_AssetData cache
 						D3D12_RESOURCE_STATE_COMMON,
 						std::optional<D3D12_CLEAR_VALUE>{}, &m_ResourceRecycler
@@ -242,7 +272,9 @@ namespace aZero
 
 					m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 
-					NewEntry.SRV.Init(m_Device, m_ResourceHeap, NewEntry.Texture, NewEntry.Texture.GetResource()->GetDesc().Format, 1, 0, 0, 0);
+					D3D12::Descriptor Descriptor;
+					m_ResourceHeap.GetDescriptor(Descriptor);
+					NewEntry.SRV.Init(m_Device, Descriptor, NewEntry.Texture, NewEntry.Texture.GetResource()->GetDesc().Format, 1, 0, 0, 0);
 
 					m_AssetManager->AddRenderHandle(*TextureAsset.get(), std::move(NewEntry));
 				}

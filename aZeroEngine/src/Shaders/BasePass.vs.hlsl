@@ -19,12 +19,12 @@ struct MeshEntry
 
 struct CameraData
 {
-    row_major float4x4 ViewProjectionMatrix;
+    float4x4 ViewProjectionMatrix;
 };
 
 struct InstanceData
 {
-    row_major float4x4 WorldMatrix;
+    float4x4 WorldMatrix;
 };
 
 struct PerBatchConstants
@@ -70,17 +70,17 @@ OutputData main(InputData Input)
     const MeshEntry Mesh = MeshEntries.Load(PerBatchConstantsBuffer.MeshEntryIndex);
     const VertexData Vertex = GetVertexFromID(VertexBuffer, IndexBuffer, Mesh, Input.VertexID);
     
-    const row_major float4x4 WorldMatrix = InstanceBuffer.Load(PerBatchConstantsBuffer.StartInstanceOffset + Input.InstanceID).WorldMatrix;
+    const float4x4 WorldMatrix = InstanceBuffer.Load(PerBatchConstantsBuffer.StartInstanceOffset + Input.InstanceID).WorldMatrix;
     
     OutputData Output;
-    Output.Position = mul(float4(Vertex.Position, 1.f), WorldMatrix);
+    Output.Position = mul(WorldMatrix, float4(Vertex.Position, 1.f));
     Output.WorldPosition = Output.Position.xyz;
-    Output.Position = mul(Output.Position, CameraDataBuffer.ViewProjectionMatrix);
+    Output.Position = mul(CameraDataBuffer.ViewProjectionMatrix, Output.Position);
     
     Output.UV = Vertex.UV;
     
-    const float3 Normal = mul(float4(Vertex.Normal, 0.f), WorldMatrix).xyz;
-    const float3 Tangent = mul(float4(Vertex.Tangent, 0.f), WorldMatrix).xyz;
+    const float3 Normal = mul(WorldMatrix, float4(Vertex.Normal, 0.f)).xyz;
+    const float3 Tangent = mul(WorldMatrix, float4(Vertex.Tangent, 0.f)).xyz;
     const float3 Bitangent = cross(Tangent, Normal);
     
     Output.Normal = Normal;

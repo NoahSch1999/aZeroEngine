@@ -61,6 +61,18 @@ namespace aZero
 				ScizzorRect.bottom = static_cast<LONG>(m_TopLeft.y + m_Dimensions.y);
 				return ScizzorRect;
 			}
+
+			DXM::Vector3 GetRight()
+			{
+				DXM::Vector3 Right = m_ForwardVector.Cross(m_UpVector);
+				Right.Normalize();
+				return Right;
+			}
+
+			float GetAspectRatio()
+			{
+				return m_Dimensions.x / m_Dimensions.y;
+			}
 		};
 	}
 }

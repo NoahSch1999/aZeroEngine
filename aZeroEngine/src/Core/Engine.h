@@ -27,11 +27,12 @@ namespace aZero
 		void LoadDefaultAssets()
 		{
 			m_DefaultCube = m_Renderer->m_AssetManager->CreateAsset<Asset::Mesh>();
-			m_DefaultCube->LoadFromFile(ASSET_PATH + "meshes/defaultCube.fbx");
+			m_DefaultCube->LoadFromFile(ASSET_PATH + "meshes/unitCube.fbx");
+			//m_DefaultCube->LoadFromFile(ASSET_PATH + "meshes/unitSphere.fbx");
 			m_Renderer->MarkRenderStateDirty(m_DefaultCube);
 
 			m_DefaultTexture = m_Renderer->m_AssetManager->CreateAsset<Asset::Texture>();
-			m_DefaultTexture->LoadFromFile(ASSET_PATH + "textures/defaultTexture.jpg");
+			m_DefaultTexture->LoadFromFile(ASSET_PATH + "textures/chunli.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM);
 			m_Renderer->MarkRenderStateDirty(m_DefaultTexture);
 
 			m_DefaultMaterial = m_Renderer->m_AssetManager->CreateAsset<Asset::Material>();
@@ -42,6 +43,17 @@ namespace aZero
 		}
 
 	public:
+		void CreatePipeline()
+		{
+			D3D12::Shader BasePassVS;
+			BasePassVS.CompileFromFile(m_Renderer->GetCompiler(), SHADER_SRC_PATH("BasePass.vs"));
+
+			D3D12::Shader BasePassPS;
+			BasePassPS.CompileFromFile(m_Renderer->GetCompiler(), SHADER_SRC_PATH("BasePass.ps"));
+
+			m_Renderer->Pass.Init(m_Device.Get(), BasePassVS, BasePassPS, { m_Renderer->m_FinalRenderSurface.GetResource()->GetDesc().Format}, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		}
+
 		Engine(HINSTANCE AppInstance, const DXM::Vector2& WindowResolution, uint32_t BufferCount)
 			:m_AppInstance(AppInstance)
 		{
@@ -51,11 +63,11 @@ namespace aZero
 				throw std::runtime_error("Engine() => Failed to create ID3D12Device");
 			}
 
-			Hr = CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
-			if (FAILED(Hr))
+			//Hr = CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
+			/*if (FAILED(Hr))
 			{
 				throw std::runtime_error("Engine() => Failed to call CoInitializeEx()");
-			}
+			}*/
 
 			m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), WindowResolution, BufferCount);
 
@@ -74,9 +86,9 @@ namespace aZero
 			m_Renderer->BeginFrame();
 		}
 
-		void Render(NewScene::Scene& Scene, std::shared_ptr<Window::RenderWindow> Window)
+		void Render(Scene::Scene& Scene, const std::vector<Rendering::PrimitiveBatch*> Batches, std::shared_ptr<Window::RenderWindow> Window)
 		{
-			m_Renderer->Render(Scene, Window);
+			m_Renderer->Render(Scene, Batches, Window);
 		}
 
 		void EndFrame()
@@ -102,12 +114,12 @@ namespace aZero
 				);
 		}
 
-		NewScene::Scene CreateScene()
+		Scene::Scene CreateScene()
 		{
-			static NewScene::SceneID NextId = 0;
-			const NewScene::SceneID NewId = NextId;
+			static Scene::SceneID NextId = 0;
+			const Scene::SceneID NewId = NextId;
 			NextId++;
-			return NewScene::Scene(NewId, m_Device.Get());
+			return Scene::Scene(NewId, m_Device.Get());
 		}
 
 		Rendering::RenderInterface CreateRenderInterface()

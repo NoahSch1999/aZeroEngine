@@ -47,6 +47,9 @@
     <Filter Include="Core\DataStructures">
       <UniqueIdentifier>{ff31bf60-bd8b-45a0-853b-e5e07268b304}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Core\Misc">
+      <UniqueIdentifier>{24a86c14-95e8-461e-b020-e729d9c6bd2e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -81,13 +84,7 @@
     <ClInclude Include="src\Core\Scene\Scene.h">
       <Filter>Core\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="src\Core\aZeroECSWrap\Components\DirectionalLightComponent.h">
-      <Filter>Core\aZeroECSWrap\Components</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\aZeroECSWrap\Components\PointLightComponent.h">
-      <Filter>Core\aZeroECSWrap\Components</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Core\aZeroECSWrap\Components\SpotLightComponent.h">
+    <ClInclude Include="src\Core\aZeroECSWrap\Components\LightComponents.h">
       <Filter>Core\aZeroECSWrap\Components</Filter>
     </ClInclude>
     <ClInclude Include="src\Core\aZeroECSWrap\Components\StaticMeshComponent.h">
@@ -196,6 +193,15 @@
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\LinearBuffer.h">
       <Filter>Core\Renderer\D3D12Wrap\Resources</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\Misc\Frustrum.h">
+      <Filter>Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\LightData.h">
+      <Filter>Core\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Renderer\PrimitiveBatch.h">
+      <Filter>Core\Renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="src\Shaders\TestShader.cs.hlsl">
@@ -205,6 +211,12 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="src\Shaders\BasePass.ps.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="src\Shaders\PrimitiveBatch.vs.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="src\Shaders\PrimitiveBatch.ps.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

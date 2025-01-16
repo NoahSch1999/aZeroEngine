@@ -2,19 +2,20 @@
 #include <string>
 #include <Core/aZeroECSWrap/aZeroECS/aZeroECS.h>
 #include "Core/Renderer/D3D12Wrap/Resources/LinearBuffer.h"
+#include "Core/Misc/Frustrum.h"
 
 namespace aZero
 {
 	class Engine;
-	class Scene;
 
 	namespace Rendering
 	{
 		class Renderer;
 	}
 
-	namespace NewScene
+	namespace Scene
 	{
+		class Scene;
 		using SceneID = uint16_t;
 		constexpr SceneID InvalidSceneID = std::numeric_limits<SceneID>::max();
 
@@ -75,13 +76,7 @@ namespace aZero
 				std::shared_ptr<Asset::Mesh> Mesh;
 				std::shared_ptr<Asset::Material> Material;
 				float Bounds;
-			};
-
-			struct PointLight
-			{
-				DXM::Vector3 Position;
-				DXM::Vector3 Color;
-				float Range;
+				DirectX::BoundingSphere DXBounds;
 			};
 
 			struct Camera
@@ -89,20 +84,23 @@ namespace aZero
 				bool IsActive = false;
 				D3D12_VIEWPORT Viewport;
 				D3D12_RECT ScizzorRect;
-				DXM::Matrix ViewProjectionMatrix;
-				// Frustrum
+				DXM::Matrix ViewMatrix;
+				DXM::Matrix ProjMatrix;
+
+				// TODO: Implement own frustum or use DirectX::?
+				//Shapes::Frustum Frustum;
 			};
 
 			// TODO: Potentially replace with SparseLookupArray, or the other way around
 			//		If we decide to use ENTT we scrap SparseLookupArray fully
-			template<typename PrimitiveType>
+			template<typename ObjectType>
 			class PackedVector
 			{
 				friend Rendering::Renderer;
 			private:
 				std::unordered_map<ECS::EntityID, uint32_t> m_Entity_To_Index;
 				std::unordered_map<uint32_t, ECS::EntityID> m_Index_To_Entity;
-				std::vector<PrimitiveType> m_Data;
+				std::vector<ObjectType> m_Data;
 				uint32_t m_CurrentLastIndex = 0;
 
 				// TODO: These need to be adapted based on if we copy indices or the actual instance data before rendering
@@ -110,12 +108,12 @@ namespace aZero
 				std::vector<D3D12::LinearBuffer> m_RenderBuffers;
 
 			public:
-				using PrimType = PrimitiveType;
+				using PrimType = ObjectType;
 
 				PackedVector() = default;
 
 				// TODO: Optimize / make more smooth
-				void AddOrUpdate(ECS::EntityID EntityID, PrimitiveType&& Primitive)
+				void AddOrUpdate(ECS::EntityID EntityID, ObjectType&& Primitive)
 				{
 					if (auto Index = m_Entity_To_Index.find(EntityID); Index != m_Entity_To_Index.end())
 					{
@@ -149,7 +147,7 @@ namespace aZero
 							const uint32_t LastElementIndex = m_CurrentLastIndex - 1;
 							m_Data[Index->second] = std::move(m_Data.at(LastElementIndex));
 
-							m_Data.at(LastElementIndex) = PrimitiveType(); // Reset
+							m_Data.at(LastElementIndex) = ObjectType(); // Reset
 							
 							// Remap entity=>index map so moved entityid points to removed index
 							const ECS::EntityID LastEntity = m_Index_To_Entity.at(LastElementIndex);
@@ -166,7 +164,7 @@ namespace aZero
 						}
 						else
 						{
-							m_Data.at(Index->second) = PrimitiveType(); // Reset
+							m_Data.at(Index->second) = ObjectType(); // Reset
 						}
 
 						m_CurrentLastIndex--;
@@ -181,7 +179,7 @@ namespace aZero
 					}
 				}
 
-				const std::vector<PrimitiveType>& GetData() const { return m_Data; }
+				const std::vector<ObjectType>& GetData() const { return m_Data; }
 			};
 
 			template<typename ...Args>
@@ -189,17 +187,17 @@ namespace aZero
 			{
 				friend Rendering::Renderer;
 			private:
-				std::tuple<PackedVector<Args>...> m_PrimitiveTuple;
+				std::tuple<PackedVector<Args>...> m_ObjectTuple;
 
 				void MoveOp(RenderProxyClass& Other)
 				{
-					m_PrimitiveTuple = std::move(m_PrimitiveTuple);
+					m_ObjectTuple = std::move(m_ObjectTuple);
 				}
 
-				template<typename PrimitiveType>
-				PackedVector<PrimitiveType>& GetPrimitives()
+				template<typename ObjectType>
+				PackedVector<ObjectType>& GetObjects()
 				{
-					return std::get<PackedVector<PrimitiveType>>(m_PrimitiveTuple);
+					return std::get<PackedVector<ObjectType>>(m_ObjectTuple);
 				}
 
 			public:
@@ -223,28 +221,28 @@ namespace aZero
 					return *this;
 				}
 
-				template<typename PrimitiveType>
-				void AddOrUpdatePrimitive(ECS::EntityID EntityID, PrimitiveType&& Primitive)
+				template<typename ObjectType>
+				void AddOrUpdatePrimitive(ECS::EntityID EntityID, ObjectType&& Primitive)
 				{
-					std::get<PackedVector<PrimitiveType>>(m_PrimitiveTuple).AddOrUpdate(EntityID, std::forward<PrimitiveType>(Primitive));
+					std::get<PackedVector<ObjectType>>(m_ObjectTuple).AddOrUpdate(EntityID, std::forward<ObjectType>(Primitive));
 				}
 
-				template<typename PrimitiveType>
+				template<typename ObjectType>
 				void RemovePrimitive(ECS::EntityID EntityID)
 				{
-					std::get<PackedVector<PrimitiveType>>(m_PrimitiveTuple).Remove(EntityID);
+					std::get<PackedVector<ObjectType>>(m_ObjectTuple).Remove(EntityID);
 				}
 
-				template<typename PrimitiveType>
-				const PackedVector<PrimitiveType>& GetPrimitives() const
+				template<typename ObjectType>
+				const PackedVector<ObjectType>& GetObjects() const
 				{
-					return std::get<PackedVector<PrimitiveType>>(m_PrimitiveTuple);
+					return std::get<PackedVector<ObjectType>>(m_ObjectTuple);
 				}
 
-				std::tuple<PackedVector<Args>...>& GetPrimitiveTuple() { return m_PrimitiveTuple; }
+				std::tuple<PackedVector<Args>...>& GetPrimitiveTuple() { return m_ObjectTuple; }
 			};
 
-			using RenderProxy = RenderProxyClass<Scene::StaticMesh, Scene::PointLight, Scene::Camera>;
+			using RenderProxy = RenderProxyClass<Scene::StaticMesh, DirectionalLightData, PointLightData, SpotLightData, Scene::Camera>;
 
 		private:
 			SceneID m_ID;
@@ -279,7 +277,9 @@ namespace aZero
 				constexpr uint32_t MaxEntities = 1000;
 				m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(MaxEntities);
 				m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(MaxEntities);
+				m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(MaxEntities);
 				m_ComponentManager.GetComponentArray<ECS::PointLightComponent>().Init(MaxEntities);
+				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(MaxEntities);
 				m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(MaxEntities);
 				//
 			}
@@ -396,10 +396,10 @@ namespace aZero
 				return m_ComponentManager.GetComponent<Component>(Entity.GetEntity());
 			}
 
-			template<typename PrimitiveType>
-			const std::vector<PrimitiveType>& GetPrimitives() const
+			template<typename ObjectType>
+			const std::vector<ObjectType>& GetObjects() const
 			{
-				return m_RenderProxy.GetPrimitives<PrimitiveType>().GetData();
+				return m_RenderProxy.GetObjects<ObjectType>().GetData();
 			}
 
 			void ShrinkPrimitiveArrays()
@@ -449,7 +449,8 @@ namespace aZero
 						const float ZAxisScale = WorldMatrix.m[2][2];
 						const float MaxScaleAxis = std::max(abs(XAxisScale), std::max(abs(YAxisScale), abs(ZAxisScale)));
 						MeshPrim.Bounds = StaticMeshComp->m_MeshReference->GetData().BoundingSphereRadius * MaxScaleAxis;
-
+						const DXM::Vector3 Position(WorldMatrix.m[3][0], WorldMatrix.m[3][1], WorldMatrix.m[3][2]);
+						MeshPrim.DXBounds = DirectX::BoundingSphere(Position, StaticMeshComp->m_MeshReference->GetData().BoundingSphereRadius * MaxScaleAxis);
 						// TODO: This should be changed to avoid using pointers because its gonna be slow af when batching...
 						/*
 							Current problem is we need refcount to the meshes used.
@@ -469,23 +470,41 @@ namespace aZero
 					}
 				}
 
+				ECS::DirectionalLightComponent* DirLightComp = m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(Entity.GetEntity());
+				if (DirLightComp)
+				{
+					DirectionalLightData DLData = DirLightComp->GetData();
+					m_RenderProxy.AddOrUpdatePrimitive(Entity.GetEntityID(), std::move(DLData));
+				}
+
 				ECS::PointLightComponent* PointLightComp = m_ComponentManager.GetComponent<ECS::PointLightComponent>(Entity.GetEntity());
 				if (PointLightComp)
 				{
-					PointLight PLPrim;
-					PLPrim.Color = PointLightComp->GetColor();
+					PointLightData PLData = PointLightComp->GetData();
 
-					if (TransformComp)
+					// TODO: Impl parenting
+					if (/*TransformComp*/false)
 					{
-						PLPrim.Position = DXM::Vector3::Transform(PointLightComp->GetPosition(), TransformComp->GetTransform());
-					}
-					else
-					{
-						PLPrim.Position = PointLightComp->GetPosition();
+						PLData.Position = DXM::Vector3::Transform(PLData.Position, TransformComp->GetTransform());
 					}
 
-					PLPrim.Range = PointLightComp->GetRange();
-					m_RenderProxy.AddOrUpdatePrimitive(Entity.GetEntityID(), std::move(PLPrim));
+					m_RenderProxy.AddOrUpdatePrimitive(Entity.GetEntityID(), std::move(PLData));
+				}
+
+				ECS::SpotLightComponent* SpotLightComp = m_ComponentManager.GetComponent<ECS::SpotLightComponent>(Entity.GetEntity());
+				if (SpotLightComp)
+				{
+					SpotLightData SLData = SpotLightComp->GetData();
+
+					// TODO: Impl parenting
+					if (/*TransformComp*/false)
+					{
+						SLData.Position += {TransformComp->GetTransform().m[3][0], TransformComp->GetTransform().m[3][1], TransformComp->GetTransform().m[3][2]};
+						SLData.Direction = DXM::Vector3::TransformNormal(SLData.Direction, TransformComp->GetTransform());
+						SLData.Direction.Normalize();
+					}
+
+					m_RenderProxy.AddOrUpdatePrimitive(Entity.GetEntityID(), std::move(SLData));
 				}
 
 				ECS::CameraComponent* CameraComp = m_ComponentManager.GetComponent<ECS::CameraComponent>(Entity.GetEntity());
@@ -496,7 +515,16 @@ namespace aZero
 					CamPrim.IsActive = true;
 					CamPrim.Viewport = CameraComp->GetViewport();
 					CamPrim.ScizzorRect = CameraComp->GetScizzorRect();
-					CamPrim.ViewProjectionMatrix = CameraComp->GetViewProjectionMatrix();
+					CamPrim.ViewMatrix = CameraComp->GetViewMatrix();
+					CamPrim.ProjMatrix = CameraComp->GetProjectionMatrix();
+
+					// TODO: Implement own frustum or use DirectX::?
+					/*Shapes::Frustum Frustum(CameraComp->m_Position,
+						CameraComp->m_ForwardVector, 
+						-CameraComp->GetRight(), 
+						CameraComp->m_NearPlane, CameraComp->m_FarPlane, CameraComp->m_Fov, CameraComp->GetAspectRatio());
+					CamPrim.Frustum = Frustum;*/
+
 					m_RenderProxy.AddOrUpdatePrimitive(Entity.GetEntityID(), std::move(CamPrim));
 				}
 			}

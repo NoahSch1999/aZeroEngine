@@ -32,9 +32,7 @@
     <ClInclude Include="src\Core\aZeroECSWrap\aZeroECS\EntityManager.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\aZeroECS\SparseLookupArray.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\Components\CameraComponent.h" />
-    <ClInclude Include="src\Core\aZeroECSWrap\Components\DirectionalLightComponent.h" />
-    <ClInclude Include="src\Core\aZeroECSWrap\Components\PointLightComponent.h" />
-    <ClInclude Include="src\Core\aZeroECSWrap\Components\SpotLightComponent.h" />
+    <ClInclude Include="src\Core\aZeroECSWrap\Components\LightComponents.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\Components\StaticMeshComponent.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\Components\TickComponent.h" />
     <ClInclude Include="src\Core\aZeroECSWrap\Components\TransformComponent.h" />
@@ -43,8 +41,11 @@
     <ClInclude Include="src\Core\DXCompilerInclude.h" />
     <ClInclude Include="src\Core\Engine.h" />
     <ClInclude Include="src\Core\EngineDebug.h" />
+    <ClInclude Include="src\Core\Misc\Frustrum.h" />
     <ClInclude Include="src\Core\Misc\stb_Image_Include.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\LinearBuffer.h" />
+    <ClInclude Include="src\Core\Renderer\LightData.h" />
+    <ClInclude Include="src\Core\Renderer\PrimitiveBatch.h" />
     <ClInclude Include="src\Core\Renderer\RenderAsset.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Commands\CommandContext.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Commands\CommandQueue.h" />
@@ -72,6 +73,18 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="src\Shaders\PrimitiveBatch.ps.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="src\Shaders\PrimitiveBatch.vs.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="src\Shaders\TestShader.cs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>

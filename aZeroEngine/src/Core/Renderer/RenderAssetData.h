@@ -62,7 +62,7 @@ namespace aZero
 			DXM::Vector2 m_Dimensions;
 			DXGI_FORMAT m_Format;
 
-			bool LoadFromFile(const std::string& FilePath);
+			bool LoadFromFile(const std::string& FilePath, DXGI_FORMAT Format);
 		};
 
 		struct MaterialData

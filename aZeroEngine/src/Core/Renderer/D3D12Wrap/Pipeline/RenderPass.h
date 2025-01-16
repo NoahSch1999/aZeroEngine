@@ -39,6 +39,12 @@ namespace aZero
 					return false;
 				}
 
+				if (!VertexShader.m_CompiledShader || !PixelShader.m_CompiledShader)
+				{
+					DEBUG_PRINT("One or more shaders arent compiled");
+					return false;
+				}
+
 				this->Reset();
 
 				m_TopologyType = TopologyType;
@@ -134,6 +140,11 @@ namespace aZero
 
 				D3D12_DEPTH_STENCIL_DESC DepthStencilDesc{};
 				DepthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+				if (DepthStencilFormat == DXGI_FORMAT_UNKNOWN)
+				{
+					DepthStencilDesc.DepthEnable = false;
+				}
+
 				if (DepthStencilDesc.DepthEnable)
 				{
 					PipelineStateDesc.DepthStencilState = DepthStencilDesc;

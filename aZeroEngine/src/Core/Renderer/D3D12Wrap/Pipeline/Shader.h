@@ -6,6 +6,15 @@
 #include "Core/D3D12Include.h"
 #include "Core/DXCompilerInclude.h"
 
+
+// TODO: Try to remove this being a dynamic string allocation etc...
+// TODO: Add path for compiled shaders
+#define SHADER_COMPILED_DIRECTORY std::string("?")
+#define SHADER_COMPILED_PATH(ShaderName) (SHADER_COMPILED_DIRECTORY + std::string(ShaderName) + std::string(".?"))
+
+#define SHADER_SRC_DIRECTORY std::string("src/Shaders/")
+#define SHADER_SRC_PATH(ShaderName) (SHADER_SRC_DIRECTORY + std::string(ShaderName) + std::string(".hlsl"))
+
 namespace aZero
 {
 	namespace D3D12

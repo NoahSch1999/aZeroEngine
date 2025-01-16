@@ -17,12 +17,12 @@ namespace aZero
 			GPUResourceView(const GPUResourceView& Other) = delete;
 			GPUResourceView& operator=(const GPUResourceView& Other) = delete;
 
-			GPUResourceView(GPUResourceView&& Other)
+			GPUResourceView(GPUResourceView&& Other) noexcept
 			{
 				m_Descriptor = std::move(Other.m_Descriptor);
 			}
 
-			GPUResourceView& operator=(GPUResourceView&& Other)
+			GPUResourceView& operator=(GPUResourceView&& Other) noexcept
 			{
 				if (this != &Other)
 				{
@@ -43,7 +43,7 @@ namespace aZero
 
 			UnorderedAccessView(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
 				uint32_t FirstElement,
@@ -52,12 +52,12 @@ namespace aZero
 				bool TreatAsRawBuffer = false
 			)
 			{
-				this->Init(Device, DescriptorHeap, Buffer, Format, FirstElement, NumElements, BytesPerElement, TreatAsRawBuffer);
+				this->Init(Device, Descriptor, Buffer, Format, FirstElement, NumElements, BytesPerElement, TreatAsRawBuffer);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
 				uint32_t FirstElement,
@@ -66,7 +66,7 @@ namespace aZero
 				bool TreatAsRawBuffer = false
 			)
 			{
-				DescriptorHeap.GetDescriptor(m_Descriptor);
+				m_Descriptor = std::move(Descriptor);
 
 				D3D12_UNORDERED_ACCESS_VIEW_DESC Desc;
 				ZeroMemory(&Desc, sizeof(D3D12_UNORDERED_ACCESS_VIEW_DESC));
@@ -82,26 +82,26 @@ namespace aZero
 
 			UnorderedAccessView(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t MipSlice = 0,
 				uint32_t PlaneSlice = 0
 			)
 			{
-				this->Init(Device, DescriptorHeap, Texture, Format, MipSlice, PlaneSlice);
+				this->Init(Device, Descriptor, Texture, Format, MipSlice, PlaneSlice);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t MipSlice = 0,
 				uint32_t PlaneSlice = 0
 			)
 			{
-				DescriptorHeap.GetDescriptor(m_Descriptor);
+				m_Descriptor = std::move(Descriptor);
 
 				D3D12_RESOURCE_DESC ResourceDesc = Texture.GetResource()->GetDesc();
 
@@ -139,7 +139,7 @@ namespace aZero
 
 			ShaderResourceView(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
 				uint32_t FirstElement,
@@ -148,12 +148,12 @@ namespace aZero
 				bool TreatAsRawBuffer = false
 			)
 			{
-				this->Init(Device, DescriptorHeap, Buffer, Format, FirstElement, NumElements, BytesPerElement, TreatAsRawBuffer);
+				this->Init(Device, Descriptor, Buffer, Format, FirstElement, NumElements, BytesPerElement, TreatAsRawBuffer);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
 				uint32_t FirstElement,
@@ -162,7 +162,7 @@ namespace aZero
 				bool TreatAsRawBuffer = false
 			)
 			{
-				DescriptorHeap.GetDescriptor(m_Descriptor);
+				m_Descriptor = std::move(Descriptor);
 
 				D3D12_SHADER_RESOURCE_VIEW_DESC Desc;
 				ZeroMemory(&Desc, sizeof(D3D12_SHADER_RESOURCE_VIEW_DESC));
@@ -179,7 +179,7 @@ namespace aZero
 
 			ShaderResourceView(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t NumMipLevels = 1,
@@ -188,12 +188,12 @@ namespace aZero
 				uint32_t MinAccessibleMipLevel = 0
 			)
 			{
-				this->Init(Device, DescriptorHeap, Texture, Format, NumMipLevels, MostDetailedMip, PlaneSlice, MinAccessibleMipLevel);
+				this->Init(Device, Descriptor, Texture, Format, NumMipLevels, MostDetailedMip, PlaneSlice, MinAccessibleMipLevel);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t NumMipLevels = 1,
@@ -202,7 +202,7 @@ namespace aZero
 				uint32_t MinAccessibleMipLevel = 0
 			)
 			{
-				DescriptorHeap.GetDescriptor(m_Descriptor);
+				m_Descriptor = std::move(Descriptor);
 
 				D3D12_RESOURCE_DESC ResourceDesc = Texture.GetResource()->GetDesc();
 
@@ -243,28 +243,29 @@ namespace aZero
 
 			DepthStencilView(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t MipSlice = 0
 			)
 			{
-				this->Init(Device, DescriptorHeap, Texture, Format, MipSlice);
+				this->Init(Device, Descriptor, Texture, Format, MipSlice);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t MipSlice = 0
 			)
 			{
-				DescriptorHeap.GetDescriptor(m_Descriptor);
+				m_Descriptor = std::move(Descriptor);
 
 				D3D12_RESOURCE_DESC ResourceDesc = Texture.GetResource()->GetDesc();
 
 				D3D12_DEPTH_STENCIL_VIEW_DESC Desc;
+				Desc.Flags = D3D12_DSV_FLAG_NONE;
 				Desc.Format = Format;
 
 				if (ResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D)
@@ -296,24 +297,24 @@ namespace aZero
 
 			RenderTargetView(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format
 			)
 			{
-				this->Init(Device, DescriptorHeap, Texture, Format);
+				this->Init(Device, Descriptor, Texture, Format);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::DescriptorHeap& DescriptorHeap,
+				D3D12::Descriptor& Descriptor,
 				const GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t MipSlice = 0,
 				uint32_t PlaneSlice = 0
 			)
 			{
-				DescriptorHeap.GetDescriptor(m_Descriptor);
+				m_Descriptor = std::move(Descriptor);
 
 				D3D12_RESOURCE_DESC ResourceDesc = Texture.GetResource()->GetDesc();
 

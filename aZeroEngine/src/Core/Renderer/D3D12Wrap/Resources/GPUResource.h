@@ -274,6 +274,38 @@ namespace aZero
 			{
 				GPUResource::Init(InResource, OptResourceRecycler);
 			}
+
+			void Resize(const DXM::Vector3& Dimensions, 
+				D3D12_RESOURCE_STATES InitialState = D3D12_RESOURCE_STATE_COMMON,
+				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{})
+			{
+				ID3D12Device* Device;
+				const HRESULT GetDeviceRes = this->GetResource()->GetDevice(IID_PPV_ARGS(&Device));
+				if (FAILED(GetDeviceRes))
+				{
+					throw std::invalid_argument("Failed to get device when resizing texture");
+				}
+				auto Desc = this->GetResource()->GetDesc();
+				Desc.Width = static_cast<UINT64>(Dimensions.x);
+				Desc.Height = static_cast<UINT>(Dimensions.y);
+				Desc.DepthOrArraySize = static_cast<UINT16>(Dimensions.z);
+				if (Dimensions.y > 0)
+				{
+					if (Dimensions.z > 1)
+					{
+						Desc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+					}
+					else
+					{
+						Desc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+					}
+				}
+				else
+				{
+					Desc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE1D;
+				}
+				GPUResource::Init(Device, RWPROPERTY::GPUONLY, Desc, InitialState, OptClearValue, this->GetResourceRecycler());
+			}
 		};
 	}
 }

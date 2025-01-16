@@ -42,6 +42,8 @@ namespace aZero
 			RenderWindow(const RenderWindow&) = delete;
 			RenderWindow& operator&(const RenderWindow&) = delete;
 
+			// TODO: Add parenting:
+				// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa#:~:text=in%2C%20optional%5D%20HWND-,hWndParent,-%2C%0A%20%20%5Bin%2C%20optional%5D%20HMENU
 			RenderWindow(
 				HINSTANCE AppInstance,
 				const D3D12::CommandQueue& GraphicsQueue,
