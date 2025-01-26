@@ -12,52 +12,28 @@ using namespace Rendering;
 
 /*
 TODO-LIST:
+Prio:
+-Dynamic window and render surface resizing using a function call
+-Skeletal animation and components which works with octree and frustrum culling
+-Basic PBR with normal map, metallic, roughness
+-Physics with rigidbody component
+-Engine should be a library
+-Make relevant file paths (ex. shader source, compiled shaders, asset) be a setting used by the application that uses the library api
+-Octree culling (with static/movable objects etc)
+-Audio system with audio component
+-Parenting system for entities
+-Input handling api with up to 8 controllers and rebinding keys etc
+Non-prio:
+-Quality render target up-scaling using nvidia or amd api (renders to lower resolution buffer and upscales)
+-Render graph (in-progress)
+-Level editor using the library api
+-Fix folder structure so it follows common styles
+-Remove project visual studio dependencies and instead rely on a build system tool such as cmake
 
-FUNCTIONALITY:
-!. Add easy imgui support when using the library in an app (includes easy texture asset viewing)
-
-!. Implement resizing on-demands for all relevant gpu buffers (ex. scene buffers, frameallocator etc)
-	Question: How to determine shrinking to save vram...?
-
-!. Fix bounding boxes and culling for the lights
-
-!. Test add and remove functionality for entities and gpu resources to check no mem leaks and if it works as expected
-
-!. Rework render passes and how they're used which includes adding a simple post-processing system that can be used with lib
-
-!. Fix broken normal map
-
-!. Add animation component etc
-	Includes skeleton asset, animation asset, weights, specific animation pass, skeletalmeshcomponent(?)
-	Keep in mind to design so both frustrum and octree culling can be used with it. (maybe generate some max bounds based on animations added?)
-
-!. Add input system
-
-!. Add octree culling to scene and movable/static flag to scene entities which allow seperate paths for rendering and culling
-	Takes rigidbodies into account
-
-!. Add physics system and rigidbody component
-
-!. Add audio system
-
-!. Add parenting system
-
-PROJECT:
-!. Change folder structure so it follows a more professional structure (ex. src, include, etc...)
-
-!. Make engine a static library
-
-!. Make level editor exe app
-
-!. Rework engine path system 
-	Ex:
-		paths to project assets
-		paths to custom shaders (cached compiled and source) used in post proc pass system
-	Path to engine core shaders (cached compiled and source)
-	All paths should be read from a file thats stored relative to the project exe.
-		This includes the core shader source (and cached) + the core assets
-
-!. Change so that the library and editor can be cloned and generated using cmake or something similar so other IDEs can be used
+TO-FIX:
+-Fix light bounding spheres since we now define the "range" via a mathematical function
+-Fix broken normal map
+-Make camera specify window portions instead of an actual number so its works the same regardless of how the window is scaled
 */
 
 int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int showCommand)
@@ -78,15 +54,11 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	{
 		aZero::Engine Engine(instance, { 1920, 1080 }, 3);
 		std::shared_ptr<aZero::Window::RenderWindow> ActiveWindow = Engine.CreateRenderWindow({ 1920, 1080 }, "aZero Engine");
-		std::shared_ptr<aZero::Window::RenderWindow> x = Engine.CreateRenderWindow({ 800, 800 }, "idk");
-
+		std::shared_ptr<aZero::Window::RenderWindow> x = Engine.CreateRenderWindow({ 800, 800 }, "TestScene1");
 		Rendering::RenderInterface RenderInterface = Engine.CreateRenderInterface();
-
 		Asset::RenderAssetManager& AssetMan = RenderInterface.GetAssetManager();
 
-		Scene::Scene idk = Engine.CreateScene();
-		Scene::SceneEntity& EntIDK = *idk.CreateEntity("hej");
-		Scene::SceneEntity& EntIDK3 = *idk.CreateEntity("hej");
+		//
 
 		std::shared_ptr<Asset::Mesh> GoblinMesh = AssetMan.CreateAsset<Asset::Mesh>();
 		GoblinMesh->LoadFromFile(ASSET_PATH + "meshes/goblin.fbx");
@@ -107,24 +79,31 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		GoblinMat->SetData(std::move(MatData));
 		RenderInterface.MarkRenderStateDirty(GoblinMat);
 
+		Scene::Scene TestScene1 = Engine.CreateScene();
+		Scene::SceneEntity& EntTestScene1 = *TestScene1.CreateEntity("hej");
+		Scene::SceneEntity& Ent2TestScene1 = *TestScene1.CreateEntity("hej");
 		{
-			ECS::TransformComponent idktf;
-			idktf.SetTransform(DXM::Matrix::CreateTranslation(0, 0, 3));
-			idk.AddComponent<ECS::TransformComponent>(EntIDK, std::move(idktf));
+			ECS::TransformComponent TestScene1tfs;
+			TestScene1tfs.SetTransform(DXM::Matrix::CreateTranslation(0, 0, 5));
 
-			ECS::StaticMeshComponent MeshComp;
-			MeshComp.m_MeshReference = GoblinMesh;
-			MeshComp.m_MaterialReference = GoblinMat;
-			//idk.AddComponent<ECS::StaticMeshComponent>(EntIDK, std::move(MeshComp));
+			TestScene1.AddComponent<ECS::TransformComponent>(EntTestScene1, std::move(TestScene1tfs));
+
+			ECS::StaticMeshComponent MeshCompx;
+			MeshCompx.m_MeshReference = GoblinMesh;
+			MeshCompx.m_MaterialReference = GoblinMat;
+			MeshCompx.m_MeshReference = Engine.GetCubeMesh();
+			//MeshCompx.m_MaterialReference = Engine.GetDefaultMaterial();
+			TestScene1.AddComponent<ECS::StaticMeshComponent>(EntTestScene1, std::move(MeshCompx));
 
 			ECS::CameraComponent Cam;
 			Cam.m_TopLeft = { 0,0 };
 			//Cam.m_Dimensions = { ActiveWindow->GetDimensions().x / 2.f, ActiveWindow->GetDimensions().y };
+			//Cam.m_Dimensions = { 1240, 760 };
 			Cam.m_Dimensions = ActiveWindow->GetDimensions();
 			Cam.m_NearPlane = 0.001f;
 			Cam.m_FarPlane = 1000.f;
 			Cam.m_Fov = 3.14 / 2.f;
-			idk.AddComponent(EntIDK, std::move(Cam));
+			TestScene1.AddComponent(EntTestScene1, std::move(Cam));
 
 			ECS::DirectionalLightComponent DLight;
 			DirectionalLightData DLightData;
@@ -132,16 +111,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			DLightData.Direction = { 0,0,1 };
 			DLightData.Intensity = 0.4;
 			DLight.SetData(DLightData);
-			idk.AddComponent<ECS::DirectionalLightComponent>(EntIDK, std::move(DLight));
-
-			/*ECS::PointLightComponent PLight;
-			PointLightData PLightData;
-			PLightData.Color = { 1,1,1 };
-			PLightData.Position = { 2.1,0,4 };
-			PLightData.Intensity = 2;
-			PLightData.FalloffFactor = 2;
-			PLight.SetData(PLightData);
-			idk.AddComponent<ECS::PointLightComponent>(EntIDK, std::move(PLight));*/
+			TestScene1.AddComponent<ECS::DirectionalLightComponent>(EntTestScene1, std::move(DLight));
 
 			ECS::SpotLightComponent SLight;
 			SpotLightData SLightData;
@@ -151,90 +121,24 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			SLightData.Intensity = 2;
 			SLightData.CutoffAngle = 0.97;
 			SLight.SetData(SLightData);
-			idk.AddComponent<ECS::SpotLightComponent>(EntIDK, std::move(SLight));
+			TestScene1.AddComponent<ECS::SpotLightComponent>(EntTestScene1, std::move(SLight));
 
-			idk.MarkRenderStateDirty(EntIDK);
-		}
-
-		Scene::SceneEntity& EntOtherIDK = *idk.CreateEntity("hej");
-		{
-			ECS::TransformComponent idktf;
-			idktf.SetTransform(DXM::Matrix::CreateRotationY(90.f) * DXM::Matrix::CreateScale(0.2) * DXM::Matrix::CreateTranslation(0, 0, 4));
-			idk.AddComponent<ECS::TransformComponent>(EntIDK3, std::move(idktf));
-
-			ECS::StaticMeshComponent MeshComp;
-			MeshComp.m_MeshReference = GoblinMesh;
-			MeshComp.m_MaterialReference = GoblinMat;
-			//idk.AddComponent<ECS::StaticMeshComponent>(EntIDK3, std::move(MeshComp));
-
-			ECS::CameraComponent Cam;
-			Cam.m_TopLeft = { ActiveWindow->GetDimensions().x / 2.f,0 };
-			Cam.m_Dimensions = { ActiveWindow->GetDimensions().x / 2.f, ActiveWindow->GetDimensions().y };
-			Cam.m_NearPlane = 0.001f;
-			Cam.m_FarPlane = 1000.f;
-			Cam.m_Fov = 3.14 / 2.f;
-			//idk.AddComponent(EntIDK3, std::move(Cam));
-
-			ECS::DirectionalLightComponent DLight;
-			DirectionalLightData DLightData;
-			DLightData.Color = { 1,1,1 };
-			DLightData.Direction = { 0,0,1 };
-			DLightData.Intensity = 0.4;
-			DLight.SetData(DLightData);
-			idk.AddComponent<ECS::DirectionalLightComponent>(EntIDK3, std::move(DLight));
-
-			ECS::PointLightComponent PLight;
-			PointLightData PLightData;
-			PLightData.Color = { 1,1,1 };
-			PLightData.Position = { 2.1,0,4 };
-			PLightData.Intensity = 2;
-			PLightData.FalloffFactor = 2;
-			PLight.SetData(PLightData);
-			idk.AddComponent<ECS::PointLightComponent>(EntIDK3, std::move(PLight));
-
-			ECS::SpotLightComponent SLight;
-			SpotLightData SLightData;
-			SLightData.Color = { 1,1,1 };
-			SLightData.Position = { 0,0,-2 };
-			SLightData.Direction = { 0,0,1 };
-			SLightData.Intensity = 2;
-			SLightData.CutoffAngle = 0.9;
-			SLightData.Range = 4;
-			SLight.SetData(SLightData);
-			idk.AddComponent<ECS::SpotLightComponent>(EntIDK3, std::move(SLight));
-
-			idk.MarkRenderStateDirty(EntIDK3);
-
-			ECS::TransformComponent idktfs;
-			idktfs.SetTransform(
-				/*DXM::Matrix::CreateRotationY(3.1415 * 1)* *//*DXM::Matrix::CreateScale(1, 1, 1)* */DXM::Matrix::CreateTranslation(0, 0, 5));
-
-			idk.AddComponent<ECS::TransformComponent>(EntOtherIDK, std::move(idktfs));
-
-			ECS::StaticMeshComponent MeshCompx;
-			MeshCompx.m_MeshReference = GoblinMesh;
-			MeshCompx.m_MaterialReference = GoblinMat;
-			MeshCompx.m_MeshReference = Engine.GetCubeMesh();
-			//MeshCompx.m_MaterialReference = Engine.GetDefaultMaterial();
-			idk.AddComponent<ECS::StaticMeshComponent>(EntOtherIDK, std::move(MeshCompx));
-
-			idk.MarkRenderStateDirty(EntOtherIDK);
+			TestScene1.MarkRenderStateDirty(EntTestScene1);
 		}
 
 		Scene::Scene otherscene = Engine.CreateScene();
 		Scene::SceneEntity& EntOther = *otherscene.CreateEntity("hej");
 		{
-			ECS::TransformComponent idktf;
-			idktf.SetTransform(/*DXM::Matrix::CreateRotationY(90.f)*/ /** DXM::Matrix::CreateScale(0.2, 0.3, 0.1) **/ DXM::Matrix::CreateTranslation(1, 0.5, 3));
-			otherscene.AddComponent<ECS::TransformComponent>(EntOther, std::move(idktf));
+			ECS::TransformComponent TestScene1tf;
+			TestScene1tf.SetTransform(DXM::Matrix::CreateTranslation(0, -1, 3));
+			otherscene.AddComponent<ECS::TransformComponent>(EntOther, std::move(TestScene1tf));
 
 			ECS::StaticMeshComponent MeshComp;
-			MeshComp.m_MeshReference = Engine.GetCubeMesh();
-			MeshComp.m_MaterialReference = Engine.GetDefaultMaterial();
+			MeshComp.m_MeshReference = GoblinMesh;
+			MeshComp.m_MaterialReference = GoblinMat;
 			otherscene.AddComponent<ECS::StaticMeshComponent>(EntOther, std::move(MeshComp));
 
 			ECS::PointLightComponent PL;
-			//PL.SetPosition({ 5,0,0 });
 			otherscene.AddComponent(EntOther, std::move(PL));
 
 			ECS::CameraComponent Cam;
@@ -250,86 +154,6 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 		x->Hide();
 
-
-
-		PrimitiveBatch Batch;
-		{
-			Batch.SetLayer(PrimitiveBatch::RenderLayer::DEPTH);
-			Batch.SetPrimitiveType(PrimitiveBatch::PrimitiveType::LINE);
-			PrimitiveBatch::Point P1;
-			P1.Position = { 1, 1, 0 };
-			P1.Color = { 1,0,0 };
-
-			PrimitiveBatch::Point P2;
-			P2.Position = { -1, 1, 0 };
-			P2.Color = { 0,1,0 };
-
-			PrimitiveBatch::Point P3;
-			P3.Position = { -1, 1, 0 };
-			P3.Color = { 0,0,1 };
-
-			PrimitiveBatch::Point P4;
-			P4.Position = { -1, -1, 0 };
-			P4.Color = { 1,1,1 };
-
-			PrimitiveBatch::Point P5;
-			P5.Position = { -1, -1, 0 };
-			P5.Color = { 1,0,0 };
-
-			PrimitiveBatch::Point P6;
-			P6.Position = { 1, -1, 0 };
-			P6.Color = { 0,1,0 };
-
-			PrimitiveBatch::Point P7;
-			P7.Position = { 1, -1, 0 };
-			P7.Color = { 0,0,1 };
-
-			PrimitiveBatch::Point P8;
-			P8.Position = { 1, 1, 0 };
-			P8.Color = { 1,1,1 };
-
-			Batch.AddPoints({ P1, P2, P3, P4, P5, P6, P7, P8 });
-		}
-
-		PrimitiveBatch Batchs;
-		Batchs.SetLayer(PrimitiveBatch::RenderLayer::NO_DEPTH);
-		Batchs.SetPrimitiveType(PrimitiveBatch::PrimitiveType::LINE);
-		{
-			PrimitiveBatch::Point P1;
-			P1.Position = { 1, 1, 1 };
-			P1.Color = { 1,0,0 };
-
-			PrimitiveBatch::Point P2;
-			P2.Position = { -1, 1, 1 };
-			P2.Color = { 0,1,0 };
-
-			PrimitiveBatch::Point P3;
-			P3.Position = { -1, 1, 1 };
-			P3.Color = { 0,0,1 };
-
-			PrimitiveBatch::Point P4;
-			P4.Position = { -1, -1, 1 };
-			P4.Color = { 1,1,1 };
-
-			PrimitiveBatch::Point P5;
-			P5.Position = { -1, -1, 1 };
-			P5.Color = { 1,0,0 };
-
-			PrimitiveBatch::Point P6;
-			P6.Position = { 1, -1, 1 };
-			P6.Color = { 0,1,0 };
-
-			PrimitiveBatch::Point P7;
-			P7.Position = { 1, -1, 1 };
-			P7.Color = { 0,0,1 };
-
-			PrimitiveBatch::Point P8;
-			P8.Position = { 1, 1, 1 };
-			P8.Color = { 1,1,1 };
-
-			Batchs.AddPoints({ P1, P2, P3, P4, P5, P6, P7, P8 });
-		}
-
 		while (ActiveWindow->IsOpen() && x->IsOpen())
 		{
 			if (GetAsyncKeyState(VK_ESCAPE))
@@ -344,47 +168,39 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 			// Example
 			static float Rot = 90.f;
+			Rot += 0.01;
 			if (GetAsyncKeyState('1'))
 			{
 				Rot = 90.f;
 			}
 
-
-			//ECS::SpotLightComponent* SL = idk.GetComponent<ECS::SpotLightComponent>(EntIDK3);
-			ECS::PointLightComponent* SL = idk.GetComponent<ECS::PointLightComponent>(EntIDK3);
-			auto Data = SL->GetData();
-
 			if (GetAsyncKeyState('W'))
 			{
-				//Data.Color = { 1,0,0 };
-				ECS::CameraComponent* Cam = idk.GetComponent<ECS::CameraComponent>(EntIDK);
+				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
 				Cam->m_Position += DXM::Vector3(0, 0, 0.01f);
-				idk.MarkRenderStateDirty(EntIDK);
+				TestScene1.MarkRenderStateDirty(EntTestScene1);
 			}
 
 			if (GetAsyncKeyState('X'))
 			{
-				//Data.Color = { 1,1,1 };
-				ECS::CameraComponent* Cam = idk.GetComponent<ECS::CameraComponent>(EntIDK);
+				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
 				Cam->m_Position += DXM::Vector3(0, 0, -0.03f);
-				idk.MarkRenderStateDirty(EntIDK);
+				TestScene1.MarkRenderStateDirty(EntTestScene1);
 				otherscene.MarkRenderStateDirty(EntOther);
 			}
 
 			if (GetAsyncKeyState('A'))
 			{
-				//Data.Color = { 0,1,0 };
-				ECS::CameraComponent* Cam = idk.GetComponent<ECS::CameraComponent>(EntIDK);
+				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
 				Cam->m_Position += DXM::Vector3(0.01f, 0, 0);
-				idk.MarkRenderStateDirty(EntIDK);
+				TestScene1.MarkRenderStateDirty(EntTestScene1);
 			}
 
 			if (GetAsyncKeyState('D'))
 			{
-				//Data.Color = { 0,0,1 };
-				ECS::CameraComponent* Cam = idk.GetComponent<ECS::CameraComponent>(EntIDK);
+				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
 				Cam->m_Position += DXM::Vector3(-0.01f, 0, 0);
-				idk.MarkRenderStateDirty(EntIDK);
+				TestScene1.MarkRenderStateDirty(EntTestScene1);
 			}
 
 			if (GetAsyncKeyState(VK_SPACE))
@@ -392,31 +208,29 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 				Engine.FlushRenderingCommands();
 				Engine.CreatePipeline();
 
-				/*static bool IsHidden = true;
-				if (IsHidden)
-				{
-					x->Show();
-				}
-				else
-				{
-					x->Hide();
-				}
+				/*Scene::SceneEntity& ent = *TestScene1.CreateEntity("hej");
+				ECS::TransformComponent TestScene1tfs;
+				DXM::Matrix Mat = DXM::Matrix::CreateScale(0.2) * DXM::Matrix::CreateTranslation(0, 0, 5);
+				Mat *= DXM::Matrix::CreateRotationY(Rot);
+				TestScene1tfs.SetTransform(Mat);
+				TestScene1.AddComponent<ECS::TransformComponent>(ent, std::move(TestScene1tfs));
 
-				IsHidden = !IsHidden;*/
+				std::shared_ptr<Asset::Material> RandMat = AssetMan.CreateAsset<Asset::Material>();
+				Asset::MaterialData RMatData;
+				RMatData.m_Color = DXM::Vector3(r, g, b);
+				RandMat->SetData(std::move(RMatData));
+				RenderInterface.MarkRenderStateDirty(RandMat);
+
+				ECS::StaticMeshComponent MeshCompx;
+				MeshCompx.m_MaterialReference = GoblinMat;
+				MeshCompx.m_MeshReference = GoblinMesh;
+				TestScene1.AddComponent<ECS::StaticMeshComponent>(ent, std::move(MeshCompx));
+
+				TestScene1.MarkRenderStateDirty(ent);*/
 			}
 
-			Rot += 0.00000001f;
-
-			//Data.Position = idk.GetComponent<ECS::CameraComponent>(EntIDK)->m_Position;
-			/*DXM::Matrix RotMat = DXM::Matrix::CreateRotationY(Rot);
-			Data.Direction = DXM::Vector3::TransformNormal(Data.Direction, RotMat);
-			Data.Direction.Normalize();*/
-
-			SL->SetData(Data);
-			idk.MarkRenderStateDirty(EntIDK3);
-
-			Engine.Render(idk, {&Batch, &Batchs}, ActiveWindow);
-			//Engine.Render(otherscene, x);
+			Engine.Render(TestScene1, {}, ActiveWindow);
+			//Engine.Render(otherscene, {}, x);
 
 			Engine.EndFrame();
 		}

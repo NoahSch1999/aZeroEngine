@@ -1,12 +1,14 @@
 #pragma once
 #include <optional>
 
+#include "Core/Misc/NonCopyable.h"
 #include "ResourceRecycler.h"
 
 namespace aZero
 {
 	namespace D3D12
 	{
+		// TODO: Rework at some point, or move to enhanced barriers
 		struct ResourceTransitionBundles
 		{
 			D3D12_RESOURCE_STATES StateBefore, StateAfter;
@@ -14,43 +16,49 @@ namespace aZero
 		};
 
 		void TransitionResources(ID3D12GraphicsCommandList* CmdList, const std::vector<ResourceTransitionBundles>& Bundles);
+		//
 
-		class GPUResource
+		class GPUResource : public NonCopyable
 		{
-		public:
-			enum RWPROPERTY { GPUONLY = 1, CPUWRITE = 2, CPUREAD = 3 };
-
-		private:
+		protected:
 			D3D12::ResourceRecycler* m_ResourceRecycler = nullptr;
 			Microsoft::WRL::ComPtr<ID3D12Resource> m_Resource = nullptr;
-
-		protected:
 			void* m_MappedPtr = nullptr;
 
+			void Map(D3D12_HEAP_TYPE Type)
+			{
+				if (Type == D3D12_HEAP_TYPE_UPLOAD || Type == D3D12_HEAP_TYPE_GPU_UPLOAD || Type == D3D12_HEAP_TYPE_READBACK)
+				{
+					m_Resource->Map(0, nullptr, reinterpret_cast<void**>(&m_MappedPtr));
+				}
+			}
+
 			GPUResource(
-				ID3D12Device* Device, 
-				RWPROPERTY RWProperty,
-				const D3D12_RESOURCE_DESC& Desc, 
+				ID3D12Device* Device,
+				D3D12_HEAP_TYPE HeapType,
+				const D3D12_RESOURCE_DESC& Desc,
+				D3D12::ResourceRecycler& ResourceRecycler,
 				D3D12_RESOURCE_STATES InitialState = D3D12_RESOURCE_STATE_COMMON,
-				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{},
-				std::optional<D3D12::ResourceRecycler*> OptResourceRecycler = std::optional<D3D12::ResourceRecycler*>{}
+				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{}
 			)
 			{
-				this->Init(Device, RWProperty, Desc, InitialState, OptClearValue, OptResourceRecycler);
+				this->Init(Device, HeapType, Desc, ResourceRecycler, InitialState, OptClearValue);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				RWPROPERTY RWProperty,
+				D3D12_HEAP_TYPE HeapType,
 				const D3D12_RESOURCE_DESC& Desc,
+				D3D12::ResourceRecycler& ResourceRecycler,
 				D3D12_RESOURCE_STATES InitialState = D3D12_RESOURCE_STATE_COMMON,
-				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{},
-				std::optional<D3D12::ResourceRecycler*> OptResourceRecycler = std::optional<D3D12::ResourceRecycler*>{}
+				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{}
 			)
 			{
+				this->Reset();
+
 				D3D12_HEAP_PROPERTIES HeapProperties;
 				ZeroMemory(&HeapProperties, sizeof(D3D12_HEAP_PROPERTIES));
-				HeapProperties.Type = (D3D12_HEAP_TYPE)RWProperty;
+				HeapProperties.Type = HeapType;
 
 				const D3D12_CLEAR_VALUE* ClearValue = OptClearValue.has_value() ? &OptClearValue.value() : nullptr;
 
@@ -67,23 +75,22 @@ namespace aZero
 					throw std::invalid_argument("GPUResource::Init() => Failed to create commited resource");
 				}
 
-				if (RWProperty == RWPROPERTY::CPUWRITE || RWProperty == RWPROPERTY::CPUREAD)
-				{
-					m_Resource->Map(0, nullptr, reinterpret_cast<void**>(&m_MappedPtr));
-				}
+				this->Map(HeapType);
 
-				m_ResourceRecycler = OptResourceRecycler.has_value() ? OptResourceRecycler.value() : nullptr;
+				m_ResourceRecycler = &ResourceRecycler;
 			}
 
-			GPUResource(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
+			GPUResource(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, D3D12::ResourceRecycler& ResourceRecycler)
 			{
-				this->Init(InResource, OptResourceRecycler);
+				this->Init(InResource, ResourceRecycler);
 			}
 
-			void Init(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
+			void Init(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, D3D12::ResourceRecycler& ResourceRecycler)
 			{
+				this->Reset();
+
 				m_Resource = InResource;
-				m_ResourceRecycler = OptResourceRecycler.has_value() ? OptResourceRecycler.value() : nullptr;
+				m_ResourceRecycler = &ResourceRecycler;
 
 				D3D12_HEAP_PROPERTIES HeapProperties;
 				D3D12_HEAP_FLAGS HeapFlags;
@@ -93,10 +100,7 @@ namespace aZero
 					throw std::invalid_argument("GPUResource::Init() => Failed to create commited resource");
 				}
 
-				if (HeapProperties.Type == D3D12_HEAP_TYPE_UPLOAD || HeapProperties.Type == D3D12_HEAP_TYPE_READBACK)
-				{
-					m_Resource->Map(0, nullptr, reinterpret_cast<void**>(&m_MappedPtr));
-				}
+				this->Map(HeapProperties.Type);
 			}
 
 		public:
@@ -104,14 +108,8 @@ namespace aZero
 
 			~GPUResource()
 			{
-				if (m_ResourceRecycler)
-				{
-					m_ResourceRecycler->RecycleResource(m_Resource);
-				}
+				this->Reset();
 			}
-
-			GPUResource(const GPUResource& Other) = delete;
-			GPUResource& operator=(const GPUResource& Other) = delete;
 
 			GPUResource(GPUResource&& Other) noexcept
 			{
@@ -139,6 +137,18 @@ namespace aZero
 				return *this;
 			}
 
+
+			void Reset()
+			{
+				if (m_ResourceRecycler && m_Resource)
+				{
+					m_ResourceRecycler->RecycleResource(m_Resource);
+					m_Resource = nullptr;
+					m_MappedPtr = nullptr;
+					m_ResourceRecycler = nullptr;
+				}
+			}
+
 			ID3D12Resource* GetResource() const { return m_Resource.Get(); }
 			D3D12::ResourceRecycler* GetResourceRecycler() const { return m_ResourceRecycler; }
 			void* GetCPUAccessibleMemory() const { return m_MappedPtr; }
@@ -151,19 +161,19 @@ namespace aZero
 
 			GPUBuffer(
 				ID3D12Device* Device,
-				RWPROPERTY RWProperty,
+				D3D12_HEAP_TYPE HeapType,
 				uint64_t NumBytes,
-				std::optional<D3D12::ResourceRecycler*> OptResourceRecycler = std::optional<D3D12::ResourceRecycler*>{}
-			) 
-			{ 
-				this->Init(Device, RWProperty, NumBytes, OptResourceRecycler);
+				D3D12::ResourceRecycler& ResourceRecycler
+			)
+			{
+				this->Init(Device, HeapType, NumBytes, ResourceRecycler);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				RWPROPERTY RWProperty,
+				D3D12_HEAP_TYPE HeapType,
 				uint64_t NumBytes,
-				std::optional<D3D12::ResourceRecycler*> OptResourceRecycler = std::optional<D3D12::ResourceRecycler*>{}
+				D3D12::ResourceRecycler& ResourceRecycler
 			)
 			{
 				D3D12_RESOURCE_DESC Desc;
@@ -180,45 +190,117 @@ namespace aZero
 				Desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 				Desc.Format = DXGI_FORMAT_UNKNOWN;
 
-				GPUResource::Init(Device, RWProperty, Desc, D3D12_RESOURCE_STATE_COMMON, std::optional<D3D12_CLEAR_VALUE>{}, OptResourceRecycler);
+				GPUResource::Init(Device, HeapType, Desc, ResourceRecycler, D3D12_RESOURCE_STATE_COMMON, std::optional<D3D12_CLEAR_VALUE>{});
 			}
 
-			GPUBuffer(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
+			GPUBuffer(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, D3D12::ResourceRecycler& ResourceRecycler)
 			{
-				this->Init(InResource, OptResourceRecycler);
+				this->Init(InResource, ResourceRecycler);
 			}
 
-			void Init(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
+			void Init(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, D3D12::ResourceRecycler& ResourceRecycler)
 			{
-				GPUResource::Init(InResource, OptResourceRecycler);
+				GPUResource::Init(InResource, ResourceRecycler);
 			}
 
-			void Write(void* Data, uint32_t NumBytes, uint32_t Offset = 0)
+			void Resize(ID3D12GraphicsCommandList* CmdList, uint32_t NewSizeBytes)
 			{
-				if (this->m_MappedPtr)
+				D3D12_RESOURCE_DESC Desc = m_Resource->GetDesc();
+				const uint32_t OldSizeBytes = Desc.Width;
+
+				Desc.Width = NewSizeBytes;
+
+				D3D12_HEAP_PROPERTIES Props;
+				HRESULT Res = m_Resource->GetHeapProperties(&Props, NULL);
+				if (FAILED(Res))
 				{
-					memcpy((char*)m_MappedPtr + Offset, Data, NumBytes);
+					throw std::invalid_argument("NA");
 				}
+
+				ID3D12Device* Device;
+				Res = m_Resource->GetDevice(IID_PPV_ARGS(&Device));
+				if (FAILED(Res))
+				{
+					throw std::invalid_argument("NA");
+				}
+
+				Microsoft::WRL::ComPtr<ID3D12Resource> NewResource;
+				Res = Device->CreateCommittedResource(
+					&Props, D3D12_HEAP_FLAG_NONE, &Desc,
+					D3D12_RESOURCE_STATE_COMMON, nullptr,
+					IID_PPV_ARGS(NewResource.GetAddressOf()));
+
+				if (FAILED(Res))
+				{
+					throw std::invalid_argument("NA");
+				}
+
+				CmdList->CopyBufferRegion(NewResource.Get(), 0, m_Resource.Get(), 0, OldSizeBytes);
+
+				if (this->m_ResourceRecycler)
+				{
+					this->GetResourceRecycler()->RecycleResource(m_Resource);
+				}
+
+				m_Resource = NewResource;
+
+				this->Map(Props.Type);
+			}
+
+			void Write(ID3D12GraphicsCommandList* CmdList, void* Data, uint32_t NumBytes, uint32_t ByteOffset = 0)
+			{
+				const uint32_t MemorySizeBytes = static_cast<uint32_t>(m_Resource->GetDesc().Width);
+				const uint32_t LastOffsetBytes = ByteOffset + NumBytes;
+				if (!this->GetCPUAccessibleMemory() || (MemorySizeBytes < LastOffsetBytes))
+				{
+					throw std::out_of_range("GPUBuffer::Write() => OOR write to resource");
+				}
+
+				memcpy((char*)this->GetCPUAccessibleMemory() + ByteOffset, Data, NumBytes);
 			}
 		};
 
 		class GPUTexture : public GPUResource
 		{
+		private:
+			std::optional<D3D12_CLEAR_VALUE> m_ClearValue;
+
+			void MoveOp(GPUTexture&& Other)
+			{
+				m_ClearValue = Other.m_ClearValue;
+				Other.m_ClearValue.reset();
+				GPUResource::operator=(std::move(Other));
+			}
+
 		public:
 			GPUTexture() = default;
+
+			GPUTexture(GPUTexture&& Other) noexcept
+			{
+				this->MoveOp(std::forward<GPUTexture>(Other));
+			}
+
+			GPUTexture& operator=(GPUTexture&& Other) noexcept
+			{
+				if (this != &Other)
+				{
+					this->MoveOp(std::forward<GPUTexture>(Other));
+				}
+				return *this;
+			}
 
 			GPUTexture(
 				ID3D12Device* Device,
 				const DXM::Vector3& Dimensions,
 				DXGI_FORMAT Format,
 				D3D12_RESOURCE_FLAGS Flags,
+				D3D12::ResourceRecycler& ResourceRecycler,
 				uint32_t MipLevels,
 				D3D12_RESOURCE_STATES InitialState = D3D12_RESOURCE_STATE_COMMON,
-				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{},
-				std::optional<D3D12::ResourceRecycler*> OptResourceRecycler = std::optional<D3D12::ResourceRecycler*>{}
+				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{}
 			)
 			{
-				this->Init(Device, Dimensions, Format, Flags, MipLevels, InitialState, OptClearValue, OptResourceRecycler);
+				this->Init(Device, Dimensions, Format, Flags, ResourceRecycler, MipLevels, InitialState, OptClearValue);
 			}
 
 			void Init(
@@ -226,12 +308,16 @@ namespace aZero
 				const DXM::Vector3& Dimensions,
 				DXGI_FORMAT Format,
 				D3D12_RESOURCE_FLAGS Flags,
+				D3D12::ResourceRecycler& ResourceRecycler,
 				uint32_t MipLevels,
 				D3D12_RESOURCE_STATES InitialState = D3D12_RESOURCE_STATE_COMMON,
-				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{},
-				std::optional<D3D12::ResourceRecycler*> OptResourceRecycler = std::optional<D3D12::ResourceRecycler*>{}
+				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{}
 			)
 			{
+				this->Reset();
+
+				m_ClearValue = OptClearValue;
+
 				D3D12_RESOURCE_DESC Desc;
 				ZeroMemory(&Desc, sizeof(D3D12_RESOURCE_DESC));
 
@@ -262,20 +348,27 @@ namespace aZero
 				Desc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
 				Desc.Flags = Flags;
 
-				GPUResource::Init(Device, RWPROPERTY::GPUONLY, Desc, InitialState, OptClearValue, OptResourceRecycler);
+				GPUResource::Init(Device, D3D12_HEAP_TYPE_DEFAULT, Desc, ResourceRecycler, InitialState, m_ClearValue);
 			}
 
-			GPUTexture(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
+			GPUTexture(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, D3D12::ResourceRecycler& ResourceRecycler)
 			{
-				this->Init(InResource, OptResourceRecycler);
+				this->Init(InResource, ResourceRecycler);
 			}
 
-			void Init(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, std::optional<D3D12::ResourceRecycler*> OptResourceRecycler)
+			void Init(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, D3D12::ResourceRecycler& ResourceRecycler)
 			{
-				GPUResource::Init(InResource, OptResourceRecycler);
+				this->Reset();
+				GPUResource::Init(InResource, ResourceRecycler);
 			}
 
-			void Resize(const DXM::Vector3& Dimensions, 
+			void Reset()
+			{
+				m_ClearValue.reset();
+				GPUResource::Reset();
+			}
+
+			void Resize(const DXM::Vector3& Dimensions,
 				D3D12_RESOURCE_STATES InitialState = D3D12_RESOURCE_STATE_COMMON,
 				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{})
 			{
@@ -304,8 +397,10 @@ namespace aZero
 				{
 					Desc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE1D;
 				}
-				GPUResource::Init(Device, RWPROPERTY::GPUONLY, Desc, InitialState, OptClearValue, this->GetResourceRecycler());
+				GPUResource::Init(Device, D3D12_HEAP_TYPE_DEFAULT, Desc, *this->GetResourceRecycler(), InitialState, OptClearValue);
 			}
+
+			std::optional<D3D12_CLEAR_VALUE> GetClearValue() const { return m_ClearValue; }
 		};
 	}
 }

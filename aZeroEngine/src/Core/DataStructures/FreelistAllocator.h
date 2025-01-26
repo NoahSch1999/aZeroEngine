@@ -1,5 +1,6 @@
 #pragma once
 #include <list>
+#include "Core/Misc/NonCopyable.h"
 
 namespace aZero
 {
@@ -52,7 +53,7 @@ namespace aZero
 			}
 		public:
 
-			class AllocationHandle
+			class AllocationHandle : public NonCopyable
 			{
 				friend FreelistAllocator;
 			private:
@@ -74,10 +75,6 @@ namespace aZero
 						m_Owner->FreeAllocation(*this);
 					}
 				}
-
-				AllocationHandle(const AllocationHandle& Other) = delete;
-
-				AllocationHandle& operator=(const AllocationHandle& Other) = delete;
 
 				AllocationHandle(AllocationHandle&& Other) noexcept
 				{
@@ -121,23 +118,6 @@ namespace aZero
 				InitNode.m_Offset = 0;
 				InitNode.m_NumBytes = SizeBytes;
 				m_FreeNodes.push_back(InitNode);
-			}
-
-			void Resize(uint32_t NewSizeBytes)
-			{
-				DEBUG_FUNC([&] {
-					if (NewSizeBytes <= m_CurrentSize)
-					{
-						throw std::invalid_argument("FreelistAllocator::Resize() => Requested resize smaller than current requirments");
-					}
-					});
-
-				AllocationNode NewNode;
-				NewNode.m_Offset = m_CurrentSize;
-				NewNode.m_NumBytes = NewSizeBytes - m_CurrentSize;
-				m_FreeNodes.push_back(NewNode);
-
-				m_CurrentSize = NewSizeBytes;
 			}
 
 			bool Allocate(AllocationHandle& OutHandle, unsigned int NumBytes)

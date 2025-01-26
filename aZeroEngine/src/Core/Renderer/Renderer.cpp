@@ -5,24 +5,6 @@ namespace aZero
 {
 	namespace Rendering
 	{
-
-		struct StaticMeshBatches
-		{
-			struct PerInstanceData
-			{
-				DXM::Matrix WorldMatrix;
-			};
-
-			struct BatchInfo
-			{
-				uint32_t StartInstanceOffset;
-				uint32_t NumVertices;
-				std::vector<PerInstanceData> InstanceData;
-			};
-
-			std::unordered_map<uint32_t, std::unordered_map<uint32_t, BatchInfo>> Batches;
-		};
-
 		void SetRenderPass(ID3D12GraphicsCommandList* CmdList, D3D12::RenderPass& Pass)
 		{
 			CmdList->SetPipelineState(Pass.GetPipelineState());
@@ -77,7 +59,7 @@ namespace aZero
 			m_PackedGPULookupBufferUpdateContext.Init(m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 
 			m_AssetManager = std::make_unique<Asset::RenderAssetManager>();
-			
+
 			DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_Compiler));
 
 			SetupRenderPipeline();
@@ -97,8 +79,8 @@ namespace aZero
 			{
 				ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
 
-				this->GetFrameAllocator().AddAllocation(Batch.GetData(), &m_BatchVertexBuffer, 0, Batch.GetNumBytes());
-				this->GetFrameAllocator().RecordAllocations();
+				this->GetFrameAllocator().AddAllocation(CmdList, Batch.GetData(), &m_BatchVertexBuffer, 0, Batch.GetNumBytes());
+				this->GetFrameAllocator().RecordAllocations(CmdList);
 
 				this->GetFrameAllocator().GetCommandContext().StopRecording();
 				m_GraphicsQueue.ExecuteContext(this->GetFrameAllocator().GetCommandContext());
@@ -106,8 +88,8 @@ namespace aZero
 				ID3D12DescriptorHeap* Heaps[2] = { m_ResourceHeap.GetDescriptorHeap(), m_SamplerHeap.GetDescriptorHeap() };
 				CmdList->SetDescriptorHeaps(2, Heaps);
 
-				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> RTVHandles = { m_FinalRenderSurfaceRTV.GetCPUHandle() };
-				D3D12_CPU_DESCRIPTOR_HANDLE DSVHandle = m_SceneDepthTextureDSV.GetCPUHandle();
+				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> RTVHandles = { m_FinalRenderSurfaceRTV.GetDescriptorHandle() };
+				D3D12_CPU_DESCRIPTOR_HANDLE DSVHandle = m_SceneDepthTextureDSV.GetDescriptorHandle();
 				CmdList->OMSetRenderTargets(static_cast<UINT>(RTVHandles.size()), RTVHandles.data(), false, &DSVHandle);
 
 				D3D12::RenderPass* Pass = nullptr;
@@ -190,10 +172,27 @@ namespace aZero
 				const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(StaticMesh.DXBounds.Center, ViewMatrix), StaticMesh.DXBounds.Radius);
 				if (Frustum.Intersects(Sphere))
 				{
-				/*if (Camera.Frustum.IsCollidingSphere(Sphere.Center, Sphere.Radius))
-				{*/
-					const uint32_t MeshIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Mesh.get()).value()->MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshEntry::GPUData);
-					const uint32_t MaterialIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Material.get()).value()->MaterialAllocHandle.GetStartOffset() / sizeof(Asset::MaterialData::MaterialRenderData);
+					/*if (Camera.Frustum.IsCollidingSphere(Sphere.Center, Sphere.Radius))
+					{*/
+					uint32_t MeshIndex;
+					uint32_t MaterialIndex;
+					if (m_AssetManager->HasRenderHandle(*StaticMesh.Mesh.get()))
+					{
+						MeshIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Mesh.get()).value()->MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshEntry::GPUData);
+					}
+					else
+					{
+						continue;
+					}
+
+					if (m_AssetManager->HasRenderHandle(*StaticMesh.Material.get()))
+					{
+						MaterialIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Material.get()).value()->MaterialAllocHandle.GetStartOffset() / sizeof(Asset::MaterialData::MaterialRenderData);
+					}
+					else
+					{
+						continue;
+					}
 
 					auto& Batch = OutStaticMeshBatches.Batches[MaterialIndex][MeshIndex];
 					Batch.NumVertices = StaticMesh.Mesh->GetData().Indices.size();
@@ -216,9 +215,9 @@ namespace aZero
 			if (!InstanceBuffer.IsInitalized())
 			{
 				InstanceBuffer.Init(m_Device,
-					D3D12::GPUBuffer::RWPROPERTY::CPUWRITE,
+					D3D12_HEAP_TYPE_UPLOAD,
 					sizeof(StaticMeshBatches::PerInstanceData) * std::max(static_cast<size_t>(1), Scene.GetObjects<Scene::Scene::StaticMesh>().size()),
-					&m_ResourceRecycler
+					m_ResourceRecycler
 				);
 			}
 			else
@@ -226,6 +225,7 @@ namespace aZero
 				// Get size and resize if needed / handle shrinking at some point
 			}
 
+			ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
 			uint32_t InstanceStartOffset = 0;
 			for (auto& [MaterialIndex, MeshToBatchMap] : OutStaticMeshBatches.Batches)
 			{
@@ -234,11 +234,13 @@ namespace aZero
 					Batch.StartInstanceOffset = InstanceStartOffset;
 					for (auto& InstanceData : Batch.InstanceData)
 					{
-						InstanceBuffer.Write((void*)&InstanceData, sizeof(StaticMeshBatches::PerInstanceData));
+						InstanceBuffer.Write(CmdList, (void*)&InstanceData, sizeof(StaticMeshBatches::PerInstanceData));
 					}
 					InstanceStartOffset += Batch.InstanceData.size();
 				}
 			}
+			m_GraphicsCommandContext.StopRecording();
+			m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 		}
 
 		void Renderer::GetDirectionalLights(Scene::Scene& Scene,
@@ -256,32 +258,34 @@ namespace aZero
 			if (!DirLightBuffer.IsInitalized())
 			{
 				DirLightBuffer.Init(m_Device,
-					D3D12::GPUBuffer::RWPROPERTY::CPUWRITE,
+					D3D12_HEAP_TYPE_UPLOAD,
 					sizeof(DirectionalLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<DirectionalLightData>().size()),
-					&m_ResourceRecycler
+					m_ResourceRecycler
 				);
 			}
 			else
 			{
 				// Get size and resize if needed / handle shrinking at some point
 			}
-
+			ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
 			for (const auto& PointLight : Scene.GetObjects<DirectionalLightData>())
 			{
 				// TODO: Add culling when we dont have a range anymore but instead a falloff factor
 				/*const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(PointLight.Position, ViewMatrix), PointLight.Range);
 				if (Frustum.Intersects(Sphere))
 				{*/
-				DirLightBuffer.Write((void*)&PointLight, sizeof(DirectionalLightData));
+				DirLightBuffer.Write(CmdList, (void*)&PointLight, sizeof(DirectionalLightData));
 				//}
 			}
+			m_GraphicsCommandContext.StopRecording();
+			m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 
 			NumDirectionalLights = DirLightBuffer.GetOffset() / sizeof(DirectionalLightData);
 		}
 
-		void Renderer::GetRelevantPointLights(Scene::Scene& Scene, 
+		void Renderer::GetRelevantPointLights(Scene::Scene& Scene,
 			const DirectX::BoundingFrustum& Frustum,
-			const DXM::Matrix& ViewMatrix, 
+			const DXM::Matrix& ViewMatrix,
 			uint32_t& NumPointLights)
 		{
 			// TODO: Handle case where scene doesnt have for frame index
@@ -296,9 +300,9 @@ namespace aZero
 			if (!PointLightBuffer.IsInitalized())
 			{
 				PointLightBuffer.Init(m_Device,
-					D3D12::GPUBuffer::RWPROPERTY::CPUWRITE,
+					D3D12_HEAP_TYPE_UPLOAD,
 					sizeof(PointLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<PointLightData>().size()),
-					&m_ResourceRecycler
+					m_ResourceRecycler
 				);
 			}
 			else
@@ -306,15 +310,20 @@ namespace aZero
 				// Get size and resize if needed / handle shrinking at some point
 			}
 
+			ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
+
 			for (const auto& PointLight : Scene.GetObjects<PointLightData>())
 			{
 				// TODO: Add culling when we dont have a range anymore but instead a falloff factor
 				/*const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(PointLight.Position, ViewMatrix), PointLight.Range);
 				if (Frustum.Intersects(Sphere))
 				{*/
-					PointLightBuffer.Write((void*)&PointLight, sizeof(PointLightData));
+				PointLightBuffer.Write(CmdList, (void*)&PointLight, sizeof(PointLightData));
 				//}
 			}
+
+			m_GraphicsCommandContext.StopRecording();
+			m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 
 			NumPointLights = PointLightBuffer.GetOffset() / sizeof(PointLightData);
 		}
@@ -336,9 +345,9 @@ namespace aZero
 			if (!SpotLightBuffer.IsInitalized())
 			{
 				SpotLightBuffer.Init(m_Device,
-					D3D12::GPUBuffer::RWPROPERTY::CPUWRITE,
+					D3D12_HEAP_TYPE_UPLOAD,
 					sizeof(SpotLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<SpotLightData>().size()),
-					&m_ResourceRecycler
+					m_ResourceRecycler
 				);
 			}
 			else
@@ -346,16 +355,21 @@ namespace aZero
 				// Get size and resize if needed / handle shrinking at some point
 			}
 
+			ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
+
 			for (const auto& PointLight : Scene.GetObjects<SpotLightData>())
 			{
 				// TODO: Add culling
-				SpotLightBuffer.Write((void*)&PointLight, sizeof(SpotLightData));
+				SpotLightBuffer.Write(CmdList, (void*)&PointLight, sizeof(SpotLightData));
 			}
+
+			m_GraphicsCommandContext.StopRecording();
+			m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 
 			NumSpotLights = SpotLightBuffer.GetOffset() / sizeof(SpotLightData);
 		}
 
-		void Renderer::Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*> Batches, std::shared_ptr<Window::RenderWindow> Window)
+		void Renderer::Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*>& Batches, std::shared_ptr<Window::RenderWindow> Window)
 		{
 			m_FrameWindows.insert(Window);
 
@@ -364,14 +378,15 @@ namespace aZero
 
 			this->ClearRenderSurfaces();
 
+			// No culling per camera
+			uint32_t NumDirectionalLights;
+			this->GetDirectionalLights(Scene, NumDirectionalLights);
+
 			for (auto& Camera : Scene.GetObjects<Scene::Scene::Camera>())
 			{
 				if (Camera.IsActive)
 				{
 					DirectX::BoundingFrustum Frustum = DirectX::BoundingFrustum(Camera.ProjMatrix, true);
-
-					uint32_t NumDirectionalLights;
-					this->GetDirectionalLights(Scene, NumDirectionalLights);
 
 					uint32_t NumPointLights;
 					this->GetRelevantPointLights(Scene, Frustum, Camera.ViewMatrix, NumPointLights);
@@ -382,14 +397,16 @@ namespace aZero
 					StaticMeshBatches AllStaticMeshBatches;
 					this->GetRelevantStaticMeshes(Scene, Frustum, Camera.ViewMatrix, AllStaticMeshBatches);
 
-					// SkeletalMeshBatches AllSkeletalMeshBatches;
-					this->GetRelevantSkeletalMeshes(Scene, Camera /*, AllSkeletalMeshBatches*/);
+					this->PrepareGraphForScene(Scene);
 
-					this->RenderStaticMeshes(Scene, Camera, AllStaticMeshBatches, NumDirectionalLights, NumPointLights, NumSpotLights);
+					//this->RenderStaticMeshes(Scene, Camera, AllStaticMeshBatches, NumDirectionalLights, NumPointLights, NumSpotLights);
+					const bool Succeeded = m_RenderGraph.Execute(m_GraphicsQueue, m_GraphicsCommandContext, Camera, AllStaticMeshBatches, NumDirectionalLights, NumPointLights, NumSpotLights);
 
-					this->RenderSkeletalMeshes(Scene, Camera /*, AllSkeletalMeshBatches, NumPointLights*/);
-
-					// Do post proccessing per camera
+					if (!Succeeded)
+					{
+						DEBUG_PRINT("RenderGraph failed");
+						return;
+					}
 
 					for (const PrimitiveBatch* Batch : Batches)
 					{
@@ -446,7 +463,7 @@ namespace aZero
 			m_FrameAllocators.resize(m_BufferCount);
 			for (int BufferIndex = 0; BufferIndex < m_BufferCount; BufferIndex++)
 			{
-				m_FrameAllocators[BufferIndex].Init(m_Device, 1000000 * sizeof(Asset::VertexData));
+				m_FrameAllocators[BufferIndex].Init(m_Device, sizeof(int32_t) * 1, m_ResourceRecycler);
 			}
 
 			const uint64_t MaxVertices = 1000000;
@@ -461,10 +478,10 @@ namespace aZero
 			MeshSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 			MeshSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-			m_VertexBuffer.Init(m_Device, MaxVertices * sizeof(Asset::VertexData), &m_ResourceRecycler, D3D12::GPUResource::GPUONLY);
-			m_IndexBuffer.Init(m_Device, MaxVertices * sizeof(uint32_t), &m_ResourceRecycler, D3D12::GPUResource::GPUONLY);
-			m_MeshEntryBuffer.Init(m_Device, MaxMeshes * sizeof(Asset::MeshEntry), &m_ResourceRecycler, D3D12::GPUResource::GPUONLY);
-			m_MaterialBuffer.Init(m_Device, MaxMeshes * sizeof(Asset::MaterialData::MaterialRenderData), &m_ResourceRecycler, D3D12::GPUResource::GPUONLY);
+			m_VertexBuffer.Init(m_Device, MaxVertices * sizeof(Asset::VertexData), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_IndexBuffer.Init(m_Device, MaxVertices * sizeof(uint32_t), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshEntryBuffer.Init(m_Device, MaxMeshes * sizeof(Asset::MeshEntry), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MaterialBuffer.Init(m_Device, MaxMeshes * sizeof(Asset::MaterialData::MaterialRenderData), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 
 			m_SamplerHeap.GetDescriptor(m_DefaultSamplerDescriptor);
 			D3D12_SAMPLER_DESC SamplerDesc;
@@ -482,27 +499,28 @@ namespace aZero
 			m_DSVClearColor.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 			m_DSVClearColor.DepthStencil.Depth = 1.f;
 			m_DSVClearColor.DepthStencil.Stencil = 0;
-			
+
 			m_SceneDepthTexture.Init(
 				m_Device,
 				DXM::Vector3(m_RenderResolution.x, m_RenderResolution.y, 1),
 				DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT,
 				D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,
+				m_ResourceRecycler,
 				1,
 				D3D12_RESOURCE_STATE_DEPTH_WRITE,
-				m_DSVClearColor,
-				&m_ResourceRecycler
+				m_DSVClearColor
 			);
 
-			m_DSVHeap.GetDescriptor(m_SceneDepthTextureDSV);
-
-			D3D12_DEPTH_STENCIL_VIEW_DESC DsvDesc;
+			D3D12::Descriptor TempDescriptor;
+			m_DSVHeap.GetDescriptor(TempDescriptor);
+			m_SceneDepthTextureDSV = D3D12::DepthStencilView(m_Device, TempDescriptor, m_SceneDepthTexture, m_SceneDepthTexture.GetResource()->GetDesc().Format);
+			/*D3D12_DEPTH_STENCIL_VIEW_DESC DsvDesc;
 			DsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 			DsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 			DsvDesc.Texture2D.MipSlice = 0;
 			DsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 
-			m_Device->CreateDepthStencilView(m_SceneDepthTexture.GetResource(), &DsvDesc, m_SceneDepthTextureDSV.GetCPUHandle());
+			m_Device->CreateDepthStencilView(m_SceneDepthTexture.GetResource(), &DsvDesc, m_SceneDepthTextureDSV.GetCPUHandle());*/
 
 			m_RTVClearColor.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 			//m_RTVClearColor.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -516,20 +534,21 @@ namespace aZero
 				DXM::Vector3(m_RenderResolution.x, m_RenderResolution.y, 1),
 				m_RTVClearColor.Format,
 				D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
+				m_ResourceRecycler,
 				1,
 				D3D12_RESOURCE_STATE_RENDER_TARGET,
-				m_RTVClearColor,
-				&m_ResourceRecycler
+				m_RTVClearColor
 			);
 
-			D3D12_RENDER_TARGET_VIEW_DESC RtvDesc;
+			/*D3D12_RENDER_TARGET_VIEW_DESC RtvDesc;
 			RtvDesc.Format = m_FinalRenderSurface.GetResource()->GetDesc().Format;
 			RtvDesc.Texture2D.MipSlice = 0;
 			RtvDesc.Texture2D.PlaneSlice = 0;
-			RtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+			RtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;*/
 
-			m_RTVHeap.GetDescriptor(m_FinalRenderSurfaceRTV);
-			m_Device->CreateRenderTargetView(m_FinalRenderSurface.GetResource(), &RtvDesc, m_FinalRenderSurfaceRTV.GetCPUHandle());
+			m_RTVHeap.GetDescriptor(TempDescriptor);
+			//m_Device->CreateRenderTargetView(m_FinalRenderSurface.GetResource(), &RtvDesc, m_FinalRenderSurfaceRTV.GetCPUHandle());
+			m_FinalRenderSurfaceRTV = D3D12::RenderTargetView(m_Device, TempDescriptor, m_FinalRenderSurface, m_FinalRenderSurface.GetResource()->GetDesc().Format);
 
 			{
 				D3D12::Shader BasePassVS;
@@ -540,11 +559,54 @@ namespace aZero
 
 				Pass.Init(m_Device, BasePassVS, BasePassPS, { m_FinalRenderSurface.GetResource()->GetDesc().Format }, DXGI_FORMAT_D24_UNORM_S8_UINT);
 			}
+			m_StaticMeshPass = RenderGraphPass(std::move(Pass));
+			m_StaticMeshPass.BindBuffer("VertexBuffer", D3D12::SHADER_TYPE::VS, &m_VertexBuffer.GetBuffer());
+			m_StaticMeshPass.BindBuffer("IndexBuffer", D3D12::SHADER_TYPE::VS, &m_IndexBuffer.GetBuffer());
+			m_StaticMeshPass.BindBuffer("MeshEntries", D3D12::SHADER_TYPE::VS, &m_MeshEntryBuffer.GetBuffer());
+			m_StaticMeshPass.BindBuffer("MaterialBuffer", D3D12::SHADER_TYPE::PS, &m_MaterialBuffer.GetBuffer());
+			Rendering::RenderGraphPass::RenderTargetViewBinding RtvBinding;
+			RtvBinding.Resource = &m_FinalRenderSurface;
+			RtvBinding.View = &m_FinalRenderSurfaceRTV;
+			m_StaticMeshPass.BindRenderTarget(0, RtvBinding);
+
+			Rendering::RenderGraphPass::DepthStencilViewBinding DsvBinding;
+			DsvBinding.Resource = &m_SceneDepthTexture;
+			DsvBinding.View = &m_SceneDepthTextureDSV;
+			m_StaticMeshPass.BindDepthStencil(DsvBinding);
+			m_StaticMeshPass.m_ShouldClearOnExecute = true;
+
+			m_RenderGraph.AddPass(m_StaticMeshPass, -1);
+
+			m_RenderGraph.m_ResourceHeap = &m_ResourceHeap;
+			m_RenderGraph.m_SamplerHeap = &m_SamplerHeap;
+		}
+
+		void Renderer::PrepareGraphForScene(Scene::Scene& InScene)
+		{
+			m_StaticMeshPass.BindBuffer("InstanceBuffer", D3D12::SHADER_TYPE::VS,
+				&InScene.m_RenderProxy.GetObjects<Scene::Scene::StaticMesh>().m_RenderBuffers.at(m_FrameIndex).GetBuffer());
+
+			m_StaticMeshPass.BindBuffer("DirectionalLightBuffer", D3D12::SHADER_TYPE::PS,
+				&InScene.m_RenderProxy.GetObjects<DirectionalLightData>().m_RenderBuffers.at(m_FrameIndex).GetBuffer());
+
+			m_StaticMeshPass.BindBuffer("PointLightBuffer", D3D12::SHADER_TYPE::PS,
+				&InScene.m_RenderProxy.GetObjects<PointLightData>().m_RenderBuffers.at(m_FrameIndex).GetBuffer());
+
+			m_StaticMeshPass.BindBuffer("SpotLightBuffer", D3D12::SHADER_TYPE::PS,
+				&InScene.m_RenderProxy.GetObjects<SpotLightData>().m_RenderBuffers.at(m_FrameIndex).GetBuffer());
+
+			struct PixelShaderConstants
+			{
+				uint32_t SamplerIndex;
+			}PSConstants;
+
+			PSConstants.SamplerIndex = m_DefaultSamplerDescriptor.GetHeapIndex();
+			m_StaticMeshPass.BindConstant("PixelShaderConstantsBuffer", D3D12::SHADER_TYPE::PS, &PSConstants, sizeof(PixelShaderConstants));
 		}
 
 		void Renderer::InitPrimitiveBatchPipeline()
 		{
-			m_BatchVertexBuffer.Init(m_Device, D3D12::GPUResource::GPUONLY, sizeof(PrimitiveBatch::Point) * 10000, &m_ResourceRecycler);
+			m_BatchVertexBuffer.Init(m_Device, D3D12_HEAP_TYPE_DEFAULT, sizeof(PrimitiveBatch::Point) * 10000, m_ResourceRecycler);
 
 			D3D12::Shader PassVS;
 			PassVS.CompileFromFile(this->GetCompiler(), SHADER_SRC_PATH("PrimitiveBatch.vs"));
@@ -563,13 +625,15 @@ namespace aZero
 		void Renderer::RecordAssetManagerCommands()
 		{
 			D3D12::LinearFrameAllocator& FrameAllocator = m_FrameAllocators[m_FrameIndex];
-
-			FrameAllocator.RecordAllocations();
-			m_GraphicsQueue.ExecuteContext(FrameAllocator.GetCommandContext());
+			ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
+			FrameAllocator.RecordAllocations(CmdList);
+			//m_GraphicsQueue.ExecuteContext(FrameAllocator.GetCommandContext());
+			m_GraphicsCommandContext.StopRecording();
+			m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 		}
 
 		void Renderer::RenderStaticMeshes(Scene::Scene& InScene, const Scene::Scene::Camera& Camera,
-			const StaticMeshBatches& StaticMeshBatches, 
+			const StaticMeshBatches& StaticMeshBatches,
 			uint32_t NumDirectionalLights,
 			uint32_t NumPointLights,
 			uint32_t NumSpotLights)
@@ -581,8 +645,8 @@ namespace aZero
 
 			SetRenderPass(CmdList, Pass);
 
-			std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> RTVHandles = { m_FinalRenderSurfaceRTV.GetCPUHandle() };
-			D3D12_CPU_DESCRIPTOR_HANDLE DSVHandle = m_SceneDepthTextureDSV.GetCPUHandle();
+			std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> RTVHandles = { m_FinalRenderSurfaceRTV.GetDescriptorHandle() };
+			D3D12_CPU_DESCRIPTOR_HANDLE DSVHandle = m_SceneDepthTextureDSV.GetDescriptorHandle();
 			CmdList->OMSetRenderTargets(static_cast<UINT>(RTVHandles.size()), RTVHandles.data(), false, &DSVHandle);
 
 			CmdList->RSSetViewports(1, &Camera.Viewport);
@@ -627,7 +691,7 @@ namespace aZero
 				PSConstants.SamplerIndex = m_DefaultSamplerDescriptor.GetHeapIndex();
 				Pass.SetShaderResource(CmdList, "PixelShaderConstants", &PSConstants, sizeof(PixelShaderConstants), D3D12::SHADER_TYPE::PS);
 
-				Pass.SetShaderResource(CmdList, "InstanceBuffer", 
+				Pass.SetShaderResource(CmdList, "InstanceBuffer",
 					InScene.m_RenderProxy.GetObjects<Scene::Scene::StaticMesh>().m_RenderBuffers.at(m_FrameIndex).GetVirtualAddress(), D3D12::SHADER_TYPE::VS);
 
 				Pass.SetShaderResource(CmdList, "DirectionalLightBuffer",
@@ -670,7 +734,7 @@ namespace aZero
 						const uint32_t NumInstances = Batch.InstanceData.size();
 						Pass.SetShaderResource(CmdList, "PerBatchConstantsBuffer", (void*)&VSConstants, sizeof(VSConstants), D3D12::SHADER_TYPE::VS);
 						Pass.SetShaderResource(CmdList, "PerBatchConstantsBuffer", (void*)&RootConstantsPS, sizeof(PerBatchConstantsPS), D3D12::SHADER_TYPE::PS);
-	
+
 						CmdList->DrawInstanced(static_cast<UINT>(Batch.NumVertices), NumInstances, 0, 0);
 					}
 				}
@@ -684,12 +748,15 @@ namespace aZero
 		{
 			ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
 
-			CmdList->ClearRenderTargetView(m_FinalRenderSurfaceRTV.GetCPUHandle(), m_RTVClearColor.Color, 0, NULL);
+			CmdList->ClearRenderTargetView(m_FinalRenderSurfaceRTV.GetDescriptorHandle(), m_RTVClearColor.Color, 0, NULL);
 			CmdList->ClearDepthStencilView(
-					m_SceneDepthTextureDSV.GetCPUHandle(),
-					D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-					m_DSVClearColor.DepthStencil.Depth, m_DSVClearColor.DepthStencil.Stencil,
-					0, NULL);
+				m_SceneDepthTextureDSV.GetDescriptorHandle(),
+				D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+				m_DSVClearColor.DepthStencil.Depth, m_DSVClearColor.DepthStencil.Stencil,
+				0, NULL);
+
+			m_GraphicsCommandContext.StopRecording();
+			m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 		}
 
 		void Renderer::CopyRenderSurfaceToTexture(ID3D12Resource* TargetTexture)

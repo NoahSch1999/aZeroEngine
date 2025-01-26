@@ -4,7 +4,9 @@ struct FragmentInput
     float3 WorldPosition : WorldPosition;
     float2 UV : UV;
     float3 Normal : NORMAL;
-    float3x3 TBN : TBN;
+    float3 Tangent : TANGENT;
+    float3 BiTangent : BITANGENT;
+    //float3x3 TBN : TBN;
 };
 
 struct FragmentOutput
@@ -150,7 +152,11 @@ FragmentOutput main(FragmentInput Input)
         NormalMapTexture = ResourceDescriptorHeap[Mat.NormalMapIndex];
         Normal = NormalMapTexture.Sample(Sampler, Input.UV).xyz;
         Normal = Normal * 2.f - 1.f;
-        Normal = normalize(mul(Input.TBN, Normal));
+        //Normal = Normal * 0.5 + 0.5;
+        float3x3 TBN = float3x3(Input.Tangent, Input.BiTangent, Input.Normal);
+        Normal = normalize(mul(TBN, Normal));
+        //Normal = normalize(mul(Input.TBN, Normal));
+        //Normal = normalize(mul(Normal, Input.TBN));
     }
     else
     {
@@ -181,8 +187,8 @@ FragmentOutput main(FragmentInput Input)
     Light.Color = float3(1, 1, 1);
     Light.Intensity = 5;
     Light.Range = 2;
-    LightFactor = CalcSpotLight(Light, Input.WorldPosition, Normal);
-    Color = float3(1, 1, 1);
+    //LightFactor = CalcSpotLight(Light, Input.WorldPosition, Normal);
+    //Color = float3(1, 1, 1);
     
     //PointLight Light;
     //Light.Position = float3(0, 1, -1);
@@ -195,6 +201,7 @@ FragmentOutput main(FragmentInput Input)
     float3 Ambient = float3(0.1, 0.1, 0.1);
     Color *= Ambient + LightFactor; 
     Output.FragmentColor = float4(Color, 1.f);
+    //Output.FragmentColor = float4(Normal * 0.5f + 0.5f, 1.0f);
     
     return Output;
 }

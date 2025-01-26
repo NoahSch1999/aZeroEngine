@@ -62,14 +62,19 @@ struct OutputData
     float3 WorldPosition : WorldPosition;
     float2 UV : UV;
     float3 Normal : NORMAL;
-    float3x3 TBN : TBN;
+    float3 Tangent : TANGENT;
+    float3 BiTangent : BITANGENT;
 };
 
 OutputData main(InputData Input)
 {
     const MeshEntry Mesh = MeshEntries.Load(PerBatchConstantsBuffer.MeshEntryIndex);
     const VertexData Vertex = GetVertexFromID(VertexBuffer, IndexBuffer, Mesh, Input.VertexID);
-    
+    //VertexData Vertex;
+    //Vertex.Position = float3(0, 0, 0);
+    //Vertex.Normal = float3(1, 0, 0);
+    //Vertex.Tangent = float3(0, 1, 0);
+    //Vertex.UV = float2(1, 0);
     const float4x4 WorldMatrix = InstanceBuffer.Load(PerBatchConstantsBuffer.StartInstanceOffset + Input.InstanceID).WorldMatrix;
     
     OutputData Output;
@@ -81,10 +86,13 @@ OutputData main(InputData Input)
     
     const float3 Normal = mul(WorldMatrix, float4(Vertex.Normal, 0.f)).xyz;
     const float3 Tangent = mul(WorldMatrix, float4(Vertex.Tangent, 0.f)).xyz;
-    const float3 Bitangent = cross(Tangent, Normal);
+    const float3 BiTangent = cross(Normal, Tangent);
+    //const float3 BiTangent = cross(Tangent, Normal);
     
     Output.Normal = Normal;
-    Output.TBN = float3x3(Tangent, Bitangent, Normal);
+    Output.Tangent = Tangent;
+    Output.BiTangent = BiTangent;
+    //Output.TBN = float3x3(Tangent, BiTangent, Normal);
     
     return Output;
 }

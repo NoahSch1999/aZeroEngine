@@ -35,6 +35,7 @@ namespace aZero
 			{
 				uint32_t m_RootIndex;
 				D3D12_ROOT_PARAMETER_TYPE m_ResourceType;
+				uint32_t m_Num32BitConstants = 0;
 			};
 			std::unordered_map<std::string, ShaderResourceInfo> m_ResourceNameToInformation;
 			std::vector<D3D12_ROOT_PARAMETER> m_RootParameters;

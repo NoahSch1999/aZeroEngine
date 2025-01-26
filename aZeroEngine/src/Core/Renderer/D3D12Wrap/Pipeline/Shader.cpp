@@ -169,16 +169,26 @@ void aZero::D3D12::Shader::GenerateReflectionData(IDxcResult& CompiledShaderResu
 				D3D12_SHADER_BUFFER_DESC ConstantBufferDesc{};
 				ShaderReflectionConstantBuffer->GetDesc(&ConstantBufferDesc);
 
+				uint32_t Num32Bit = 0;
+				for (int i = 0; i < ConstantBufferDesc.Variables; i++)
+				{
+					ID3D12ShaderReflectionVariable* Variable = ShaderReflectionConstantBuffer->GetVariableByIndex(i);
+					D3D12_SHADER_VARIABLE_DESC Desc;
+					Variable->GetDesc(&Desc);
+					Num32Bit += Desc.Size / sizeof(uint32_t);
+				}
+
 				const D3D12_ROOT_PARAMETER RootParameter
 				{
 					.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
 					.Constants{
 						.ShaderRegister = ShaderInputBindDesc.BindPoint,
 						.RegisterSpace = ShaderInputBindDesc.Space,
-						.Num32BitValues = ConstantBufferDesc.Size / sizeof(uint32_t)
+						.Num32BitValues = Num32Bit
 					},
 					.ShaderVisibility = ShaderVis
 				};
+				Info.m_Num32BitConstants = Num32Bit;
 				Info.m_ResourceType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 				m_RootParameters.push_back(RootParameter);
 

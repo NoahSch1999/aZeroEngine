@@ -15,18 +15,15 @@ namespace aZero
 		using RenderGarbageCollector = RenderGarbageCollectorClass<RENDER_ASSET_TYPES>;
 
 		template<typename AssetType, typename GPUHandleType>
-		class RenderAsset
+		class RenderAsset : public NonCopyable
 		{
 		private:
 			RenderGarbageCollector* m_GBCollector;
-			RenderAssetID m_ID;
+			RenderAssetID m_ID = std::numeric_limits<RenderAssetID>::max();
 			AssetType m_Data;
 		
 		public:
 			using GPUHandle = GPUHandleType;
-
-			RenderAsset(const RenderAsset<AssetType, GPUHandleType>& Other) = delete;
-			RenderAsset& operator=(const RenderAsset<AssetType, GPUHandleType>& Other) = delete;
 
 			RenderAsset(RenderGarbageCollector& GBCollector, RenderAssetID ID)
 				:m_GBCollector(&GBCollector), m_ID(ID) { }

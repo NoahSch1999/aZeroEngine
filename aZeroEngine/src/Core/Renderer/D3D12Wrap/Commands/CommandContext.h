@@ -1,11 +1,12 @@
 #pragma once
 #include "Core/D3D12Include.h"
+#include "Core/Misc/NonCopyable.h"
 
 namespace aZero
 {
 	namespace D3D12
 	{
-		class CommandContext
+		class CommandContext : public NonCopyable
 		{
 		private:
 			Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_Allocator = nullptr;
@@ -14,9 +15,6 @@ namespace aZero
 
 		public:
 			CommandContext() = default;
-
-			CommandContext(const CommandContext&) = delete;
-			CommandContext& operator=(const CommandContext&) = delete;
 
 			CommandContext(CommandContext&& Other) noexcept
 			{

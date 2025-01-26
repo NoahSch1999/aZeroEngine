@@ -32,7 +32,8 @@ aZero::Window::RenderWindow::RenderWindow(
 	HINSTANCE AppInstance,
 	const D3D12::CommandQueue& GraphicsQueue,
 	const std::string& Name,
-	const DXM::Vector2& Dimensions,
+	const DXM::Vector2& WindowDimensions,
+	const DXM::Vector2& BackBufferDimensions,
 	std::optional<D3D12::ResourceRecycler*> OptResourceRecycler,
 	std::uint32_t NumBackBuffers,
 	DXGI_FORMAT BackBufferFormat)
@@ -54,7 +55,7 @@ aZero::Window::RenderWindow::RenderWindow(
 		m_Name.c_str(),
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
-		Dimensions.x, Dimensions.y,
+		WindowDimensions.x, WindowDimensions.y,
 		NULL,
 		NULL,
 		AppInstance,
@@ -82,8 +83,10 @@ aZero::Window::RenderWindow::RenderWindow(
 	}
 
 	DXGI_SWAP_CHAIN_DESC1 SwapChainDesc;
-	SwapChainDesc.Width = Dimensions.x;
-	SwapChainDesc.Height = Dimensions.y;
+	/*SwapChainDesc.Width = Dimensions.x;
+	SwapChainDesc.Height = Dimensions.y;*/
+	SwapChainDesc.Width = BackBufferDimensions.x;
+	SwapChainDesc.Height = BackBufferDimensions.y;
 	SwapChainDesc.Format = BackBufferFormat;
 	SwapChainDesc.Stereo = false;
 	SwapChainDesc.SampleDesc.Count = 1;

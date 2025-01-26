@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "Core/D3D12Include.h"
+#include "Core/Misc/NonCopyable.h"
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -21,7 +22,7 @@ namespace aZero
 	namespace Window
 	{
 		// TODO: Impl waitable object logic
-		class RenderWindow
+		class RenderWindow : public NonCopyable
 		{
 			friend Engine;
 		private:
@@ -39,8 +40,6 @@ namespace aZero
 			void AllocateBackBuffers();
 
 		public:
-			RenderWindow(const RenderWindow&) = delete;
-			RenderWindow& operator&(const RenderWindow&) = delete;
 
 			// TODO: Add parenting:
 				// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa#:~:text=in%2C%20optional%5D%20HWND-,hWndParent,-%2C%0A%20%20%5Bin%2C%20optional%5D%20HMENU
@@ -48,7 +47,8 @@ namespace aZero
 				HINSTANCE AppInstance,
 				const D3D12::CommandQueue& GraphicsQueue,
 				const std::string& Name,
-				const DXM::Vector2& Dimensions,
+				const DXM::Vector2& WindowDimensions,
+				const DXM::Vector2& BackBufferDimensions,
 				std::optional<D3D12::ResourceRecycler*> OptResourceRecycler = std::optional<D3D12::ResourceRecycler*>{},
 				std::uint32_t NumBackBuffers = 3,
 				DXGI_FORMAT BackBufferFormat = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM);

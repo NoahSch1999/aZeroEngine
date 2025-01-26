@@ -63,17 +63,9 @@ namespace aZero
 				throw std::runtime_error("Engine() => Failed to create ID3D12Device");
 			}
 
-			//Hr = CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
-			/*if (FAILED(Hr))
-			{
-				throw std::runtime_error("Engine() => Failed to call CoInitializeEx()");
-			}*/
-
 			m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), WindowResolution, BufferCount);
 
 			this->LoadDefaultAssets();
-
-			m_Renderer->m_GraphicsQueue.ExecuteContext(m_Renderer->m_GraphicsCommandContext);
 		}
 
 		~Engine()
@@ -86,7 +78,7 @@ namespace aZero
 			m_Renderer->BeginFrame();
 		}
 
-		void Render(Scene::Scene& Scene, const std::vector<Rendering::PrimitiveBatch*> Batches, std::shared_ptr<Window::RenderWindow> Window)
+		void Render(Scene::Scene& Scene, const std::vector<Rendering::PrimitiveBatch*>& Batches, std::shared_ptr<Window::RenderWindow> Window)
 		{
 			m_Renderer->Render(Scene, Batches, Window);
 		}
@@ -109,6 +101,7 @@ namespace aZero
 				m_Renderer->m_GraphicsQueue,
 				Name,
 				Dimensions,
+				m_Renderer->m_RenderResolution,
 				&m_Renderer->m_ResourceRecycler,
 				m_Renderer->m_BufferCount
 				);

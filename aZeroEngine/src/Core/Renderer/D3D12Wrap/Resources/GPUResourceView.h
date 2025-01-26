@@ -6,16 +6,13 @@ namespace aZero
 {
 	namespace D3D12
 	{
-		class GPUResourceView
+		class GPUResourceView : public NonCopyable
 		{
 		protected:
+			D3D12::Descriptor m_Descriptor;
 
 		public:
-			D3D12::Descriptor m_Descriptor;
 			GPUResourceView() = default;
-
-			GPUResourceView(const GPUResourceView& Other) = delete;
-			GPUResourceView& operator=(const GPUResourceView& Other) = delete;
 
 			GPUResourceView(GPUResourceView&& Other) noexcept
 			{
@@ -32,6 +29,7 @@ namespace aZero
 			}
 
 			uint32_t GetDescriptorIndex() const { return m_Descriptor.GetHeapIndex(); }
+			D3D12_CPU_DESCRIPTOR_HANDLE GetDescriptorHandle() const { return m_Descriptor.GetCPUHandle(); }
 		};
 
 		class UnorderedAccessView : public GPUResourceView

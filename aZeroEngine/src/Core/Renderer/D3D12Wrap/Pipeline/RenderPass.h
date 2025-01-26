@@ -5,19 +5,29 @@ namespace aZero
 {
 	namespace D3D12
 	{
+		// TODO: Minimize mem footprint based on cs or graphics pass
+		// TODO: Remove from D3D12 namespace
+		// TODO: Maybe make non-copyable
+		// TODO: Make root constant space be shared or something similar
+		enum class PASS_TYPE { INVALID, GRAPHICS, COMPUTE };
+
 		class RenderPass
 		{
 		private:
 			void Reset()
 			{
+				m_NumRenderTargets = 0;
+				m_HasDepthStencilTarget = false;
 				m_PipelineState = nullptr;
 				m_RootSignature = nullptr;
 				m_VSResourceMap.clear();
 				m_PSResourceMap.clear();
 				m_CSResourceMap.clear();
 				m_TopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+				m_PassType = PASS_TYPE::INVALID;
 			}
 
+		public:
 			Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
 			Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 			
@@ -26,8 +36,9 @@ namespace aZero
 			std::unordered_map<std::string, Shader::ShaderResourceInfo> m_CSResourceMap;
 
 			D3D12_PRIMITIVE_TOPOLOGY_TYPE m_TopologyType;
-
-		public:
+			PASS_TYPE m_PassType;
+			uint16_t m_NumRenderTargets = 0;
+			bool m_HasDepthStencilTarget = false;
 
 			RenderPass() = default;
 
@@ -47,9 +58,12 @@ namespace aZero
 
 				this->Reset();
 
+				m_PassType = PASS_TYPE::GRAPHICS;
 				m_TopologyType = TopologyType;
 				m_VSResourceMap = VertexShader.m_ResourceNameToInformation;
 				m_PSResourceMap = PixelShader.m_ResourceNameToInformation;
+				m_NumRenderTargets = PixelShader.m_RenderTargetMasks.size();
+				m_HasDepthStencilTarget = DepthStencilFormat != DXGI_FORMAT_UNKNOWN;
 
 				const size_t NumVSBinds = VertexShader.m_ResourceNameToInformation.size();
 				for (auto& NameToIndex : m_PSResourceMap)
@@ -181,6 +195,7 @@ namespace aZero
 
 				this->Reset();
 
+				m_PassType = PASS_TYPE::COMPUTE;
 				m_CSResourceMap = ComputeShader.m_ResourceNameToInformation;
 
 				std::vector<D3D12_STATIC_SAMPLER_DESC> StaticSamplers;
@@ -237,6 +252,7 @@ namespace aZero
 			ID3D12RootSignature* GetRootSignature() { return m_RootSignature.Get(); }
 			bool IsComputePass() const { return m_TopologyType == D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED; }
 			D3D12_PRIMITIVE_TOPOLOGY_TYPE GetTopologyType() const { return m_TopologyType; }
+			PASS_TYPE GetPassType() const { return m_PassType; }
 
 			void SetShaderResource(ID3D12GraphicsCommandList* CmdList, const std::string& ShaderResourceName, void* Data, uint32_t SizeBytes, SHADER_TYPE Type)
 			{

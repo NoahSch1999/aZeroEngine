@@ -5,7 +5,7 @@ namespace aZero
 {
 	namespace D3D12
 	{
-		class CommandQueue
+		class CommandQueue : public NonCopyable
 		{
 		private:
 			Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_Queue;
@@ -17,9 +17,6 @@ namespace aZero
 
 		public:
 			CommandQueue() = default;
-
-			CommandQueue(const CommandQueue&) = delete;
-			CommandQueue& operator=(const CommandQueue&) = delete;
 
 			CommandQueue(CommandQueue&& Other) noexcept
 			{

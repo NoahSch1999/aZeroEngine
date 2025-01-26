@@ -7,7 +7,7 @@ namespace aZero
 {
 	namespace D3D12
 	{
-		class LinearFrameAllocator
+		class LinearFrameAllocator : public NonCopyable
 		{
 		public:
 			struct Allocation
@@ -33,16 +33,13 @@ namespace aZero
 				return AllocOffset;
 			}
 
-			void Write(void* Data, uint32_t Offset, uint32_t NumBytes)
+			void Write(ID3D12GraphicsCommandList* CmdList, void* Data, uint32_t Offset, uint32_t NumBytes)
 			{
-				memcpy((char*)m_StagingBuffer.GetCPUAccessibleMemory() + Offset, Data, NumBytes);
+				m_StagingBuffer.Write(CmdList, Data, NumBytes, Offset);
 			}
 
 		public:
 			LinearFrameAllocator() = default;
-
-			LinearFrameAllocator(const LinearFrameAllocator&) = delete;
-			LinearFrameAllocator& operator=(const LinearFrameAllocator&) = delete;
 
 			LinearFrameAllocator(LinearFrameAllocator&& Other) noexcept
 			{
@@ -64,15 +61,15 @@ namespace aZero
 				return *this;
 			}
 
-			LinearFrameAllocator(ID3D12Device* Device, uint32_t NumBytes)
+			LinearFrameAllocator(ID3D12Device* Device, uint32_t NumBytes, D3D12::ResourceRecycler& ResourceRecycler)
 			{
-				this->Init(Device, NumBytes);
+				this->Init(Device, NumBytes, ResourceRecycler);
 			}
 
-			void Init(ID3D12Device* Device, uint32_t NumBytes)
+			void Init(ID3D12Device* Device, uint32_t NumBytes, D3D12::ResourceRecycler& ResourceRecycler)
 			{
 				m_CommandContext.Init(Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
-				m_StagingBuffer.Init(Device, D3D12::GPUResource::RWPROPERTY::CPUWRITE, NumBytes, std::optional<D3D12::ResourceRecycler*>{});
+				m_StagingBuffer.Init(Device, D3D12_HEAP_TYPE_UPLOAD, NumBytes, ResourceRecycler);
 			}
 
 			bool CanAllocate(uint32_t NumBytes)
@@ -82,22 +79,30 @@ namespace aZero
 				return OffsetAfterAlloc <= MemorySize;
 			}
 
-			void AddAllocation(void* Data, D3D12::GPUBuffer* DstResource, uint32_t DstOffset, uint32_t NumBytes)
+			void AddAllocation(ID3D12GraphicsCommandList* CmdList, void* Data, D3D12::GPUBuffer* DstResource, uint32_t DstOffset, uint32_t NumBytes)
 			{
 				const UINT64 DstResourceSize = DstResource->GetResource()->GetDesc().Width;
 				if (DstResourceSize < (DstOffset + NumBytes))
 				{
-					throw std::invalid_argument("LinearFrameAllocator::AddAllocation() => Out-of-range write to DstResource");
+					throw std::invalid_argument("LinearFrameAllocator::AddAllocation() => OOR write to DstResource");
 				}
 
 				// TODO: Expand staging buffer if needed
-				if (!this->CanAllocate(NumBytes))
+				const uint32_t OffsetAfterAlloc = m_CurrentAllocOffset + NumBytes;
+				const uint32_t MemorySizeBytes = static_cast<uint32_t>(m_StagingBuffer.GetResource()->GetDesc().Width);
+				if (OffsetAfterAlloc > MemorySizeBytes)
 				{
-					throw std::invalid_argument("LinearFrameAllocator::AddAllocation() => Out-of-range write to this");
+					uint32_t NewSize = MemorySizeBytes * 2;
+					if (OffsetAfterAlloc > NewSize)
+					{
+						NewSize = OffsetAfterAlloc;
+					}
+
+					this->m_StagingBuffer.Resize(CmdList, NewSize);
 				}
 
 				const uint32_t SrcAllocOffset = this->GetNextAllocOffset(NumBytes);
-				this->Write(Data, SrcAllocOffset, NumBytes);
+				this->Write(CmdList, Data, SrcAllocOffset, NumBytes);
 
 				Allocation Alloc;
 				Alloc.DstBufferOffset = DstOffset;
@@ -114,14 +119,23 @@ namespace aZero
 				m_CurrentAllocOffset = 0;
 			}
 
-			void RecordAllocations()
+			void RecordAllocations(ID3D12GraphicsCommandList* CmdList)
 			{
+				int OuterCounter = 0;
 				for (const auto& [Resource, Allocations] : m_Allocations)
 				{
+					int InnerCounter = 0;
 					for (const D3D12::LinearFrameAllocator::Allocation& Alloc : Allocations)
 					{
-						m_CommandContext.GetCommandList()->CopyBufferRegion(Alloc.DstResource->GetResource(), Alloc.DstBufferOffset, m_StagingBuffer.GetResource(), Alloc.SrcBufferOffset, Alloc.NumBytes);
+						if (OuterCounter == 3 && InnerCounter == 1)
+						{
+							//continue;
+						}
+						CmdList->CopyBufferRegion(Alloc.DstResource->GetResource(), Alloc.DstBufferOffset, m_StagingBuffer.GetResource(), Alloc.SrcBufferOffset, Alloc.NumBytes);
+						InnerCounter++;
 					}
+
+					OuterCounter++;
 				}
 			}
 

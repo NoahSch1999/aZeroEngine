@@ -42,6 +42,8 @@
     <ClInclude Include="src\Core\Engine.h" />
     <ClInclude Include="src\Core\EngineDebug.h" />
     <ClInclude Include="src\Core\Misc\Frustrum.h" />
+    <ClInclude Include="src\Core\Misc\NonCopyable.h" />
+    <ClInclude Include="src\Core\Misc\NonMovable.h" />
     <ClInclude Include="src\Core\Misc\stb_Image_Include.h" />
     <ClInclude Include="src\Core\Renderer\D3D12Wrap\Resources\LinearBuffer.h" />
     <ClInclude Include="src\Core\Renderer\LightData.h" />
@@ -63,6 +65,7 @@
     <ClInclude Include="src\Core\Renderer\RenderAssetManager.h" />
     <ClInclude Include="src\Core\Renderer\Renderer.h" />
     <ClInclude Include="src\Core\Renderer\RenderGarbageCollector.h" />
+    <ClInclude Include="src\Core\Renderer\RenderGraph.h" />
     <ClInclude Include="src\Core\Renderer\RenderInterface.h" />
     <ClInclude Include="src\Core\Renderer\RenderScene.h" />
     <ClInclude Include="src\Core\Scene\Scene.h" />

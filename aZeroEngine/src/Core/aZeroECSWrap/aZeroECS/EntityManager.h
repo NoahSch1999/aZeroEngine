@@ -1,6 +1,7 @@
 #pragma once
 #include <queue>
 #include "Entity.h"
+#include "Core/Misc/NonCopyable.h"
 
 namespace aZero
 {
@@ -8,7 +9,7 @@ namespace aZero
 	{
 		/** @brief A class used to generate unique Entity objects
 		*/
-		class EntityManager
+		class EntityManager : public NonCopyable
 		{
 		private:
 			unsigned int m_CurrentMax = 0;
@@ -18,8 +19,6 @@ namespace aZero
 			EntityManager() = default;
 			~EntityManager() = default;
 
-			EntityManager(const EntityManager&) = delete;
-			EntityManager operator=(const EntityManager&) = delete;
 			EntityManager(EntityManager&& Other) noexcept
 			{
 				m_CurrentMax = Other.m_CurrentMax;

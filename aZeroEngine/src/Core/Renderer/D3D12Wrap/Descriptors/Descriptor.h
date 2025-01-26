@@ -1,11 +1,12 @@
 #pragma once
 #include "Core/D3D12Include.h"
+#include "Core/Misc/NonCopyable.h"
 
 namespace aZero
 {
 	namespace D3D12
 	{
-		class Descriptor
+		class Descriptor : public NonCopyable
 		{
 			friend class DescriptorHeap;
 		private:
@@ -26,9 +27,6 @@ namespace aZero
 			Descriptor() = default;
 
 			~Descriptor();
-
-			Descriptor(Descriptor& Other) = delete;
-			Descriptor& operator=(Descriptor& Other) = delete;
 
 			Descriptor(Descriptor&& Other) noexcept
 			{

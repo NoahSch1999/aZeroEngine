@@ -3,12 +3,14 @@
 #include <mutex>
 
 #include "Core/D3D12Include.h"
+#include "Core/Misc/NonCopyable.h"
+#include "Core/Misc/NonMovable.h"
 
 namespace aZero
 {
 	namespace D3D12
 	{
-		class ResourceRecycler
+		class ResourceRecycler : public NonCopyable, public NonMovable
 		{
 		private:
 			std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Resources;
@@ -16,11 +18,6 @@ namespace aZero
 
 		public:
 			ResourceRecycler() = default;
-
-			ResourceRecycler(const ResourceRecycler&) = delete;
-			ResourceRecycler& operator=(const ResourceRecycler&) = delete;
-			ResourceRecycler(ResourceRecycler&&) = delete;
-			ResourceRecycler& operator=(ResourceRecycler&&) = delete;
 
 			void RecycleResource(Microsoft::WRL::ComPtr<ID3D12Resource> Resource)
 			{

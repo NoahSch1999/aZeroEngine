@@ -9,6 +9,10 @@
 #include "Core/Renderer/RenderAssetManager.h"
 #include "Core/Renderer/PrimitiveBatch.h"
 
+#include "Core/Renderer/RenderGraph.h"
+
+#include <span>
+
 #define ASSET_PATH std::string("C:/Projects/Programming/aZeroEngine/aZeroEngine/assets/")
 
 namespace aZero
@@ -17,7 +21,6 @@ namespace aZero
 	namespace Rendering
 	{
 		class RenderInterface;
-		class StaticMeshBatches;
 
 		class Renderer
 		{
@@ -60,10 +63,10 @@ namespace aZero
 
 			D3D12::GPUTexture m_FinalRenderSurface;
 			D3D12::Descriptor m_FinalRenderSurfaceUAV;
-			D3D12::Descriptor m_FinalRenderSurfaceRTV;
+			D3D12::RenderTargetView m_FinalRenderSurfaceRTV;
 
 			D3D12::GPUTexture m_SceneDepthTexture;
-			D3D12::Descriptor m_SceneDepthTextureDSV;
+			D3D12::DepthStencilView m_SceneDepthTextureDSV;
 
 			DXM::Vector2 m_RenderResolution;
 			D3D12_CLEAR_VALUE m_RTVClearColor;
@@ -84,6 +87,8 @@ namespace aZero
 			D3D12::RenderPass m_BatchPassNoDepthT;
 			//
 
+			RenderGraphPass m_StaticMeshPass;
+			RenderGraph m_RenderGraph;
 			std::set<std::shared_ptr<Window::RenderWindow>> m_FrameWindows;
 
 		private:
@@ -93,13 +98,13 @@ namespace aZero
 				return m_FrameAllocators[m_FrameIndex];
 			}
 
-			void SetBufferCount(uint32_t BufferCount) 
+			void SetBufferCount(uint32_t BufferCount)
 			{
 				if (BufferCount <= 1)
 				{
 					throw std::runtime_error("Renderer::Init => Invalid BufferCount");
 				}
-				m_BufferCount = BufferCount; 
+				m_BufferCount = BufferCount;
 			}
 
 			void SetupRenderPipeline();
@@ -107,6 +112,8 @@ namespace aZero
 			void RecordAssetManagerCommands();
 
 			void InitPrimitiveBatchPipeline();
+
+			void PrepareGraphForScene(Scene::Scene& InScene);
 
 			void RenderPrimitiveBatch(const PrimitiveBatch& Batch, const Scene::Scene::Camera& Camera);
 
@@ -117,13 +124,13 @@ namespace aZero
 				StaticMeshBatches& OutStaticMeshBatches);
 
 			void RenderStaticMeshes(
-				Scene::Scene& InScene, 
+				Scene::Scene& InScene,
 				const Scene::Scene::Camera& Camera,
 				const StaticMeshBatches& StaticMeshBatches,
 				uint32_t NumDirectionalLights,
 				uint32_t NumPointLights,
 				uint32_t NumSpotLights
-				);
+			);
 
 			// TODO: Impl
 			void GetRelevantSkeletalMeshes(Scene::Scene& Scene, const Scene::Scene::Camera& Camera) { }
@@ -134,7 +141,7 @@ namespace aZero
 			void GetDirectionalLights(Scene::Scene& Scene,
 				uint32_t& NumDirectionalLights);
 
-			void GetRelevantPointLights(Scene::Scene& Scene, 
+			void GetRelevantPointLights(Scene::Scene& Scene,
 				const DirectX::BoundingFrustum& Frustum,
 				const DXM::Matrix& ViewMatrix,
 				uint32_t& NumPointLights);
@@ -152,7 +159,7 @@ namespace aZero
 
 			void BeginFrame();
 
-			void Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*> Batches, std::shared_ptr<Window::RenderWindow> Window);
+			void Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*>& Batches, std::shared_ptr<Window::RenderWindow> Window);
 
 			void EndFrame();
 
@@ -160,7 +167,7 @@ namespace aZero
 
 		public:
 			Renderer(ID3D12Device* Device, const DXM::Vector2& RenderResolution, uint32_t BufferCount)
-			{	
+			{
 				this->Init(Device, RenderResolution, BufferCount);
 			}
 
@@ -190,19 +197,21 @@ namespace aZero
 					DS::FreelistAllocator::AllocationHandle NewIBHandle;
 					DS::FreelistAllocator::AllocationHandle NewMeshEntryHandle;
 
-					m_VertexBuffer.GetAllocation(
+					m_VertexBuffer.Allocate(
 						NewVBHandle,
 						static_cast<uint32_t>(Data.Vertices.size()) * sizeof(decltype(Data.Vertices.at(0))));
 
-					m_VertexBuffer.Write(Allocator, NewVBHandle, (void*)Data.Vertices.data());
+					ID3D12GraphicsCommandList* CmdList = m_GraphicsCommandContext.GetCommandList();
 
-					m_IndexBuffer.GetAllocation(
+					m_VertexBuffer.Write(CmdList, Allocator, NewVBHandle, (void*)Data.Vertices.data());
+
+					m_IndexBuffer.Allocate(
 						NewIBHandle,
 						static_cast<uint32_t>(Data.Indices.size()) * sizeof(decltype(Data.Indices.at(0))));
 
-					m_IndexBuffer.Write(Allocator, NewIBHandle, (void*)Data.Indices.data());
+					m_IndexBuffer.Write(CmdList, Allocator, NewIBHandle, (void*)Data.Indices.data());
 
-					m_MeshEntryBuffer.GetAllocation(
+					m_MeshEntryBuffer.Allocate(
 						NewMeshEntryHandle,
 						sizeof(Asset::MeshEntry::GPUData)
 					);
@@ -211,7 +220,7 @@ namespace aZero
 					NewMeshEntryGPUData.VertexStartOffset = NewVBHandle.GetStartOffset() / sizeof(Asset::VertexData);
 					NewMeshEntryGPUData.IndexStartOffset = NewIBHandle.GetStartOffset() / sizeof(std::uint32_t);
 					NewMeshEntryGPUData.NumIndices = Data.Indices.size();
-					m_MeshEntryBuffer.Write(Allocator, NewMeshEntryHandle, (void*)&NewMeshEntryGPUData);
+					m_MeshEntryBuffer.Write(CmdList, Allocator, NewMeshEntryHandle, (void*)&NewMeshEntryGPUData);
 
 					Asset::MeshEntry NewMeshEntry;
 					NewMeshEntry.VertexBufferAllocHandle = std::move(NewVBHandle);
@@ -219,6 +228,9 @@ namespace aZero
 					NewMeshEntry.MeshEntryAllocHandle = std::move(NewMeshEntryHandle);
 
 					m_AssetManager->AddRenderHandle(*MeshAsset.get(), std::move(NewMeshEntry));
+
+					m_GraphicsCommandContext.StopRecording();
+					m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 				}
 				else
 				{
@@ -238,14 +250,15 @@ namespace aZero
 						{ Data.m_Dimensions.x, Data.m_Dimensions.y, 1 },
 						Data.m_Format,
 						D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
+						m_ResourceRecycler,
 						1, // TODO: Mip should be in the m_AssetData cache
 						D3D12_RESOURCE_STATE_COMMON,
-						std::optional<D3D12_CLEAR_VALUE>{}, &m_ResourceRecycler
+						std::optional<D3D12_CLEAR_VALUE>{}
 					);
 
 					const uint64_t StagingBufferSize = static_cast<uint64_t>(GetRequiredIntermediateSize(NewEntry.Texture.GetResource(), 0, 1));
 					D3D12::GPUBuffer StagingBuffer;
-					StagingBuffer.Init(m_Device, D3D12::GPUResource::CPUWRITE, StagingBufferSize, &m_ResourceRecycler);
+					StagingBuffer.Init(m_Device, D3D12_HEAP_TYPE_UPLOAD, StagingBufferSize, m_ResourceRecycler);
 
 					std::vector<D3D12::ResourceTransitionBundles> Bundle;
 					Bundle.push_back({});
@@ -290,10 +303,10 @@ namespace aZero
 				if (!m_AssetManager->GetRenderHandle(*MaterialAsset.get()))
 				{
 					Asset::MaterialEntry NewEntry;
-					m_MaterialBuffer.GetAllocation(NewEntry.MaterialAllocHandle, sizeof(Asset::MaterialData::MaterialRenderData));
+					m_MaterialBuffer.Allocate(NewEntry.MaterialAllocHandle, sizeof(Asset::MaterialData::MaterialRenderData));
 					m_AssetManager->AddRenderHandle(*MaterialAsset.get(), std::move(NewEntry));
 				}
-				
+
 				const Asset::MaterialData& Data = MaterialAsset->GetData();
 				Asset::MaterialData::MaterialRenderData RenderData;
 				RenderData.m_Color = Data.m_Color;
@@ -315,7 +328,10 @@ namespace aZero
 					RenderData.m_NormalMapDescriptorIndex = -1;
 				}
 
-				m_MaterialBuffer.Write(this->GetFrameAllocator(), m_AssetManager->GetRenderHandle(*MaterialAsset.get()).value()->MaterialAllocHandle, &RenderData);
+				ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
+				m_MaterialBuffer.Write(CmdList, this->GetFrameAllocator(), m_AssetManager->GetRenderHandle(*MaterialAsset.get()).value()->MaterialAllocHandle, &RenderData);
+				m_GraphicsCommandContext.StopRecording();
+				m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
 			}
 		};
 	}

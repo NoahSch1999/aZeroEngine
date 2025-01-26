@@ -202,6 +202,15 @@
     <ClInclude Include="src\Core\Renderer\PrimitiveBatch.h">
       <Filter>Core\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="src\Core\Renderer\RenderGraph.h">
+      <Filter>Core\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Misc\NonCopyable.h">
+      <Filter>Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Misc\NonMovable.h">
+      <Filter>Core\Misc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="src\Shaders\TestShader.cs.hlsl">

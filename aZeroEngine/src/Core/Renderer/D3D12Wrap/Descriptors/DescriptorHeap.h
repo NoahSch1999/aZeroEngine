@@ -8,7 +8,7 @@ namespace aZero
 	namespace D3D12
 	{
 		// TODO: Implement heap-auto-expand on GetDescriptor()
-		class DescriptorHeap
+		class DescriptorHeap : public NonCopyable
 		{
 		private:
 			bool m_GpuVisible;
@@ -43,9 +43,6 @@ namespace aZero
 
 		public:
 			DescriptorHeap() = default;
-
-			DescriptorHeap(const DescriptorHeap&) = delete;
-			DescriptorHeap& operator=(const DescriptorHeap&) = delete;
 
 			DescriptorHeap(DescriptorHeap&& Other) noexcept
 			{

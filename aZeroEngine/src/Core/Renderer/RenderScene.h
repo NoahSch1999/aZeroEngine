@@ -41,7 +41,7 @@ namespace aZero
 			DXM::Vector3 m_Color;
 		};
 
-		class RenderScene
+		class RenderScene : public NonCopyable
 		{
 		private:
 			D3D12::FreelistBuffer m_PrimitiveDataBuffer;
@@ -72,9 +72,6 @@ namespace aZero
 			}
 
 			RenderScene() = default;
-
-			RenderScene(const RenderScene& Other) = delete;
-			RenderScene& operator=(const RenderScene& Other) = delete;
 
 			RenderScene(RenderScene&& Other) noexcept
 			{
@@ -118,7 +115,7 @@ namespace aZero
 				if (m_EntityID_To_PrimitiveHandle.count(Index) == 0)
 				{
 					DS::FreelistAllocator::AllocationHandle Handle;
-					m_PrimitiveDataBuffer.GetAllocation(Handle, sizeof(PrimitiveRenderData));
+					m_PrimitiveDataBuffer.Allocate(Handle, sizeof(PrimitiveRenderData));
 					m_EntityID_To_PrimitiveHandle.emplace(Index, std::move(Handle));
 				}
 			}
@@ -128,7 +125,7 @@ namespace aZero
 				if (m_EntityID_To_PointLightHandle.count(Index) == 0)
 				{
 					DS::FreelistAllocator::AllocationHandle Handle;
-					m_PointLightBuffer.GetAllocation(Handle, sizeof(PointLightRenderData));
+					m_PointLightBuffer.Allocate(Handle, sizeof(PointLightRenderData));
 					m_EntityID_To_PointLightHandle.emplace(Index, std::move(Handle));
 				}
 			}

@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include "Core/Misc/NonCopyable.h"
+#include "Core/Misc/NonMovable.h"
 
 namespace aZero
 {
@@ -14,16 +16,12 @@ namespace aZero
 		};
 
 		template<typename... Args>
-		class RenderGarbageCollectorClass
+		class RenderGarbageCollectorClass : public NonCopyable, public NonMovable
 		{
 		private:
 			std::tuple<RenderAssetIDArray<Args>...> m_AssetArrays;
 
 		public:
-			RenderGarbageCollectorClass(const RenderGarbageCollectorClass& Other) = delete;
-			RenderGarbageCollectorClass& operator=(const RenderGarbageCollectorClass& Other) = delete;
-			RenderGarbageCollectorClass(RenderGarbageCollectorClass&& Other) = delete;
-			RenderGarbageCollectorClass& operator=(RenderGarbageCollectorClass&& Other) = delete;
 
 			RenderGarbageCollectorClass() = default;
 

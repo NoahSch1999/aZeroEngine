@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include <span>
+
 #include <Core/aZeroECSWrap/aZeroECS/aZeroECS.h>
 #include "Core/Renderer/D3D12Wrap/Resources/LinearBuffer.h"
 #include "Core/Misc/Frustrum.h"
@@ -10,6 +12,23 @@ namespace aZero
 
 	namespace Rendering
 	{
+		struct StaticMeshBatches
+		{
+			struct PerInstanceData
+			{
+				DXM::Matrix WorldMatrix;
+			};
+
+			struct BatchInfo
+			{
+				uint32_t StartInstanceOffset;
+				uint32_t NumVertices;
+				std::vector<PerInstanceData> InstanceData;
+			};
+
+			std::unordered_map<uint32_t, std::unordered_map<uint32_t, BatchInfo>> Batches;
+		};
+
 		class Renderer;
 	}
 
@@ -19,7 +38,7 @@ namespace aZero
 		using SceneID = uint16_t;
 		constexpr SceneID InvalidSceneID = std::numeric_limits<SceneID>::max();
 
-		class SceneEntity
+		class SceneEntity : public NonCopyable
 		{
 		private:
 			ECS::Entity m_Entity;
@@ -33,8 +52,6 @@ namespace aZero
 			}
 
 		public:
-			SceneEntity(const SceneEntity&) = delete;
-			SceneEntity& operator=(const SceneEntity&) = delete;
 
 			SceneEntity() = default;
 
@@ -66,7 +83,7 @@ namespace aZero
 			SceneID GetSceneID() const { return m_SceneID; }
 		};
 
-		class Scene
+		class Scene : public NonCopyable
 		{
 			friend Rendering::Renderer;
 		public:
@@ -179,19 +196,19 @@ namespace aZero
 					}
 				}
 
-				const std::vector<ObjectType>& GetData() const { return m_Data; }
+				const std::span<const ObjectType> GetData() const { return std::span{ m_Data }; }
 			};
 
 			template<typename ...Args>
-			class RenderProxyClass
+			class RenderProxyClass : public NonCopyable
 			{
 				friend Rendering::Renderer;
 			private:
 				std::tuple<PackedVector<Args>...> m_ObjectTuple;
 
-				void MoveOp(RenderProxyClass& Other)
+				void MoveOp(RenderProxyClass& Other) noexcept
 				{
-					m_ObjectTuple = std::move(m_ObjectTuple);
+					m_ObjectTuple = std::move(Other.m_ObjectTuple);
 				}
 
 				template<typename ObjectType>
@@ -201,9 +218,6 @@ namespace aZero
 				}
 
 			public:
-
-				RenderProxyClass(const RenderProxyClass&) = delete;
-				RenderProxyClass& operator=(const RenderProxyClass&) = delete;
 
 				RenderProxyClass() = default;
 
@@ -249,27 +263,32 @@ namespace aZero
 			ECS::EntityManager m_EntityManager;
 			ECS::ComponentManagerDecl m_ComponentManager;
 
-			std::unordered_map<std::string, SceneEntity> m_Entities;
+			// Actual SceneEntity instances that's guaranteed the same address during their lifetime
+			std::unordered_map<ECS::EntityID, SceneEntity> m_Entities;
+
+			// Map used as an intermediate lookup to guarantee the SceneEntity's address staying the same throughout its lifetime
+			std::unordered_map<std::string, ECS::EntityID> m_NameToEntityID;
+
+			// Map used to allow SceneEntity name lookup
+			std::unordered_map<ECS::EntityID, std::string> m_EntityIDToName;
 
 			RenderProxy m_RenderProxy;
 
 			// TODO: Test move op with compmanager
-			void MoveOp(Scene& Other)
+			void MoveOp(Scene& Other) noexcept
 			{
 				m_ID = Other.m_ID;
-				m_EntityManager = std::move(m_EntityManager);
-				m_ComponentManager = std::move(m_ComponentManager);
-				m_Entities = std::move(m_Entities);
+				m_EntityManager = std::move(Other.m_EntityManager);
+				m_ComponentManager = std::move(Other.m_ComponentManager);
 				m_RenderProxy = std::move(Other.m_RenderProxy);
+				m_NameToEntityID = std::move(Other.m_NameToEntityID);
+				m_Entities = std::move(Other.m_Entities);
+				m_EntityIDToName = std::move(Other.m_EntityIDToName);
 
 				Other.m_ID = InvalidSceneID;
 			}
 
 		public:
-
-			Scene(const Scene&) = delete;
-			Scene& operator=(const Scene&) = delete;
-
 			Scene(SceneID ID, ID3D12Device* Device)
 				:m_ID(ID)
 			{
@@ -310,10 +329,10 @@ namespace aZero
 			{
 				std::string NewName = Name;
 				uint32_t AddNum = 0;
-				if(m_Entities.count(Name) > 0)
+				if(m_NameToEntityID.count(Name) > 0)
 				{
 					std::string Temp = NewName + "_" + std::to_string(AddNum);
-					while(m_Entities.count(Temp) > 0)
+					while(m_NameToEntityID.count(Temp) > 0)
 					{
 						Temp = NewName + "_" + std::to_string(AddNum);
 						AddNum++;
@@ -321,44 +340,77 @@ namespace aZero
 					NewName = Temp;
 				}
 
-				return &(m_Entities[NewName] = std::move(SceneEntity(m_EntityManager.CreateEntity(), m_ID)));
+				const ECS::Entity Entity = m_EntityManager.CreateEntity();
+				m_EntityIDToName[Entity.GetID()] = NewName;
+				m_NameToEntityID[NewName] = Entity.GetID();
+				return &(m_Entities[Entity.GetID()] = std::move(SceneEntity(Entity, m_ID)));
 			}
 
-			// TODO: Add function which takes a SceneEntity (some name -> entity map is needed)
-			void RemoveEntity(const std::string& Name)
+
+			void RemoveEntity(SceneEntity& Entity)
 			{
-				if (auto Entity = m_Entities.find(Name); Entity != m_Entities.end())
+				if (Entity.GetSceneID() != m_ID)
 				{
-					if (Entity->second.GetSceneID() != m_ID)
+					return;
+				}
+
+				ECS::EntityID ID = Entity.GetEntityID();
+				std::apply([ID](auto&& ... args)
 					{
-						return;
-					}
-
-					ECS::EntityID ID = Entity->second.GetEntityID();
-					std::apply([ID](auto&& ... args)
-						{
-							(args.Remove(ID), ...);
-						}, m_RenderProxy.GetPrimitiveTuple()
-					);
-
-					std::apply([Entity](auto&& ... args)
-						{
-							(args.RemoveComponent(Entity->second.GetEntity()), ...);
-						}, m_ComponentManager.GetComponentTuple()
+						(args.Remove(ID), ...);
+					}, m_RenderProxy.GetPrimitiveTuple()
 						);
 
-					m_Entities.erase(Name);
+				std::apply([&Entity](auto&& ... args)
+					{
+						(args.RemoveComponent(Entity.GetEntity()), ...);
+					}, m_ComponentManager.GetComponentTuple()
+						);
+
+				m_Entities.erase(ID);
+				m_NameToEntityID.erase(m_EntityIDToName.at(ID));
+				m_EntityIDToName.erase(ID);
+			}
+
+			void RemoveEntity(const std::string& Name)
+			{
+				if (auto Entity = m_NameToEntityID.find(Name); Entity != m_NameToEntityID.end())
+				{
+					this->RemoveEntity(m_Entities.at(Entity->second));
 				}
 			}
 
 			SceneEntity* GetEntity(const std::string& Name)
 			{
-				if (auto Entity = m_Entities.find(Name); Entity != m_Entities.end())
+				if (auto Entity = m_NameToEntityID.find(Name); Entity != m_NameToEntityID.end())
 				{
-					return &Entity->second;
+					return &m_Entities.at(Entity->second);
 				}
 
 				return nullptr;
+			}
+
+			void ChangeEntityName(SceneEntity& Entity, const std::string& NewName)
+			{
+				if (auto ExistingWithName = m_NameToEntityID.find(NewName); ExistingWithName != m_NameToEntityID.end())
+				{
+					return;
+				}
+
+				const ECS::EntityID ID = Entity.GetEntityID();
+
+				m_NameToEntityID[NewName] = ID;
+				m_NameToEntityID.erase(m_EntityIDToName.at(ID));
+
+				m_EntityIDToName.at(ID) = NewName;
+			}
+
+			void ChangeEntityName(const std::string& OldName, const std::string& NewName)
+			{
+				if (auto Entity = m_NameToEntityID.find(OldName); Entity != m_NameToEntityID.end())
+				{
+					this->ChangeEntityName(m_Entities.at(Entity->second), NewName);
+				}
 			}
 
 			template<typename Component>
@@ -397,7 +449,7 @@ namespace aZero
 			}
 
 			template<typename ObjectType>
-			const std::vector<ObjectType>& GetObjects() const
+			const std::span<const ObjectType> GetObjects() const
 			{
 				return m_RenderProxy.GetObjects<ObjectType>().GetData();
 			}
@@ -531,9 +583,9 @@ namespace aZero
 
 			void MarkRenderStateDirty(const std::string& EntityName)
 			{
-				if (auto Entity = m_Entities.find(EntityName); Entity != m_Entities.end())
+				if (auto Entity = m_NameToEntityID.find(EntityName); Entity != m_NameToEntityID.end())
 				{
-					this->MarkRenderStateDirty(Entity->second);
+					this->MarkRenderStateDirty(m_Entities.at(Entity->second));
 				}
 			}
 		};
