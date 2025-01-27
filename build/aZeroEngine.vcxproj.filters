@@ -1,0 +1,231 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{de6560f2-a487-465f-a048-e7b1452bfda8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\engine">
+      <UniqueIdentifier>{ed30a9ad-8b13-4d64-b1fe-c6d7988c6ec6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{d2e74c5c-c089-464b-99de-63722b409043}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shaderSource">
+      <UniqueIdentifier>{df62e786-b1f2-42f2-a464-ba2ce18cf8a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ecs">
+      <UniqueIdentifier>{e3308c4d-3b86-4734-a2f8-aa7e8d52e5be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\graphics_api">
+      <UniqueIdentifier>{f3657dd8-d3a6-4127-a02f-d56c3edb2e6a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\misc">
+      <UniqueIdentifier>{2dfd5648-f3de-4795-a52a-8b56e9a35335}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\renderer">
+      <UniqueIdentifier>{6af70390-eb61-45c6-9e23-cf07a7ee3514}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\scene">
+      <UniqueIdentifier>{64293c34-dd1c-4955-bbaf-3fcfaced0495}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\window">
+      <UniqueIdentifier>{21cdb549-0168-4194-ab9a-7745939d0e03}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ecs\components">
+      <UniqueIdentifier>{959fc1a7-d28b-4e50-8f58-065b38030334}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\graphics_api\resource_type">
+      <UniqueIdentifier>{df5a638f-7703-4805-92eb-ed20932ffee4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\renderer\render_asset">
+      <UniqueIdentifier>{9ec7e0f9-ae7d-4334-aa8e-3734817e7f5c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\renderer\render_graph">
+      <UniqueIdentifier>{17a9c2bc-58ef-4bc3-aac1-91bbc9911a2d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party">
+      <UniqueIdentifier>{b7ae3601-ab4d-4a96-891b-e421ecc1807a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\engine\Engine.h">
+      <Filter>include\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\aZeroECS.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\ComponentArray.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\ComponentManager.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\Entity.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\EntityManager.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\SparseLookupArray.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\components\CameraComponent.h">
+      <Filter>src\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\components\LightComponents.h">
+      <Filter>src\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\components\LightData.h">
+      <Filter>src\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\components\StaticMeshComponent.h">
+      <Filter>src\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ecs\components\TransformComponent.h">
+      <Filter>src\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\resource_type\FreelistBuffer.h">
+      <Filter>src\graphics_api\resource_type</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\resource_type\GPUResource.h">
+      <Filter>src\graphics_api\resource_type</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\resource_type\GPUResourceView.h">
+      <Filter>src\graphics_api\resource_type</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\resource_type\LinearBuffer.h">
+      <Filter>src\graphics_api\resource_type</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\resource_type\LinearFrameAllocator.h">
+      <Filter>src\graphics_api\resource_type</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\CommandContext.h">
+      <Filter>src\graphics_api</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\CommandQueue.h">
+      <Filter>src\graphics_api</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\D3D12Include.h">
+      <Filter>src\graphics_api</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\Descriptor.h">
+      <Filter>src\graphics_api</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\DescriptorHeap.h">
+      <Filter>src\graphics_api</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\graphics_api\DXCompilerInclude.h">
+      <Filter>src\graphics_api</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\misc\EngineDebugMacros.h">
+      <Filter>src\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\misc\FreelistAllocator.h">
+      <Filter>src\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\misc\HelperFunctions.h">
+      <Filter>src\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\misc\NonCopyable.h">
+      <Filter>src\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\misc\NonMovable.h">
+      <Filter>src\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\misc\RelativePathMacros.h">
+      <Filter>src\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\misc\stb_Image_Include.h">
+      <Filter>src\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\window\RenderWindow.h">
+      <Filter>src\window</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\scene\Scene.h">
+      <Filter>src\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\PrimitiveBatch.h">
+      <Filter>src\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\Renderer.h">
+      <Filter>src\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\RenderInterface.h">
+      <Filter>src\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\ResourceRecycler.h">
+      <Filter>src\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\render_graph\RenderGraph.h">
+      <Filter>src\renderer\render_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\render_graph\RenderPass.h">
+      <Filter>src\renderer\render_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\render_graph\Shader.h">
+      <Filter>src\renderer\render_graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\render_asset\RenderAsset.h">
+      <Filter>src\renderer\render_asset</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\render_asset\RenderAssetData.h">
+      <Filter>src\renderer\render_asset</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\render_asset\RenderAssetManager.h">
+      <Filter>src\renderer\render_asset</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\renderer\render_asset\RenderGarbageCollector.h">
+      <Filter>src\renderer\render_asset</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\stb_image.h">
+      <Filter>third_party</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\bin\x64\Release\shaderSource\BasePass.ps.hlsl">
+      <Filter>shaderSource</Filter>
+    </FxCompile>
+    <FxCompile Include="..\bin\x64\Release\shaderSource\BasePass.vs.hlsl">
+      <Filter>shaderSource</Filter>
+    </FxCompile>
+    <FxCompile Include="..\bin\x64\Release\shaderSource\PrimitiveBatch.ps.hlsl">
+      <Filter>shaderSource</Filter>
+    </FxCompile>
+    <FxCompile Include="..\bin\x64\Release\shaderSource\PrimitiveBatch.vs.hlsl">
+      <Filter>shaderSource</Filter>
+    </FxCompile>
+    <FxCompile Include="..\bin\x64\Release\shaderSource\TestShader.cs.hlsl">
+      <Filter>shaderSource</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\graphics_api\resource_type\GPUResource.cpp">
+      <Filter>src\graphics_api\resource_type</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\graphics_api\Descriptor.cpp">
+      <Filter>src\graphics_api</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\misc\HelperFunctions.cpp">
+      <Filter>src\misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\misc\STBIHack.cpp">
+      <Filter>src\misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\window\RenderWindow.cpp">
+      <Filter>src\window</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\renderer\Renderer.cpp">
+      <Filter>src\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\renderer\render_graph\Shader.cpp">
+      <Filter>src\renderer\render_graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\renderer\render_asset\RenderAssetData.cpp">
+      <Filter>src\renderer\render_asset</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+</Project>

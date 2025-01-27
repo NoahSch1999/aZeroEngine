@@ -1,0 +1,5 @@
+C:\Projects\Programming\aZeroEngine\aZeroEngine\build\x64\Debug\D3D12\D3D12Core.dll
+C:\Projects\Programming\aZeroEngine\aZeroEngine\build\x64\Debug\D3D12\D3D12Core.pdb
+C:\Projects\Programming\aZeroEngine\aZeroEngine\build\x64\Debug\D3D12\D3D12SDKLayers.dll
+C:\Projects\Programming\aZeroEngine\aZeroEngine\build\x64\Debug\D3D12\D3D12SDKLayers.pdb
+C:\Projects\Programming\aZeroEngine\aZeroEngine\build\x64\Debug\aZeroEngine.exe
