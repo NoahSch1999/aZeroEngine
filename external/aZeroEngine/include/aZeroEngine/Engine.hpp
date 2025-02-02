@@ -18,7 +18,7 @@ namespace aZero
 		Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
 		HINSTANCE m_AppInstance;
 		std::string m_ProjectDirectory;
-		
+
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
 
 		std::shared_ptr<Asset::Mesh> m_DefaultCube;
@@ -32,12 +32,17 @@ namespace aZero
 			m_Renderer->MarkRenderStateDirty(m_DefaultCube);
 
 			m_DefaultTexture = m_Renderer->m_AssetManager->CreateAsset<Asset::Texture>();
-			m_DefaultTexture->LoadFromFile(m_ProjectDirectory + TEXTURE_ASSET_RELATIVE_PATH + "chunli.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM);
+			m_DefaultTexture->LoadFromFile(m_ProjectDirectory + TEXTURE_ASSET_RELATIVE_PATH + "chunli.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
 			m_Renderer->MarkRenderStateDirty(m_DefaultTexture);
+
+			std::shared_ptr<Asset::Texture> NormalMap = m_Renderer->m_AssetManager->CreateAsset<Asset::Texture>();
+			NormalMap->LoadFromFile(m_ProjectDirectory + TEXTURE_ASSET_RELATIVE_PATH + "testNormalMap.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM);
+			m_Renderer->MarkRenderStateDirty(NormalMap);
 
 			m_DefaultMaterial = m_Renderer->m_AssetManager->CreateAsset<Asset::Material>();
 			Asset::MaterialData MatData;
 			MatData.m_AlbedoTexture = m_DefaultTexture;
+			MatData.m_NormalMap = NormalMap;
 			m_DefaultMaterial->SetData(std::move(MatData));
 			m_Renderer->MarkRenderStateDirty(m_DefaultMaterial);
 		}
@@ -101,7 +106,7 @@ namespace aZero
 				m_Renderer->m_RenderResolution,
 				&m_Renderer->m_ResourceRecycler,
 				m_Renderer->m_BufferCount
-				);
+			);
 		}
 
 		Scene::Scene CreateScene()

@@ -6,7 +6,6 @@ struct FragmentInput
     float3 Normal : NORMAL;
     float3 Tangent : TANGENT;
     float3 BiTangent : BITANGENT;
-    //float3x3 TBN : TBN;
 };
 
 struct FragmentOutput
@@ -180,28 +179,9 @@ FragmentOutput main(FragmentInput Input)
         LightFactor += CalcSpotLight(SpotLightBuffer.Load(SLightIndex), Input.WorldPosition, Normal);
     }
     
-    SpotLight Light;
-    Light.CutoffAngle = 0.99;
-    Light.Direction = normalize(float3(0, 0.4, 1));
-    Light.Position = float3(0, -1, 0);
-    Light.Color = float3(1, 1, 1);
-    Light.Intensity = 5;
-    Light.Range = 2;
-    //LightFactor = CalcSpotLight(Light, Input.WorldPosition, Normal);
-    //Color = float3(1, 1, 1);
-    
-    //PointLight Light;
-    //Light.Position = float3(0, 1, -1);
-    //Light.Color = float3(1, 1, 1);
-    //Light.Intensity = 5;
-    //Light.FalloffFactor = 2;
-    //LightFactor = CalcPointLight(Light, Input.WorldPosition, Normal);
-    //Color = float3(1, 1, 1);
-    
     float3 Ambient = float3(0.1, 0.1, 0.1);
     Color *= Ambient + LightFactor; 
     Output.FragmentColor = float4(Color, 1.f);
-    //Output.FragmentColor = float4(Normal * 0.5f + 0.5f, 1.0f);
     
     return Output;
 }

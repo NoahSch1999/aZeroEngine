@@ -53,11 +53,9 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	{
 		aZero::Engine Engine(instance, { 1920, 1080 }, 2, aZero::Helper::GetProjectDirectory() + "/../../../content");
 		std::shared_ptr<aZero::Window::RenderWindow> ActiveWindow = Engine.CreateRenderWindow({ 1920, 1080 }, "aZero Engine");
-		std::shared_ptr<aZero::Window::RenderWindow> x = Engine.CreateRenderWindow({ 800, 800 }, "TestScene1");
+		std::shared_ptr<aZero::Window::RenderWindow> x = Engine.CreateRenderWindow({ 800, 600 }, "TestScene1");
 		Rendering::RenderInterface RenderInterface = Engine.CreateRenderInterface();
 		Asset::RenderAssetManager& AssetMan = RenderInterface.GetAssetManager();
-
-		//
 
 		std::shared_ptr<Asset::Mesh> GoblinMesh = AssetMan.CreateAsset<Asset::Mesh>();
 		GoblinMesh->LoadFromFile(aZero::Helper::GetProjectDirectory() + "/../../../content" + MESH_ASSET_RELATIVE_PATH + "goblin.fbx");
@@ -88,16 +86,12 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			TestScene1.AddComponent<ECS::TransformComponent>(EntTestScene1, std::move(TestScene1tfs));
 
 			ECS::StaticMeshComponent MeshCompx;
-			MeshCompx.m_MeshReference = GoblinMesh;
-			MeshCompx.m_MaterialReference = GoblinMat;
 			MeshCompx.m_MeshReference = Engine.GetCubeMesh();
-			//MeshCompx.m_MaterialReference = Engine.GetDefaultMaterial();
+			MeshCompx.m_MaterialReference = Engine.GetDefaultMaterial();
 			TestScene1.AddComponent<ECS::StaticMeshComponent>(EntTestScene1, std::move(MeshCompx));
 
 			ECS::CameraComponent Cam;
 			Cam.m_TopLeft = { 0,0 };
-			//Cam.m_Dimensions = { ActiveWindow->GetDimensions().x / 2.f, ActiveWindow->GetDimensions().y };
-			//Cam.m_Dimensions = { 1240, 760 };
 			Cam.m_Dimensions = ActiveWindow->GetDimensions();
 			Cam.m_NearPlane = 0.001f;
 			Cam.m_FarPlane = 1000.f;
@@ -114,22 +108,32 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 			ECS::SpotLightComponent SLight;
 			SpotLightData SLightData;
-			SLightData.Color = { 1,1,1 };
-			SLightData.Position = { 2, 0,-2 };
+			SLightData.Color = { 1,0,0 };
+			SLightData.Position = { 0, 0,-1 };
 			SLightData.Direction = { 0,0,1 };
 			SLightData.Intensity = 2;
-			SLightData.CutoffAngle = 0.97;
+			SLightData.CutoffAngle = 0.99;
 			SLight.SetData(SLightData);
 			TestScene1.AddComponent<ECS::SpotLightComponent>(EntTestScene1, std::move(SLight));
+
+			ECS::PointLightComponent PLight;
+			PointLightData PLightData;
+			PLightData.Color = { 1,1,1 };
+			PLightData.FalloffFactor = 1;
+			PLightData.Intensity = 2;
+			PLightData.Position = { 2,0,5 };
+			PLight.SetData(PLightData);
+			TestScene1.AddComponent<ECS::PointLightComponent>(EntTestScene1, std::move(PLight));
 
 			TestScene1.MarkRenderStateDirty(EntTestScene1);
 		}
 
+		// Init 2nd scene
 		Scene::Scene otherscene = Engine.CreateScene();
 		Scene::SceneEntity& EntOther = *otherscene.CreateEntity("hej");
 		{
 			ECS::TransformComponent TestScene1tf;
-			TestScene1tf.SetTransform(DXM::Matrix::CreateTranslation(0, -1, 3));
+			TestScene1tf.SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(0, -2, 5));
 			otherscene.AddComponent<ECS::TransformComponent>(EntOther, std::move(TestScene1tf));
 
 			ECS::StaticMeshComponent MeshComp;
@@ -151,8 +155,6 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			otherscene.MarkRenderStateDirty(EntOther);
 		}
 
-		x->Hide();
-
 		while (ActiveWindow->IsOpen() && x->IsOpen())
 		{
 			if (GetAsyncKeyState(VK_ESCAPE))
@@ -165,14 +167,6 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 			Engine.BeginFrame();
 
-			// Example
-			static float Rot = 90.f;
-			Rot += 0.01;
-			if (GetAsyncKeyState('1'))
-			{
-				Rot = 90.f;
-			}
-
 			if (GetAsyncKeyState('W'))
 			{
 				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
@@ -180,7 +174,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 				TestScene1.MarkRenderStateDirty(EntTestScene1);
 			}
 
-			if (GetAsyncKeyState('X'))
+			if (GetAsyncKeyState('S'))
 			{
 				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
 				Cam->m_Position += DXM::Vector3(0, 0, -0.03f);
@@ -202,13 +196,8 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 				TestScene1.MarkRenderStateDirty(EntTestScene1);
 			}
 
-			if (GetAsyncKeyState(VK_SPACE))
-			{
-				Engine.FlushRenderingCommands();
-			}
-
 			Engine.Render(TestScene1, {}, ActiveWindow);
-			//Engine.Render(otherscene, {}, x);
+			Engine.Render(otherscene, {}, x);
 
 			Engine.EndFrame();
 		}
