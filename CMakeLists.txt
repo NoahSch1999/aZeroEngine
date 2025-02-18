@@ -9,7 +9,6 @@ add_compile_definitions(aZeroEditor NOMINMAX)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/external/aZeroEngine)
 
-#add_executable(aZeroEditor WIN32 "main.cpp")
 add_executable(aZeroEditor WIN32 "main.cpp" "aZeroEditor.hpp" )
 
 target_include_directories(aZeroEditor

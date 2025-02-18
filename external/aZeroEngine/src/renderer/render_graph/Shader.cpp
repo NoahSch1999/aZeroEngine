@@ -3,7 +3,7 @@
 #include "Shader.hpp"
 #include "graphics_api/DXCompilerInclude.hpp"
 
-#ifdef _DEBUG
+#if USE_DEBUG
 #include <fstream>
 #include <algorithm>
 #endif
@@ -252,7 +252,7 @@ bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler, const std::s
 	std::vector<LPCWSTR> CompilationArgs;
 
 	const std::wstring FilePathWStr(FilePath.begin(), FilePath.end());
-#ifdef _DEBUG
+#if USE_DEBUG
 	std::wstring ShaderName(FilePathWStr);
 	const size_t LastSlash = ShaderName.find_last_of('/');
 	if (LastSlash != std::wstring::npos)
@@ -325,7 +325,7 @@ bool aZero::D3D12::Shader::CompileFromFile(IDxcCompiler3& Compiler, const std::s
 		return false;
 	}
 
-#ifdef _DEBUG
+#if USE_DEBUG
 	Microsoft::WRL::ComPtr<IDxcBlob> DebugData;
 	Microsoft::WRL::ComPtr<IDxcBlobUtf16> DebugDataPath;
 	const HRESULT PDBRes = CompilationRes->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(DebugData.GetAddressOf()), DebugDataPath.GetAddressOf());

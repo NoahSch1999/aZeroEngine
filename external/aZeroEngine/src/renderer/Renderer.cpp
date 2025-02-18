@@ -80,8 +80,7 @@ namespace aZero
 			{
 				ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
 
-				this->GetFrameAllocator().AddAllocation(CmdList, Batch.GetData(), &m_BatchVertexBuffer, 0, Batch.GetNumBytes());
-				this->GetFrameAllocator().RecordAllocations(CmdList);
+				m_BatchVertexBuffer.Write(CmdList, Batch.GetData(), Batch.GetNumBytes());
 
 				this->GetFrameAllocator().GetCommandContext().StopRecording();
 				m_GraphicsQueue.ExecuteContext(this->GetFrameAllocator().GetCommandContext());
@@ -102,7 +101,7 @@ namespace aZero
 					{
 						Pass = &m_BatchPassDepthP;
 					}
-					else if (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_LINELIST)
+					else if ((PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_LINELIST) || (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_LINESTRIP))
 					{
 						Pass = &m_BatchPassDepthL;
 					}
@@ -117,7 +116,7 @@ namespace aZero
 					{
 						Pass = &m_BatchPassNoDepthP;
 					}
-					else if (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_LINELIST)
+					else if ((PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_LINELIST) || (PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_LINESTRIP))
 					{
 						Pass = &m_BatchPassNoDepthL;
 					}
@@ -146,7 +145,7 @@ namespace aZero
 				Pass->SetShaderResource(CmdList, "CameraDataBuffer", &VSConstants, sizeof(VertexShaderConstants), D3D12::SHADER_TYPE::VS);
 
 				D3D12_VERTEX_BUFFER_VIEW VBView;
-				VBView.BufferLocation = m_BatchVertexBuffer.GetResource()->GetGPUVirtualAddress();
+				VBView.BufferLocation = m_BatchVertexBuffer.GetBuffer().GetResource()->GetGPUVirtualAddress();
 				VBView.SizeInBytes = Batch.GetNumBytes();
 				VBView.StrideInBytes = sizeof(PrimitiveBatch::Point);
 				CmdList->IASetVertexBuffers(0, 1, &VBView);
@@ -347,6 +346,8 @@ namespace aZero
 
 		void Renderer::Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*>& Batches, std::shared_ptr<Window::RenderWindow> Window)
 		{
+			Window->WaitOnSwapchain();
+
 			m_FrameWindows.insert(Window);
 
 			// TODO: Rework this and make also call the scene's linear alloc if it has
@@ -389,7 +390,7 @@ namespace aZero
 				}
 			}
 
-			ID3D12Resource* Backbuffer = Window->GetBackBuffer(m_FrameIndex);
+			ID3D12Resource* Backbuffer = Window->GetBackCurrentBuffer();
 			if (Backbuffer)
 			{
 				this->CopyRenderSurfaceToTexture(Backbuffer);
@@ -402,11 +403,12 @@ namespace aZero
 
 		void Renderer::EndFrame()
 		{
-			// TODO: Try to avoid incrementing refcount while doing this
-			for (std::shared_ptr<Window::RenderWindow> Window : m_FrameWindows)
+			for (const std::shared_ptr<Window::RenderWindow>& Window : m_FrameWindows)
 			{
 				Window->Present();
 			}
+
+			m_FrameWindows.clear();
 
 			if (m_FrameCount % m_BufferCount == 0)
 			{
@@ -437,22 +439,16 @@ namespace aZero
 				m_FrameAllocators[BufferIndex].Init(m_Device, sizeof(int32_t) * 1, m_ResourceRecycler);
 			}
 
-			const uint64_t MaxVertices = 1000000;
+			// TODO: Fix dynamic resize if these dont have enough mem allocated
+			// FreeListAllocator needs to be resized on demand inside ::Allocate
+			/*const uint64_t MaxVertices = 1000000;
 			const uint64_t MaxMeshes = 1000;
-			const uint64_t MaxMaterials = 1000;
-			D3D12_SHADER_RESOURCE_VIEW_DESC MeshSRVDesc;
-			MeshSRVDesc.Buffer.FirstElement = 0;
-			MeshSRVDesc.Buffer.NumElements = MaxVertices;
-			MeshSRVDesc.Buffer.StructureByteStride = sizeof(Asset::VertexData);
-			MeshSRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-			MeshSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
-			MeshSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-			MeshSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-
-			m_VertexBuffer.Init(m_Device, MaxVertices * sizeof(Asset::VertexData), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
-			m_IndexBuffer.Init(m_Device, MaxVertices * sizeof(uint32_t), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
-			m_MeshEntryBuffer.Init(m_Device, MaxMeshes * sizeof(Asset::MeshEntry), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
-			m_MaterialBuffer.Init(m_Device, MaxMeshes * sizeof(Asset::MaterialData::MaterialRenderData), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			const uint64_t MaxMaterials = 1000;*/
+			// TODO: Check func and alloc size etc
+			m_VertexBuffer.Init(m_Device, /*MaxVertices * */sizeof(Asset::VertexData), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_IndexBuffer.Init(m_Device,/* MaxVertices * */sizeof(uint32_t), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshEntryBuffer.Init(m_Device, /*MaxMeshes * */sizeof(Asset::MeshEntry), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MaterialBuffer.Init(m_Device, /*MaxMeshes * */sizeof(Asset::MaterialData::MaterialRenderData), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 
 			m_SamplerHeap.GetDescriptor(m_DefaultSamplerDescriptor);
 			D3D12_SAMPLER_DESC SamplerDesc;
@@ -506,6 +502,7 @@ namespace aZero
 			m_RTVHeap.GetDescriptor(TempDescriptor);
 			m_FinalRenderSurfaceRTV = D3D12::RenderTargetView(m_Device, TempDescriptor, m_FinalRenderSurface, m_FinalRenderSurface.GetResource()->GetDesc().Format);
 
+			D3D12::RenderPass Pass;
 			{
 				D3D12::Shader BasePassVS;
 				BasePassVS.CompileFromFile(this->GetCompiler(), m_ContentPath + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
@@ -562,7 +559,7 @@ namespace aZero
 
 		void Renderer::InitPrimitiveBatchPipeline()
 		{
-			m_BatchVertexBuffer.Init(m_Device, D3D12_HEAP_TYPE_DEFAULT, sizeof(PrimitiveBatch::Point) * 10000, m_ResourceRecycler);
+			m_BatchVertexBuffer.Init(m_Device, D3D12_HEAP_TYPE_UPLOAD, 2, m_ResourceRecycler);
 
 			D3D12::Shader PassVS;
 			PassVS.CompileFromFile(this->GetCompiler(), m_ContentPath + SHADER_SOURCE_RELATIVE_PATH + "PrimitiveBatch.vs.hlsl");

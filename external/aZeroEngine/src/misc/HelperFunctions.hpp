@@ -8,7 +8,7 @@ namespace aZero
 	{
 		// TODO: Compute them once and then be done
 		std::string GetProjectDirectory();
-#ifdef _DEBUG
+#if USE_DEBUG
 		std::string GetDebugProjectDirectory();
 #endif
 	}

@@ -9,8 +9,6 @@
 #include "renderer/render_asset/RenderAssetManager.hpp"
 #include "renderer/PrimitiveBatch.hpp"
 
-#include <span>
-
 namespace aZero
 {
 	class Engine;
@@ -67,10 +65,7 @@ namespace aZero
 			D3D12_CLEAR_VALUE m_RTVClearColor;
 			D3D12_CLEAR_VALUE m_DSVClearColor;
 
-			D3D12::RenderPass Pass;
-
-			// TODO: Change to LinearBuffer
-			D3D12::GPUBuffer m_BatchVertexBuffer;
+			D3D12::LinearBuffer m_BatchVertexBuffer;
 
 			D3D12::RenderPass m_BatchPassDepthP;
 			D3D12::RenderPass m_BatchPassNoDepthP;
@@ -82,7 +77,6 @@ namespace aZero
 			D3D12::RenderPass m_BatchPassNoDepthT;
 			//
 
-			RenderGraphPass m_StaticMeshPass;
 			RenderGraph m_RenderGraph;
 			std::set<std::shared_ptr<Window::RenderWindow>> m_FrameWindows;
 
@@ -152,6 +146,7 @@ namespace aZero
 
 		protected:
 
+			RenderGraphPass m_StaticMeshPass;
 			void BeginFrame();
 
 			void Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*>& Batches, std::shared_ptr<Window::RenderWindow> Window);

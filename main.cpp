@@ -9,26 +9,30 @@ using namespace aZero;
 using namespace Rendering;
 
 /*
+std::numbers::pi;
+map.contains(2);
+[[likely]] case 2:
+[[unlikely]] case 2:
+(true && ... && args);
+[[nodiscard]]
+
+
 TODO-LIST:
-https://learn.microsoft.com/en-us/windows/win32/menurc/resource-compiler
 Prio:
--Dynamic window and render surface resizing using a function call
 -Skeletal animation and components which works with octree and frustrum culling
 -Basic PBR with normal map, metallic, roughness
 	https://github.com/wdas/brdf/blob/main/src/brdfs/disney.brdf
 	https://boksajak.github.io/files/CrashCourseBRDF.pdf
 	https://seblagarde.wordpress.com/2012/01/08/pi-or-not-to-pi-in-game-lighting-equation/
 -Physics with rigidbody component
--Engine should be a library
 -Octree culling (with static/movable objects etc)
 -Audio system with audio component
 -Parenting system for entities
--Input handling api with up to 8 controllers and rebinding keys etc
+
 Non-prio:
 -Quality render target up-scaling using nvidia or amd api (renders to lower resolution buffer and upscales)
 -Render graph (in-progress)
 -Level editor using the library api
--Remove project visual studio dependencies and instead rely on a build system tool such as cmake
 
 TO-FIX:
 -Fix light bounding spheres since we now define the "range" via a mathematical function
@@ -37,7 +41,7 @@ TO-FIX:
 
 int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int showCommand)
 {
-#ifdef _DEBUG
+#if USE_DEBUG
 	AllocConsole();
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
 
@@ -81,7 +85,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		Scene::SceneEntity& Ent2TestScene1 = *TestScene1.CreateEntity("hej");
 		{
 			ECS::TransformComponent TestScene1tfs;
-			TestScene1tfs.SetTransform(DXM::Matrix::CreateTranslation(0, 0, 5));
+			TestScene1tfs.SetTransform(DXM::Matrix::CreateTranslation(0, 0, 3));
 
 			TestScene1.AddComponent<ECS::TransformComponent>(EntTestScene1, std::move(TestScene1tfs));
 
@@ -155,6 +159,16 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			otherscene.MarkRenderStateDirty(EntOther);
 		}
 
+		Rendering::PrimitiveBatch Batch(Rendering::PrimitiveBatch::PrimitiveType::LINESTRIP, Rendering::PrimitiveBatch::RenderLayer::DEPTH);
+		Batch.AddPoints(Rendering::PrimitiveBatch::Point({ DXM::Vector3(0,0,0),DXM::Vector3(1,0,0) }));
+		Batch.AddPoints(Rendering::PrimitiveBatch::Point({ DXM::Vector3(1,0,0),DXM::Vector3(1,0,0) }));
+		Batch.AddPoints(Rendering::PrimitiveBatch::Point({ DXM::Vector3(1,0,0),DXM::Vector3(0,1,0) }));
+		Batch.AddPoints(Rendering::PrimitiveBatch::Point({ DXM::Vector3(0,1,0),DXM::Vector3(0,1,0) }));
+		Batch.AddPoints(Rendering::PrimitiveBatch::Point({ DXM::Vector3(0,1,0),DXM::Vector3(0,0,1) }));
+		Batch.AddPoints(Rendering::PrimitiveBatch::Point({ DXM::Vector3(0,0,0),DXM::Vector3(0,0,1) }));
+
+		x->Hide();
+
 		while (ActiveWindow->IsOpen() && x->IsOpen())
 		{
 			if (GetAsyncKeyState(VK_ESCAPE))
@@ -185,18 +199,33 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			if (GetAsyncKeyState('A'))
 			{
 				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
-				Cam->m_Position += DXM::Vector3(0.01f, 0, 0);
+				Cam->m_Position += DXM::Vector3(-0.01f, 0, 0);
 				TestScene1.MarkRenderStateDirty(EntTestScene1);
 			}
 
 			if (GetAsyncKeyState('D'))
 			{
 				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
-				Cam->m_Position += DXM::Vector3(-0.01f, 0, 0);
+				Cam->m_Position += DXM::Vector3(0.01f, 0, 0);
 				TestScene1.MarkRenderStateDirty(EntTestScene1);
 			}
 
-			Engine.Render(TestScene1, {}, ActiveWindow);
+			if (GetAsyncKeyState('X'))
+			{
+				Engine.FlushRenderingCommands();
+				ActiveWindow->Resize({ 500, 500 });
+
+				ECS::CameraComponent* Cam = TestScene1.GetComponent<ECS::CameraComponent>(EntTestScene1);
+				Cam->m_Dimensions = { 500, 500 };
+				TestScene1.MarkRenderStateDirty(EntTestScene1);
+			}
+
+			if (GetAsyncKeyState('C'))
+			{
+				Engine.RebuildPipeline();
+			}
+
+			Engine.Render(TestScene1, {&Batch}, ActiveWindow);
 			Engine.Render(otherscene, {}, x);
 
 			Engine.EndFrame();

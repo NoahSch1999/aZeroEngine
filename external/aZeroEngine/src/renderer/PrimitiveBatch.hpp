@@ -9,7 +9,7 @@ namespace aZero
 		class PrimitiveBatch
 		{
 		public:
-			enum class PrimitiveType { INVALID, POINT, LINE, TRIANGLE };
+			enum class PrimitiveType { INVALID, POINT, LINELIST, LINESTRIP, TRIANGLE };
 			enum class RenderLayer { INVALID, NO_DEPTH, DEPTH };
 
 			struct Point
@@ -27,6 +27,10 @@ namespace aZero
 
 		public:
 			PrimitiveBatch() = default;
+
+			PrimitiveBatch(PrimitiveType Type, RenderLayer Layer)
+				:m_Type(Type), m_Layer(Layer) {
+			}
 
 			PrimitiveBatch(const PrimitiveList& Points, PrimitiveType Type, RenderLayer Layer)
 				:m_Points(Points), m_Type(Type), m_Layer(Layer) { }
@@ -90,9 +94,13 @@ namespace aZero
 					{
 						return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
 					}
-					case PrimitiveType::LINE:
+					case PrimitiveType::LINELIST:
 					{
 						return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+					}
+					case PrimitiveType::LINESTRIP:
+					{
+						return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
 					}
 					case PrimitiveType::TRIANGLE:
 					{

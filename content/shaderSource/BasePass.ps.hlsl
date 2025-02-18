@@ -178,6 +178,14 @@ FragmentOutput main(FragmentInput Input)
     {
         LightFactor += CalcSpotLight(SpotLightBuffer.Load(SLightIndex), Input.WorldPosition, Normal);
     }
+
+    PointLight p;
+    p.Color = float3(1,1,1);
+    p.Intensity = 1;
+    p.FalloffFactor = 1;
+    p.Position = float3(1,1,1);
+    
+    LightFactor = CalcPointLight(p, Input.WorldPosition, Normal);
     
     float3 Ambient = float3(0.1, 0.1, 0.1);
     Color *= Ambient + LightFactor; 

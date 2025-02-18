@@ -18,6 +18,9 @@ add_library(aZeroEngine
     "src/window/RenderWindow.cpp"
 )
 
+# PRE-PROCESSOR SETTINGS
+target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
+
 # Assimp
 FetchContent_Declare(Assimp
     GIT_REPOSITORY https://github.com/assimp/assimp.git

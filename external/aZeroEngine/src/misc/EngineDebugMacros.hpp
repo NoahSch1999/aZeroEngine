@@ -2,7 +2,7 @@
 #include <iostream>
 #include <source_location>
 
-#ifdef _DEBUG
+#if USE_DEBUG
 #define DEBUG_PRINT(ToPrint) \
 		std::cout << "--------" << std::endl; \
 		std::source_location CurrentLocation = std::source_location::current(); \

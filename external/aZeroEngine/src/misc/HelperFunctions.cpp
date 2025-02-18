@@ -20,7 +20,7 @@ std::string aZero::Helper::GetProjectDirectory()
 
 	return std::string(ProjectDir.begin(), ProjectDir.end());
 }
-#ifdef _DEBUG
+#if USE_DEBUG
 std::string aZero::Helper::GetDebugProjectDirectory()
 {
 	std::vector<wchar_t> Path(200);

@@ -49,6 +49,23 @@ namespace aZero
 
 	public:
 
+		void RebuildPipeline()
+		{
+			this->FlushRenderingCommands();
+			D3D12::RenderPass Pass;
+			{
+				D3D12::Shader BasePassVS;
+				BasePassVS.CompileFromFile(this->m_Renderer->GetCompiler(), m_ProjectDirectory + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
+
+				D3D12::Shader BasePassPS;
+				BasePassPS.CompileFromFile(this->m_Renderer->GetCompiler(), m_ProjectDirectory + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+
+				Pass.Init(m_Device.Get(), BasePassVS, BasePassPS, {this->m_Renderer->m_FinalRenderSurface.GetResource()->GetDesc().Format}, DXGI_FORMAT_D24_UNORM_S8_UINT);
+			}
+
+			m_Renderer->m_StaticMeshPass.m_Pass = std::move(Pass);
+		}
+
 		Engine(HINSTANCE AppInstance, const DXM::Vector2& WindowResolution, uint32_t BufferCount, const std::string& ContentPath)
 			:m_AppInstance(AppInstance)
 		{

@@ -120,7 +120,27 @@ namespace aZero
 				m_FreeNodes.push_back(InitNode);
 			}
 
-			bool Allocate(AllocationHandle& OutHandle, unsigned int NumBytes)
+			uint32_t GetSize() const
+			{
+				return m_CurrentSize;
+			}
+
+			void Resize(uint32_t NewSize)
+			{
+				if (m_CurrentSize > NewSize)
+				{
+					throw std::invalid_argument("Invalid resize demand");
+				}
+
+				const uint32_t NewHandleSize = m_CurrentSize - NewSize;
+				AllocationNode NewNode;
+				NewNode.m_NumBytes = NewHandleSize;
+				NewNode.m_Offset = m_CurrentSize;
+				m_CurrentSize = NewSize;
+				this->InsertNode(NewNode);
+			}
+
+			bool Allocate(AllocationHandle& OutHandle, uint32_t NumBytes)
 			{
 				std::list<AllocationNode>::iterator it;
 				for (it = m_FreeNodes.begin(); it != m_FreeNodes.end(); it++)
@@ -146,7 +166,16 @@ namespace aZero
 					}
 				}
 
-				return false;
+				const uint32_t MaxSizeAfterAlloc = m_CurrentSize + NumBytes;
+				uint32_t NewSize = m_CurrentSize * 2;
+				if (MaxSizeAfterAlloc > NewSize)
+				{
+					NewSize = MaxSizeAfterAlloc;
+				}
+
+				this->Resize(NewSize);
+
+				return this->Allocate(OutHandle, NumBytes);
 			}
 
 			void FreeAllocation(AllocationHandle& InHandle)

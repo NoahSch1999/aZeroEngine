@@ -351,13 +351,13 @@ namespace aZero
 				}
 
 				ECS::EntityID ID = Entity.GetEntityID();
-				std::apply([ID](auto&& ... args)
+				std::apply([ID](auto& ... args)
 					{
 						(args.Remove(ID), ...);
 					}, m_RenderProxy.GetPrimitiveTuple()
 						);
 
-				std::apply([&Entity](auto&& ... args)
+				std::apply([&Entity](auto& ... args)
 					{
 						(args.RemoveComponent(Entity.m_Entity), ...);
 					}, m_ComponentManager.GetComponentTuple()
@@ -549,6 +549,8 @@ namespace aZero
 					CamPrim.IsActive = true;
 					CamPrim.Viewport = CameraComp->GetViewport();
 					CamPrim.ScizzorRect = CameraComp->GetScizzorRect();
+					auto X = CameraComp->GetViewMatrix();
+					auto Z = CameraComp->GetViewMatrix().Invert();
 					CamPrim.ViewMatrix = CameraComp->GetViewMatrix();
 					CamPrim.ProjMatrix = CameraComp->GetProjectionMatrix();
 					m_RenderProxy.AddOrUpdatePrimitive(Entity.GetEntityID(), std::move(CamPrim));
