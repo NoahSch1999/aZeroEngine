@@ -112,15 +112,6 @@ namespace aZero
 				const DXM::Matrix& ViewMatrix,
 				StaticMeshBatches& OutStaticMeshBatches);
 
-			void RenderStaticMeshes(
-				Scene::Scene& InScene,
-				const Scene::Scene::Camera& Camera,
-				const StaticMeshBatches& StaticMeshBatches,
-				uint32_t NumDirectionalLights,
-				uint32_t NumPointLights,
-				uint32_t NumSpotLights
-			);
-
 			// TODO: Impl
 			void GetRelevantSkeletalMeshes(Scene::Scene& Scene, const Scene::Scene::Camera& Camera) { }
 
