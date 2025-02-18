@@ -7,16 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_compile_definitions(aZeroEditor NOMINMAX)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/idk/aZeroEngine)
+add_subdirectory(${PROJECT_SOURCE_DIR}/external/aZeroEngine)
 
 add_executable(aZeroEditor WIN32 "main.cpp" "aZeroEditor.hpp" )
 
 target_include_directories(aZeroEditor
-    PUBLIC ${PROJECT_SOURCE_DIR}/idk/aZeroEngine/include
+    PUBLIC ${PROJECT_SOURCE_DIR}/external/aZeroEngine/include
 )
 
 target_link_directories(aZeroEditor
-    PUBLIC ${CMAKE_BINARY_DIR}idk/aZeroEngine
+    PUBLIC ${CMAKE_BINARY_DIR}external/aZeroEngine
 )
 
 target_link_libraries(aZeroEditor 
