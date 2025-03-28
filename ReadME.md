@@ -42,9 +42,9 @@ SETUP GUIDE FOR VISUAL STUDIO
 ### Planned Features
 Already in my old project but has to be implemented here:
 
- - Deferred rendering
- - Per-entity outlines
- - Color-based entity picking
+ - Deferred rendering (will probably be skipped for a more modern rendering technique)
+ - Per-entity outlines (post process)
+ - Color-based entity picking (optional)
  - Scene save/load
  - Material transparency maps
  - Entity parenting
