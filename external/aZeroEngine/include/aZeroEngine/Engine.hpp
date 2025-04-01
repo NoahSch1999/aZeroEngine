@@ -1,14 +1,12 @@
 #pragma once
 
-#define IMGUI_DEFINE_MATH_OPERATORS
-
 // STD
 #include <memory>
 #include <string>
 
 #include "window/RenderWindow.hpp"
 #include "scene/Scene.hpp"
-#include "renderer/RenderInterface.hpp"
+#include "renderer/RenderContext.hpp"
 
 namespace aZero
 {
@@ -16,7 +14,6 @@ namespace aZero
 	{
 	private:
 		Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
-		HINSTANCE m_AppInstance;
 		std::string m_ProjectDirectory;
 
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
@@ -51,7 +48,7 @@ namespace aZero
 
 		void RebuildPipeline()
 		{
-			this->FlushRenderingCommands();
+			m_Renderer->FlushImmediate();
 			D3D12::RenderPass Pass;
 			{
 				D3D12::Shader BasePassVS;
@@ -60,14 +57,13 @@ namespace aZero
 				D3D12::Shader BasePassPS;
 				BasePassPS.CompileFromFile(this->m_Renderer->GetCompiler(), m_ProjectDirectory + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
 
-				Pass.Init(m_Device.Get(), BasePassVS, BasePassPS, {this->m_Renderer->m_FinalRenderSurface.GetResource()->GetDesc().Format}, DXGI_FORMAT_D24_UNORM_S8_UINT);
+				Pass.Init(m_Device.Get(), BasePassVS, BasePassPS, { DXGI_FORMAT_R8G8B8A8_UNORM_SRGB }, DXGI_FORMAT_D24_UNORM_S8_UINT);
 			}
 
 			m_Renderer->m_StaticMeshPass.m_Pass = std::move(Pass);
 		}
 
-		Engine(HINSTANCE AppInstance, const DXM::Vector2& WindowResolution, uint32_t BufferCount, const std::string& ContentPath)
-			:m_AppInstance(AppInstance)
+		Engine(const DXM::Vector2& WindowResolution, uint32_t BufferCount, const std::string& ContentPath)
 		{
 			m_ProjectDirectory = ContentPath; // aZero::Helper::GetProjectDirectory();
 
@@ -84,26 +80,6 @@ namespace aZero
 
 		~Engine()
 		{
-			this->FlushRenderingCommands();
-		}
-
-		void BeginFrame()
-		{
-			m_Renderer->BeginFrame();
-		}
-
-		void Render(Scene::Scene& Scene, const std::vector<Rendering::PrimitiveBatch*>& Batches, std::shared_ptr<Window::RenderWindow> Window)
-		{
-			m_Renderer->Render(Scene, Batches, Window);
-		}
-
-		void EndFrame()
-		{
-			m_Renderer->EndFrame();
-		}
-
-		void FlushRenderingCommands()
-		{
 			m_Renderer->FlushImmediate();
 		}
 
@@ -116,7 +92,6 @@ namespace aZero
 			}
 
 			return std::make_shared<Window::RenderWindow>(
-				m_AppInstance,
 				m_Renderer->m_GraphicsQueue,
 				Name,
 				Dimensions,
@@ -134,9 +109,37 @@ namespace aZero
 			return Scene::Scene(NewId, m_Device.Get());
 		}
 
-		Rendering::RenderInterface CreateRenderInterface()
+		Rendering::RenderSurface CreateRenderSurface(
+			const DXM::Vector2& Dimensions,
+			Rendering::RenderSurface::Type Type,
+			std::optional<DXM::Vector4> ClearColor = std::optional<DXM::Vector4>{}
+		)
 		{
-			return Rendering::RenderInterface(*m_Renderer.get());
+			if (Type == Rendering::RenderSurface::Type::Color_Target)
+			{
+				return Rendering::RenderSurface(
+					m_Device.Get(),
+					&m_Renderer->m_ResourceRecycler,
+					m_Renderer->m_RTVHeap.GetDescriptor(),
+					Dimensions,
+					Type,
+					ClearColor
+				);
+			}
+
+			return Rendering::RenderSurface(
+				m_Device.Get(),
+				&m_Renderer->m_ResourceRecycler,
+				m_Renderer->m_DSVHeap.GetDescriptor(),
+				Dimensions,
+				Type,
+				ClearColor
+			);
+		}
+
+		Rendering::RenderContext GetRenderContext()
+		{
+			return Rendering::RenderContext(*m_Renderer.get());
 		}
 
 		const std::string& GetProjectDirectory() const
@@ -144,8 +147,14 @@ namespace aZero
 			return m_ProjectDirectory;
 		}
 
+		// TODO: Rework these or try to remove
 		std::shared_ptr<Asset::Mesh> GetCubeMesh() { return m_DefaultCube; }
 
 		std::shared_ptr<Asset::Material> GetDefaultMaterial() { return m_DefaultMaterial; }
+
+		ID3D12Device* GetDevice() const { return m_Device.Get(); }
+
+		D3D12::DescriptorHeap& GetSRVDescriptorHeap() { return m_Renderer->m_ResourceHeap; }
+		//
 	};
 }

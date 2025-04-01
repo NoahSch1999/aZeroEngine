@@ -4,6 +4,11 @@
 
 namespace aZero
 {
+	namespace Rendering
+	{
+		class RenderGraphPass;
+	}
+
 	namespace D3D12
 	{
 		// TODO: Minimize mem footprint based on cs or graphics pass
@@ -12,6 +17,7 @@ namespace aZero
 
 		class RenderPass : public NonCopyable
 		{
+			friend Rendering::RenderGraphPass;
 		private:
 			void Reset()
 			{
@@ -40,10 +46,9 @@ namespace aZero
 				Other.Reset();
 			}
 
-		public:
 			Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
 			Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
-			
+
 			std::unordered_map<std::string, Shader::ShaderResourceInfo> m_VSResourceMap;
 			std::unordered_map<std::string, Shader::ShaderResourceInfo> m_PSResourceMap;
 			std::unordered_map<std::string, Shader::ShaderResourceInfo> m_CSResourceMap;
@@ -52,6 +57,8 @@ namespace aZero
 			PASS_TYPE m_PassType;
 			uint16_t m_NumRenderTargets = 0;
 			bool m_HasDepthStencilTarget = false;
+
+		public:
 
 			RenderPass() = default;
 

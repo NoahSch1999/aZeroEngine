@@ -16,7 +16,7 @@ add_library(aZeroEngine
     "src/renderer/render_graph/Shader.cpp"
     "src/renderer/Renderer.cpp"
     "src/window/RenderWindow.cpp"
-)
+ )
 
 # PRE-PROCESSOR SETTINGS
 target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
@@ -72,12 +72,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(AgilitySDK)
 #
 
-target_include_directories(aZeroEngine 
-    # For aZeroEngine local includes
-    #PUBLIC ${PROJECT_SOURCE_DIR}/src
+target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
-
 	PUBLIC ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/inc
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directx-headers-src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directxtk12-src/Inc

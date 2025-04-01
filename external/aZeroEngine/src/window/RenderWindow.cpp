@@ -3,9 +3,15 @@
 #include "graphics_api/resource_type/GPUResource.hpp"
 #include "graphics_api/CommandQueue.hpp"
 
+LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	return DefWindowProc(hWnd, msg, wParam, lParam);
+	if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+	{
+		return true;
+	}
+	return DefWindowProcA(hWnd, msg, wParam, lParam);
 }
 
 void aZero::Window::RenderWindow::CreateSwapchain(
@@ -53,32 +59,32 @@ void aZero::Window::RenderWindow::CreateSwapchain(
 
 	this->ReleaseBuffers();
 
-	m_BackBuffers.resize(m_NumBackBuffers);
+	m_BackBuffers.resize(NumBackBuffers);
 
 	this->PopulateBackBuffers();
 }
 
 aZero::Window::RenderWindow::RenderWindow(
-	HINSTANCE AppInstance,
 	const D3D12::CommandQueue& GraphicsQueue,
 	const std::string& Name,
 	const DXM::Vector2& WindowDimensions,
 	const DXM::Vector2& BackBufferDimensions,
 	std::optional<D3D12::ResourceRecycler*> OptResourceRecycler,
 	std::uint32_t NumBackBuffers,
-	DXGI_FORMAT BackBufferFormat)
+	DXGI_FORMAT BackBufferFormat
+	)
 {
-	m_AppInstance = AppInstance;
 	m_Name.assign(Name.begin(), Name.end());
-	m_NumBackBuffers = NumBackBuffers;
 	m_ResourceRecycler = OptResourceRecycler.has_value() ? OptResourceRecycler.value() : nullptr;
 
 	WNDCLASSA wc = { };
+	ZeroMemory(&wc, sizeof(wc));
 	wc.lpfnWndProc = WndProc;
-	wc.hInstance = AppInstance;
-	wc.lpszClassName = m_Name.c_str();
 
-	std::wstring X(Name.begin(), Name.end());
+	auto ModuleHandle = GetModuleHandleA(nullptr);
+	wc.hInstance = ModuleHandle;
+	wc.lpszClassName = m_Name.c_str();
+	wc.style = CS_CLASSDC;
 	
 	const ATOM RegisterClassRes = RegisterClassA(&wc);
 	if (!RegisterClassRes)
@@ -88,16 +94,18 @@ aZero::Window::RenderWindow::RenderWindow(
 		throw std::invalid_argument("Failed to register window");
 	}
 
+	int x = GetSystemMetrics(SM_CXSCREEN);
+	int y = GetSystemMetrics(SM_CYSCREEN);
 	m_WindowHandle = CreateWindowExA(
 		0,
 		m_Name.c_str(),
 		m_Name.c_str(),
 		WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT,
+		0, 0,
 		WindowDimensions.x, WindowDimensions.y,
 		NULL,
 		NULL,
-		AppInstance,
+		ModuleHandle,
 		NULL
 	);
 
@@ -108,7 +116,8 @@ aZero::Window::RenderWindow::RenderWindow(
 		throw std::invalid_argument("Failed to create window");
 	}
 
-	ShowWindow(m_WindowHandle, SW_SHOWNORMAL);
+	ShowWindow(m_WindowHandle, SW_SHOW);
+	UpdateWindow(m_WindowHandle);
 
 	ID3D12Device* Device;
 	const HRESULT GetDeviceRes = GraphicsQueue.GetCommandQueue()->GetDevice(IID_PPV_ARGS(&Device));
@@ -131,7 +140,7 @@ aZero::Window::RenderWindow::~RenderWindow()
 	if (m_ResourceRecycler)
 	{
 		DestroyWindow(m_WindowHandle);
-		UnregisterClassA(m_Name.c_str(), m_AppInstance);
+		UnregisterClassA(m_Name.c_str(), GetModuleHandleA(nullptr));
 
 		for (Microsoft::WRL::ComPtr<ID3D12Resource>& BackBuffer : m_BackBuffers)
 		{

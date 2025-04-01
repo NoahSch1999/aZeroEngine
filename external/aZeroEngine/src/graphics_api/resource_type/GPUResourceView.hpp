@@ -1,6 +1,7 @@
 #pragma once
 #include "GPUResource.hpp"
 #include "graphics_api/DescriptorHeap.hpp"
+#include <variant>
 
 namespace aZero
 {
@@ -10,6 +11,7 @@ namespace aZero
 		{
 		protected:
 			D3D12::Descriptor m_Descriptor;
+			std::variant<D3D12::GPUBuffer*, D3D12::GPUTexture*> m_Resource;
 
 		public:
 			GPUResourceView() = default;
@@ -17,6 +19,7 @@ namespace aZero
 			GPUResourceView(GPUResourceView&& Other) noexcept
 			{
 				m_Descriptor = std::move(Other.m_Descriptor);
+				m_Resource = std::move(Other.m_Resource);
 			}
 
 			GPUResourceView& operator=(GPUResourceView&& Other) noexcept
@@ -24,12 +27,19 @@ namespace aZero
 				if (this != &Other)
 				{
 					m_Descriptor = std::move(Other.m_Descriptor);
+					m_Resource = std::move(Other.m_Resource);
 				}
 				return *this;
 			}
 
 			uint32_t GetDescriptorIndex() const { return m_Descriptor.GetHeapIndex(); }
 			D3D12_CPU_DESCRIPTOR_HANDLE GetDescriptorHandle() const { return m_Descriptor.GetCPUHandle(); }
+
+			template<typename ResourceType>
+			const ResourceType* GetResource() const
+			{
+				return std::get<ResourceType*>(m_Resource);
+			}
 		};
 
 		class UnorderedAccessView : public GPUResourceView
@@ -41,8 +51,8 @@ namespace aZero
 
 			UnorderedAccessView(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUBuffer& Buffer,
+				D3D12::Descriptor&& Descriptor,
+				GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
 				uint32_t FirstElement,
 				uint32_t NumElements,
@@ -50,13 +60,13 @@ namespace aZero
 				bool TreatAsRawBuffer = false
 			)
 			{
-				this->Init(Device, Descriptor, Buffer, Format, FirstElement, NumElements, BytesPerElement, TreatAsRawBuffer);
+				this->Init(Device, std::forward<D3D12::Descriptor>(Descriptor), Buffer, Format, FirstElement, NumElements, BytesPerElement, TreatAsRawBuffer);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUBuffer& Buffer,
+				D3D12::Descriptor&& Descriptor,
+				GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
 				uint32_t FirstElement,
 				uint32_t NumElements,
@@ -64,6 +74,7 @@ namespace aZero
 				bool TreatAsRawBuffer = false
 			)
 			{
+				m_Resource.emplace<D3D12::GPUBuffer*>(&Buffer);
 				m_Descriptor = std::move(Descriptor);
 
 				D3D12_UNORDERED_ACCESS_VIEW_DESC Desc;
@@ -80,25 +91,26 @@ namespace aZero
 
 			UnorderedAccessView(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUTexture& Texture,
+				D3D12::Descriptor&& Descriptor,
+				GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t MipSlice = 0,
 				uint32_t PlaneSlice = 0
 			)
 			{
-				this->Init(Device, Descriptor, Texture, Format, MipSlice, PlaneSlice);
+				this->Init(Device, std::forward<D3D12::Descriptor>(Descriptor), Texture, Format, MipSlice, PlaneSlice);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUTexture& Texture,
+				D3D12::Descriptor&& Descriptor,
+				GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t MipSlice = 0,
 				uint32_t PlaneSlice = 0
 			)
 			{
+				m_Resource.emplace<D3D12::GPUTexture*>(&Texture);
 				m_Descriptor = std::move(Descriptor);
 
 				D3D12_RESOURCE_DESC ResourceDesc = Texture.GetResource()->GetDesc();
@@ -137,8 +149,8 @@ namespace aZero
 
 			ShaderResourceView(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUBuffer& Buffer,
+				D3D12::Descriptor&& Descriptor,
+				GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
 				uint32_t FirstElement,
 				uint32_t NumElements,
@@ -146,13 +158,13 @@ namespace aZero
 				bool TreatAsRawBuffer = false
 			)
 			{
-				this->Init(Device, Descriptor, Buffer, Format, FirstElement, NumElements, BytesPerElement, TreatAsRawBuffer);
+				this->Init(Device, std::forward<D3D12::Descriptor>(Descriptor), Buffer, Format, FirstElement, NumElements, BytesPerElement, TreatAsRawBuffer);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUBuffer& Buffer,
+				D3D12::Descriptor&& Descriptor,
+				GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
 				uint32_t FirstElement,
 				uint32_t NumElements,
@@ -160,6 +172,7 @@ namespace aZero
 				bool TreatAsRawBuffer = false
 			)
 			{
+				m_Resource.emplace<D3D12::GPUBuffer*>(&Buffer);
 				m_Descriptor = std::move(Descriptor);
 
 				D3D12_SHADER_RESOURCE_VIEW_DESC Desc;
@@ -177,8 +190,8 @@ namespace aZero
 
 			ShaderResourceView(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUTexture& Texture,
+				D3D12::Descriptor&& Descriptor,
+				GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t NumMipLevels = 1,
 				uint32_t MostDetailedMip = 0,
@@ -186,13 +199,13 @@ namespace aZero
 				uint32_t MinAccessibleMipLevel = 0
 			)
 			{
-				this->Init(Device, Descriptor, Texture, Format, NumMipLevels, MostDetailedMip, PlaneSlice, MinAccessibleMipLevel);
+				this->Init(Device, std::forward<D3D12::Descriptor>(Descriptor), Texture, Format, NumMipLevels, MostDetailedMip, PlaneSlice, MinAccessibleMipLevel);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUTexture& Texture,
+				D3D12::Descriptor&& Descriptor,
+				GPUTexture& Texture,
 				DXGI_FORMAT Format,
 				uint32_t NumMipLevels = 1,
 				uint32_t MostDetailedMip = 0,
@@ -200,6 +213,7 @@ namespace aZero
 				uint32_t MinAccessibleMipLevel = 0
 			)
 			{
+				m_Resource.emplace<D3D12::GPUTexture*>(&Texture);
 				m_Descriptor = std::move(Descriptor);
 
 				D3D12_RESOURCE_DESC ResourceDesc = Texture.GetResource()->GetDesc();
@@ -235,29 +249,50 @@ namespace aZero
 		class DepthStencilView : public GPUResourceView
 		{
 		private:
+			D3D12_CLEAR_VALUE m_ClearValue;
 
 		public:
 			DepthStencilView() = default;
 
+			DepthStencilView(DepthStencilView&& Other) noexcept
+			{
+				GPUResourceView::operator=(std::move(Other));
+				m_ClearValue = std::move(Other.m_ClearValue);
+			}
+
+			DepthStencilView& operator=(DepthStencilView&& Other) noexcept
+			{
+				if (this != &Other)
+				{
+					GPUResourceView::operator=(std::move(Other));
+					m_ClearValue = std::move(Other.m_ClearValue);
+				}
+				return *this;
+			}
+
 			DepthStencilView(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUTexture& Texture,
+				D3D12::Descriptor&& Descriptor,
+				GPUTexture& Texture,
 				DXGI_FORMAT Format,
+				D3D12_CLEAR_VALUE ClearValue,
 				uint32_t MipSlice = 0
 			)
 			{
-				this->Init(Device, Descriptor, Texture, Format, MipSlice);
+				this->Init(Device, std::forward<D3D12::Descriptor>(Descriptor), Texture, Format, ClearValue, MipSlice);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUTexture& Texture,
+				D3D12::Descriptor&& Descriptor,
+				GPUTexture& Texture,
 				DXGI_FORMAT Format,
+				D3D12_CLEAR_VALUE ClearValue,
 				uint32_t MipSlice = 0
 			)
 			{
+				m_Resource.emplace<D3D12::GPUTexture*>(&Texture);
+				m_ClearValue = std::move(ClearValue);
 				m_Descriptor = std::move(Descriptor);
 
 				D3D12_RESOURCE_DESC ResourceDesc = Texture.GetResource()->GetDesc();
@@ -284,34 +319,57 @@ namespace aZero
 
 				Device->CreateDepthStencilView(Texture.GetResource(), &Desc, m_Descriptor.GetCPUHandle());
 			}
+
+			const D3D12_CLEAR_VALUE& GetClearValue() const { return m_ClearValue; }
 		};
 
 		class RenderTargetView : public GPUResourceView
 		{
 		private:
+			D3D12_CLEAR_VALUE m_ClearValue;
 
 		public:
 			RenderTargetView() = default;
 
+			RenderTargetView(RenderTargetView&& Other) noexcept
+			{
+				GPUResourceView::operator=(std::move(Other));
+				m_ClearValue = std::move(Other.m_ClearValue);
+			}
+
+			RenderTargetView& operator=(RenderTargetView&& Other) noexcept
+			{
+				if (this != &Other)
+				{
+					GPUResourceView::operator=(std::move(Other));
+					m_ClearValue = std::move(Other.m_ClearValue);
+				}
+				return *this;
+			}
+
 			RenderTargetView(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUTexture& Texture,
-				DXGI_FORMAT Format
+				D3D12::Descriptor&& Descriptor,
+				GPUTexture& Texture,
+				DXGI_FORMAT Format,
+				D3D12_CLEAR_VALUE ClearValue
 			)
 			{
-				this->Init(Device, Descriptor, Texture, Format);
+				this->Init(Device, std::forward<D3D12::Descriptor>(Descriptor), Texture, Format, ClearValue);
 			}
 
 			void Init(
 				ID3D12Device* Device,
-				D3D12::Descriptor& Descriptor,
-				const GPUTexture& Texture,
+				D3D12::Descriptor&& Descriptor,
+				GPUTexture& Texture,
 				DXGI_FORMAT Format,
+				D3D12_CLEAR_VALUE ClearValue,
 				uint32_t MipSlice = 0,
 				uint32_t PlaneSlice = 0
 			)
 			{
+				m_Resource.emplace<D3D12::GPUTexture*>(&Texture);
+				m_ClearValue = std::move(ClearValue);
 				m_Descriptor = std::move(Descriptor);
 
 				D3D12_RESOURCE_DESC ResourceDesc = Texture.GetResource()->GetDesc();
@@ -339,6 +397,8 @@ namespace aZero
 
 				Device->CreateRenderTargetView(Texture.GetResource(), &Desc, m_Descriptor.GetCPUHandle());
 			}
+
+			const D3D12_CLEAR_VALUE& GetClearValue() const { return m_ClearValue; }
 		};
 	}
 }

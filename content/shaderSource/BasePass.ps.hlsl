@@ -143,7 +143,7 @@ FragmentOutput main(FragmentInput Input)
     {
         Color = Mat.Color;
     }
-    
+
     float3 Normal;
     if (Mat.NormalMapIndex != -1)
     {
@@ -181,9 +181,9 @@ FragmentOutput main(FragmentInput Input)
 
     PointLight p;
     p.Color = float3(1,1,1);
-    p.Intensity = 1;
+    p.Intensity = 10;
     p.FalloffFactor = 1;
-    p.Position = float3(1,1,1);
+    p.Position = float3(0,0,1.8);
     
     LightFactor = CalcPointLight(p, Input.WorldPosition, Normal);
     

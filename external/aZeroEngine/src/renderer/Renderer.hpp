@@ -2,7 +2,6 @@
 #include "graphics_api/CommandQueue.hpp"
 #include "renderer/render_graph/RenderGraph.hpp"
 #include "ecs/aZeroECS.hpp"
-#include "window/RenderWindow.hpp"
 #include "scene/Scene.hpp"
 #include "graphics_api/DescriptorHeap.hpp"
 #include "graphics_api/resource_type/FreelistBuffer.hpp"
@@ -14,12 +13,12 @@ namespace aZero
 	class Engine;
 	namespace Rendering
 	{
-		class RenderInterface;
+		class RenderContext;
 
 		class Renderer
 		{
 			friend Engine;
-			friend RenderInterface;
+			friend RenderContext;
 
 		private:
 			ID3D12Device* m_Device;
@@ -50,19 +49,11 @@ namespace aZero
 			// TODO: Remove once we have a more sophisticated system
 			std::string m_ContentPath;
 			std::vector<D3D12::LinearFrameAllocator> m_FrameAllocators;
-			D3D12::CommandContext m_GraphicsCommandContext;
-			D3D12::CommandContext m_PackedGPULookupBufferUpdateContext;
 			D3D12::Descriptor m_DefaultSamplerDescriptor;
 
-			D3D12::GPUTexture m_FinalRenderSurface;
-			D3D12::Descriptor m_FinalRenderSurfaceUAV;
-			D3D12::RenderTargetView m_FinalRenderSurfaceRTV;
-
-			D3D12::GPUTexture m_SceneDepthTexture;
-			D3D12::DepthStencilView m_SceneDepthTextureDSV;
+			D3D12::CommandContextAllocator m_GraphicsCmdContextAllocator;
 
 			DXM::Vector2 m_RenderResolution;
-			D3D12_CLEAR_VALUE m_RTVClearColor;
 			D3D12_CLEAR_VALUE m_DSVClearColor;
 
 			D3D12::LinearBuffer m_BatchVertexBuffer;
@@ -75,10 +66,11 @@ namespace aZero
 
 			D3D12::RenderPass m_BatchPassDepthT;
 			D3D12::RenderPass m_BatchPassNoDepthT;
+
+			RenderGraphPass m_StaticMeshPass;
 			//
 
 			RenderGraph m_RenderGraph;
-			std::set<std::shared_ptr<Window::RenderWindow>> m_FrameWindows;
 
 		private:
 
@@ -87,60 +79,340 @@ namespace aZero
 				return m_FrameAllocators[m_FrameIndex];
 			}
 
-			void SetBufferCount(uint32_t BufferCount)
-			{
-				if (BufferCount <= 1)
-				{
-					throw std::runtime_error("Renderer::Init => Invalid BufferCount");
-				}
-				m_BufferCount = BufferCount;
-			}
-
 			void SetupRenderPipeline();
-
-			void RecordAssetManagerCommands();
 
 			void InitPrimitiveBatchPipeline();
 
-			void PrepareGraphForScene(Scene::Scene& InScene);
+			void RenderPrimitiveBatch(D3D12::CommandContext& CmdContext, const D3D12::RenderTargetView& ColorView, const PrimitiveBatch& Batch, const Scene::Scene::Camera& Camera);
 
-			void RenderPrimitiveBatch(const PrimitiveBatch& Batch, const Scene::Scene::Camera& Camera);
+			void CopyRenderSurfaceToTexture(D3D12::CommandContext& CmdContext, ID3D12Resource* DstTexture, ID3D12Resource* SrcTexture);
 
-			void GetRelevantStaticMeshes(
-				Scene::Scene& Scene,
-				const DirectX::BoundingFrustum& Frustum,
-				const DXM::Matrix& ViewMatrix,
-				StaticMeshBatches& OutStaticMeshBatches);
+			void SetupRenderGraph()
+			{
+				m_RenderGraph.Init(&m_ResourceHeap, &m_SamplerHeap);
 
-			// TODO: Impl
-			void GetRelevantSkeletalMeshes(Scene::Scene& Scene, const Scene::Scene::Camera& Camera) { }
+				D3D12::RenderPass Pass;
+				{
+					D3D12::Shader BasePassVS;
+					BasePassVS.CompileFromFile(this->GetCompiler(), m_ContentPath + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
 
-			// TODO: Impl
-			void RenderSkeletalMeshes(Scene::Scene& InScene, const Scene::Scene::Camera& Camera) { }
+					D3D12::Shader BasePassPS;
+					BasePassPS.CompileFromFile(this->GetCompiler(), m_ContentPath + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
 
-			void GetDirectionalLights(Scene::Scene& Scene,
-				uint32_t& NumDirectionalLights);
+					Pass.Init(m_Device, BasePassVS, BasePassPS, { DXGI_FORMAT_R8G8B8A8_UNORM_SRGB }, DXGI_FORMAT_D24_UNORM_S8_UINT);
+				}
+				m_StaticMeshPass = RenderGraphPass(std::move(Pass));
+				m_StaticMeshPass.BindBuffer("VertexBuffer", D3D12::SHADER_TYPE::VS, &m_VertexBuffer.GetBuffer());
+				m_StaticMeshPass.BindBuffer("IndexBuffer", D3D12::SHADER_TYPE::VS, &m_IndexBuffer.GetBuffer());
+				m_StaticMeshPass.BindBuffer("MeshEntries", D3D12::SHADER_TYPE::VS, &m_MeshEntryBuffer.GetBuffer());
+				m_StaticMeshPass.BindBuffer("MaterialBuffer", D3D12::SHADER_TYPE::PS, &m_MaterialBuffer.GetBuffer());
+				m_StaticMeshPass.m_ShouldClearOnExecute = false;
 
-			void GetRelevantPointLights(Scene::Scene& Scene,
-				const DirectX::BoundingFrustum& Frustum,
-				const DXM::Matrix& ViewMatrix,
-				uint32_t& NumPointLights);
+				m_RenderGraph.AddPass(m_StaticMeshPass, -1);
+			}
 
-			void GetRelevantSpotLights(Scene::Scene& Scene,
-				const DirectX::BoundingFrustum& Frustum,
-				const DXM::Matrix& ViewMatrix,
-				uint32_t& NumSpotLights);
+			void BindGeometryPassBuffers(Scene::Scene& InScene)
+			{
+				m_StaticMeshPass.BindBuffer("InstanceBuffer", D3D12::SHADER_TYPE::VS,
+					&InScene.m_RenderProxy.GetObjects<Scene::Scene::StaticMesh>().m_RenderBuffers.at(m_FrameIndex).GetBuffer());
 
-			void ClearRenderSurfaces();
+				m_StaticMeshPass.BindBuffer("DirectionalLightBuffer", D3D12::SHADER_TYPE::PS,
+					&InScene.m_RenderProxy.GetObjects<DirectionalLightData>().m_RenderBuffers.at(m_FrameIndex).GetBuffer());
 
-			void CopyRenderSurfaceToTexture(ID3D12Resource* TargetTexture);
+				m_StaticMeshPass.BindBuffer("PointLightBuffer", D3D12::SHADER_TYPE::PS,
+					&InScene.m_RenderProxy.GetObjects<PointLightData>().m_RenderBuffers.at(m_FrameIndex).GetBuffer());
+
+				m_StaticMeshPass.BindBuffer("SpotLightBuffer", D3D12::SHADER_TYPE::PS,
+					&InScene.m_RenderProxy.GetObjects<SpotLightData>().m_RenderBuffers.at(m_FrameIndex).GetBuffer());
+
+				struct PixelShaderConstants
+				{
+					uint32_t SamplerIndex;
+				}PSConstants;
+
+				PSConstants.SamplerIndex = m_DefaultSamplerDescriptor.GetHeapIndex();
+				m_StaticMeshPass.BindConstant("PixelShaderConstantsBuffer", D3D12::SHADER_TYPE::PS, &PSConstants, sizeof(PixelShaderConstants));
+			}
+
+			void RecordFrameAllocatorCommands(D3D12::CommandContext& CmdContext)
+			{
+				D3D12::LinearFrameAllocator& FrameAllocator = m_FrameAllocators[m_FrameIndex];
+				FrameAllocator.RecordAllocations(CmdContext.GetCommandList());
+				CmdContext.StopRecording();
+				m_GraphicsQueue.ExecuteContext(CmdContext);
+			}
+
+			void ClearRenderTarget(const D3D12::RenderTargetView& RenderTarget, D3D12::CommandContext& CmdContext)
+			{
+				CmdContext.GetCommandList()->ClearRenderTargetView(RenderTarget.GetDescriptorHandle(), RenderTarget.GetClearValue().Color, 0, NULL);
+			}
+
+			void ClearDepthSurface(const D3D12::DepthStencilView& DepthStencilTarget, D3D12::CommandContext& CmdContext)
+			{
+				CmdContext.GetCommandList()->ClearDepthStencilView(
+					DepthStencilTarget.GetDescriptorHandle(),
+					D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+					DepthStencilTarget.GetClearValue().DepthStencil.Depth, DepthStencilTarget.GetClearValue().DepthStencil.Stencil,
+					0, NULL);
+			}
+
+			uint32_t UploadDirectionalLightData(Scene::Scene& Scene, D3D12::CommandContext& CmdContext)
+			{
+				// Allocate multiple buffers based on what buffering count the renderer works with
+				std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetObjects<DirectionalLightData>().m_RenderBuffers;
+				if (RenderBuffers.size() != m_BufferCount)
+				{
+					RenderBuffers.resize(m_BufferCount);
+				}
+
+				// Initialize buffers for the light data if the scene hasn't been rendered before
+				D3D12::LinearBuffer& DirLightBuffer = RenderBuffers.at(m_FrameIndex);
+				DirLightBuffer.Reset();
+				if (!DirLightBuffer.IsInitalized())
+				{
+					DirLightBuffer.Init(m_Device,
+						D3D12_HEAP_TYPE_UPLOAD,
+						sizeof(DirectionalLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<DirectionalLightData>().size()),
+						m_ResourceRecycler
+					);
+				}
+
+				// Upload data
+				for (const auto& LightData : Scene.GetObjects<DirectionalLightData>())
+				{
+					DirLightBuffer.Write(CmdContext.GetCommandList(), (void*)&LightData, sizeof(DirectionalLightData));
+				}
+
+				// Cache number of lights to know the max to iterate over in shader
+				return DirLightBuffer.GetOffset() / sizeof(DirectionalLightData);
+			}
+
+			uint32_t UploadPointLightData(const DirectX::BoundingFrustum& Frustum, Scene::Scene& Scene, D3D12::CommandContext& CmdContext)
+			{
+				std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetObjects<PointLightData>().m_RenderBuffers;
+				if (RenderBuffers.size() != m_BufferCount)
+				{
+					RenderBuffers.resize(m_BufferCount);
+				}
+
+				D3D12::LinearBuffer& PointLightBuffer = RenderBuffers.at(m_FrameIndex);
+				PointLightBuffer.Reset();
+				if (!PointLightBuffer.IsInitalized())
+				{
+					PointLightBuffer.Init(m_Device,
+						D3D12_HEAP_TYPE_UPLOAD,
+						sizeof(PointLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<PointLightData>().size()),
+						m_ResourceRecycler
+					);
+				}
+
+				for (const auto& LightData : Scene.GetObjects<PointLightData>())
+				{
+					// TODO: Add culling
+					/*const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(PointLight.Position, ViewMatrix), PointLight.Range);
+					if (Frustum.Intersects(Sphere))
+					{*/
+					PointLightBuffer.Write(CmdContext.GetCommandList(), (void*)&LightData, sizeof(PointLightData));
+					//}
+				}
+
+				return PointLightBuffer.GetOffset() / sizeof(PointLightData);
+			}
+
+			uint32_t UploadSpotLightData(const DirectX::BoundingFrustum& Frustum, Scene::Scene& Scene, D3D12::CommandContext& CmdContext)
+			{
+				std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetObjects<SpotLightData>().m_RenderBuffers;
+				if (RenderBuffers.size() != m_BufferCount)
+				{
+					RenderBuffers.resize(m_BufferCount);
+				}
+
+				D3D12::LinearBuffer& SpotLightBuffer = RenderBuffers.at(m_FrameIndex);
+				SpotLightBuffer.Reset();
+				if (!SpotLightBuffer.IsInitalized())
+				{
+					SpotLightBuffer.Init(m_Device,
+						D3D12_HEAP_TYPE_UPLOAD,
+						sizeof(SpotLightData) * std::max(static_cast<size_t>(1), Scene.GetObjects<SpotLightData>().size()),
+						m_ResourceRecycler
+					);
+				}
+
+				ID3D12GraphicsCommandList* CmdList = CmdContext.GetCommandList();
+
+				for (const auto& LightData : Scene.GetObjects<SpotLightData>())
+				{
+					// TODO: Add culling
+					SpotLightBuffer.Write(CmdList, (void*)&LightData, sizeof(SpotLightData));
+				}
+
+				return SpotLightBuffer.GetOffset() / sizeof(SpotLightData);
+			}
+
+			void UploadStaticMeshData(StaticMeshBatches& OutStaticMeshBatches, const DirectX::BoundingFrustum& Frustum, const DXM::Matrix& ViewMatrix, Scene::Scene& Scene, D3D12::CommandContext& CmdContext)
+			{
+				for (const auto& StaticMesh : Scene.GetObjects<Scene::Scene::StaticMesh>())
+				{
+					const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(StaticMesh.DXBounds.Center, ViewMatrix), StaticMesh.DXBounds.Radius);
+					if (Frustum.Intersects(Sphere))
+					{
+						uint32_t MeshIndex;
+						uint32_t MaterialIndex;
+						if (m_AssetManager->HasRenderHandle(*StaticMesh.Mesh.get()))
+						{
+							MeshIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Mesh.get()).value()->MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshEntry::GPUData);
+						}
+						else
+						{
+							continue;
+						}
+
+						if (m_AssetManager->HasRenderHandle(*StaticMesh.Material.get()))
+						{
+							MaterialIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Material.get()).value()->MaterialAllocHandle.GetStartOffset() / sizeof(Asset::MaterialData::MaterialRenderData);
+						}
+						else
+						{
+							continue;
+						}
+
+						auto& Batch = OutStaticMeshBatches.Batches[MaterialIndex][MeshIndex];
+						Batch.NumVertices = StaticMesh.Mesh->GetData().Indices.size();
+
+						StaticMeshBatches::PerInstanceData InstanceData;
+						InstanceData.WorldMatrix = StaticMesh.WorldMatrix;
+						Batch.InstanceData.emplace_back(std::move(InstanceData));
+					}
+				}
+
+				std::vector<D3D12::LinearBuffer>& RenderBuffers = Scene.m_RenderProxy.GetObjects<Scene::Scene::StaticMesh>().m_RenderBuffers;
+				if (RenderBuffers.size() != m_BufferCount)
+				{
+					RenderBuffers.resize(m_BufferCount);
+				}
+
+				D3D12::LinearBuffer& InstanceBuffer = RenderBuffers.at(m_FrameIndex);
+				InstanceBuffer.Reset();
+				if (!InstanceBuffer.IsInitalized())
+				{
+					InstanceBuffer.Init(m_Device,
+						D3D12_HEAP_TYPE_UPLOAD,
+						sizeof(StaticMeshBatches::PerInstanceData) * std::max(static_cast<size_t>(1), Scene.GetObjects<Scene::Scene::StaticMesh>().size()),
+						m_ResourceRecycler
+					);
+				}
+
+				// TODO: Try making this purely vectors
+				uint32_t InstanceStartOffset = 0;
+				for (auto& [MaterialIndex, MeshToBatchMap] : OutStaticMeshBatches.Batches)
+				{
+					for (auto& [MeshIndex, Batch] : MeshToBatchMap)
+					{
+						Batch.StartInstanceOffset = InstanceStartOffset;
+						for (auto& InstanceData : Batch.InstanceData)
+						{
+							InstanceBuffer.Write(CmdContext.GetCommandList(), (void*)&InstanceData, sizeof(StaticMeshBatches::PerInstanceData));
+						}
+						InstanceStartOffset += Batch.InstanceData.size();
+					}
+				}
+			}
+
+			void BeginFrame();
 
 		protected:
 
-			RenderGraphPass m_StaticMeshPass;
-			void BeginFrame();
+			// Public rendering commands accessible via RenderContext
+			void Render(Scene::Scene& Scene, const D3D12::RenderTargetView& RenderSurface, bool ClearRenderSurface, const D3D12::DepthStencilView& DepthSurface, bool ClearDepthSurface)
+			{
+				auto CmdContextHandle = m_GraphicsCmdContextAllocator.GetContext();
+				if (!CmdContextHandle.has_value())
+				{
+					throw std::runtime_error("No more command contexts");
+				}
 
-			void Render(Scene::Scene& Scene, const std::vector<PrimitiveBatch*>& Batches, std::shared_ptr<Window::RenderWindow> Window);
+				D3D12::CommandContext& CmdContext = *CmdContextHandle->m_Context;
+
+				this->RecordFrameAllocatorCommands(CmdContext);
+
+				if (ClearRenderSurface)
+				{
+					this->ClearRenderTarget(RenderSurface, CmdContext);
+				}
+
+				if (ClearDepthSurface)
+				{
+					this->ClearDepthSurface(DepthSurface, CmdContext);
+				}
+
+				const uint32_t NumDirectionalLights = UploadDirectionalLightData(Scene, CmdContext);
+
+				m_StaticMeshPass.BindRenderTarget(0, &RenderSurface);
+				m_StaticMeshPass.BindDepthStencil(&DepthSurface);
+
+				for (auto& Camera : Scene.GetObjects<Scene::Scene::Camera>())
+				{
+					if (Camera.IsActive)
+					{
+						const DirectX::BoundingFrustum Frustum = DirectX::BoundingFrustum(Camera.ProjMatrix, true);
+
+						const uint32_t NumPointLights = UploadPointLightData(Frustum, Scene, CmdContext);
+
+						const uint32_t NumSpotLights = UploadSpotLightData(Frustum, Scene, CmdContext);
+
+						StaticMeshBatches AllStaticMeshBatches;
+						UploadStaticMeshData(AllStaticMeshBatches, Frustum, Camera.ViewMatrix, Scene, CmdContext);
+
+						BindGeometryPassBuffers(Scene);
+
+						// TODO: Get rid of graph and just bind the relevant resources to the m_StaticMeshPass etc. instead
+						const bool Succeeded = m_RenderGraph.Execute(m_GraphicsQueue, CmdContext, Camera, AllStaticMeshBatches, NumDirectionalLights, NumPointLights, NumSpotLights);
+
+						if (!Succeeded)
+						{
+							DEBUG_PRINT("RenderGraph failed");
+							return;
+						}
+					}
+				}
+
+				m_GraphicsQueue.ExecuteContext(CmdContext);
+			}
+
+			// TODO: Impl
+			void Render(Scene::Scene::Camera& Camera, const std::vector<PrimitiveBatch*>& PrimitiveBatches, D3D12::RenderTargetView& RenderSurface, bool ClearRenderSurface, D3D12::DepthStencilView& DepthSurface, bool ClearDepthSurface)
+			{
+				auto CmdContextHandle = m_GraphicsCmdContextAllocator.GetContext();
+				if (!CmdContextHandle.has_value())
+				{
+					throw std::runtime_error("No more command contexts");
+				}
+
+				D3D12::CommandContext& CmdContext = *CmdContextHandle->m_Context;
+
+				if (Camera.IsActive)
+				{
+					for (const PrimitiveBatch* Batch : PrimitiveBatches)
+					{
+						this->RenderPrimitiveBatch(CmdContext, RenderSurface, *Batch, Camera);
+					}
+				}
+			}
+			
+			void CompleteRender(ID3D12Resource* DstTexture, ID3D12Resource* SrcTexture)
+			{
+				auto CmdContextHandle = m_GraphicsCmdContextAllocator.GetContext();
+				if (!CmdContextHandle.has_value())
+				{
+					throw std::runtime_error("No more command contexts");
+				}
+
+				D3D12::CommandContext& CmdContext = *CmdContextHandle->m_Context;
+
+				this->CopyRenderSurfaceToTexture(CmdContext, DstTexture, SrcTexture);
+				m_GraphicsQueue.ExecuteContext(CmdContext);
+			}
+			//
 
 			void EndFrame();
 
@@ -159,12 +431,7 @@ namespace aZero
 				m_GraphicsQueue.FlushCommands();
 			}
 
-			// TODO: Impl
-			void ChangeRenderResolution(const DXM::Vector2& Dimensions)
-			{
-
-			}
-
+			// TODO: Engine should own compiler and not the renderer
 			IDxcCompiler3& GetCompiler() { return *m_Compiler.p; }
 
 			void MarkRenderStateDirty(const std::shared_ptr<Asset::Mesh>& MeshAsset)
@@ -182,7 +449,12 @@ namespace aZero
 						NewVBHandle,
 						static_cast<uint32_t>(Data.Vertices.size()) * sizeof(decltype(Data.Vertices.at(0))));
 
-					ID3D12GraphicsCommandList* CmdList = m_GraphicsCommandContext.GetCommandList();
+					auto CmdContext = m_GraphicsCmdContextAllocator.GetContext();
+					if (!CmdContext.has_value())
+					{
+						throw std::runtime_error("No more command contexts");
+					}
+					ID3D12GraphicsCommandList* CmdList = CmdContext->m_Context->GetCommandList();
 
 					m_VertexBuffer.Write(CmdList, Allocator, NewVBHandle, (void*)Data.Vertices.data());
 
@@ -210,8 +482,8 @@ namespace aZero
 
 					m_AssetManager->AddRenderHandle(*MeshAsset.get(), std::move(NewMeshEntry));
 
-					m_GraphicsCommandContext.StopRecording();
-					m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
+					CmdContext->m_Context->StopRecording();
+					m_GraphicsQueue.ExecuteContext(*CmdContext->m_Context);
 				}
 				else
 				{
@@ -246,7 +518,14 @@ namespace aZero
 					Bundle.at(0).ResourcePtr = NewEntry.Texture.GetResource();
 					Bundle.at(0).StateBefore = D3D12_RESOURCE_STATE_COMMON;
 					Bundle.at(0).StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-					D3D12::TransitionResources(m_GraphicsCommandContext.GetCommandList(), Bundle);
+
+					auto CmdContext = m_GraphicsCmdContextAllocator.GetContext();
+					if (!CmdContext.has_value())
+					{
+						throw std::runtime_error("No more command contexts");
+					}
+					ID3D12GraphicsCommandList* CmdList = CmdContext->m_Context->GetCommandList();
+					D3D12::TransitionResources(CmdList, Bundle);
 
 					D3D12_SUBRESOURCE_DATA SubresourceData{};
 					SubresourceData.pData = Data.m_Data.data();
@@ -254,7 +533,7 @@ namespace aZero
 					SubresourceData.SlicePitch = SubresourceData.RowPitch * Data.m_Dimensions.y;
 
 					UpdateSubresources(
-						m_GraphicsCommandContext.GetCommandList(),
+						CmdList,
 						NewEntry.Texture.GetResource(),
 						StagingBuffer.GetResource(),
 						0, 0, 1, &SubresourceData);
@@ -262,13 +541,11 @@ namespace aZero
 					Bundle.at(0).ResourcePtr = NewEntry.Texture.GetResource();
 					Bundle.at(0).StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 					Bundle.at(0).StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-					D3D12::TransitionResources(m_GraphicsCommandContext.GetCommandList(), Bundle);
+					D3D12::TransitionResources(CmdList, Bundle);
 
-					m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
+					m_GraphicsQueue.ExecuteContext(*CmdContext->m_Context);
 
-					D3D12::Descriptor Descriptor;
-					m_ResourceHeap.GetDescriptor(Descriptor);
-					NewEntry.SRV.Init(m_Device, Descriptor, NewEntry.Texture, NewEntry.Texture.GetResource()->GetDesc().Format, 1, 0, 0, 0);
+					NewEntry.SRV.Init(m_Device, m_ResourceHeap.GetDescriptor(), NewEntry.Texture, NewEntry.Texture.GetResource()->GetDesc().Format, 1, 0, 0, 0);
 
 					m_AssetManager->AddRenderHandle(*TextureAsset.get(), std::move(NewEntry));
 				}
@@ -309,10 +586,15 @@ namespace aZero
 					RenderData.m_NormalMapDescriptorIndex = -1;
 				}
 
-				ID3D12GraphicsCommandList* const CmdList = m_GraphicsCommandContext.GetCommandList();
+				auto CmdContext = m_GraphicsCmdContextAllocator.GetContext();
+				if (!CmdContext.has_value())
+				{
+					throw std::runtime_error("No more command contexts");
+				}
+				ID3D12GraphicsCommandList* CmdList = CmdContext->m_Context->GetCommandList();
 				m_MaterialBuffer.Write(CmdList, this->GetFrameAllocator(), m_AssetManager->GetRenderHandle(*MaterialAsset.get()).value()->MaterialAllocHandle, &RenderData);
-				m_GraphicsCommandContext.StopRecording();
-				m_GraphicsQueue.ExecuteContext(m_GraphicsCommandContext);
+				CmdContext->m_Context->StopRecording();
+				m_GraphicsQueue.ExecuteContext(*CmdContext->m_Context);
 			}
 		};
 	}

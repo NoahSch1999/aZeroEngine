@@ -6,6 +6,7 @@
 
 #include "graphics_api/D3D12Include.hpp"
 #include "renderer/ResourceRecycler.hpp"
+#include "graphics_api/resource_type/GPUResourceView.hpp"
 #include "misc/NonCopyable.hpp"
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -32,12 +33,10 @@ namespace aZero
 
 			Microsoft::WRL::ComPtr<IDXGIFactory2> m_Factory;
 
-			HINSTANCE m_AppInstance;
 			HWND m_WindowHandle;
 			std::string m_Name;
-			uint32_t m_NumBackBuffers;
 			std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_BackBuffers;
-			uint16_t m_NextBackBuffer = 0;
+			uint32_t m_NextBackBuffer = 0;
 
 			D3D12::ResourceRecycler* m_ResourceRecycler = nullptr;
 
@@ -75,12 +74,10 @@ namespace aZero
 
 			void MoveOp(RenderWindow& Other)
 			{
-				m_AppInstance = Other.m_AppInstance;
 				m_WindowHandle = Other.m_WindowHandle;
 				m_Name = std::move(Other.m_Name);
 				m_SwapChain = Other.m_SwapChain;
 				m_Factory = Other.m_Factory;
-				m_NumBackBuffers = Other.m_NumBackBuffers;
 				m_ResourceRecycler = Other.m_ResourceRecycler;
 				m_BackBuffers = std::move(Other.m_BackBuffers);
 
@@ -92,7 +89,6 @@ namespace aZero
 			// TODO: Add parenting:
 				// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa#:~:text=in%2C%20optional%5D%20HWND-,hWndParent,-%2C%0A%20%20%5Bin%2C%20optional%5D%20HMENU
 			RenderWindow(
-				HINSTANCE AppInstance,
 				const D3D12::CommandQueue& GraphicsQueue,
 				const std::string& Name,
 				const DXM::Vector2& WindowDimensions,
@@ -123,15 +119,31 @@ namespace aZero
 				WaitForSingleObject(m_WaitableHandle, INFINITE);
 			}
 
+			HWND GetHandle() const { return m_WindowHandle; }
+
 			ID3D12Resource* GetBackCurrentBuffer() 
 			{
-				return m_BackBuffers[m_NextBackBuffer % m_NumBackBuffers].Get();
+				return m_BackBuffers.at(m_NextBackBuffer % m_BackBuffers.size()).Get();
 			}
 
 			void Present()
 			{
 				m_SwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
 				m_NextBackBuffer++;
+			}
+
+			void SetFullscreenMode(bool Fullscreen)
+			{
+				if (Fullscreen)
+				{
+					SetWindowLong(m_WindowHandle, GWL_STYLE, WS_POPUP);
+					ShowWindow(m_WindowHandle, SW_SHOW);
+				}
+				else
+				{
+					SetWindowLong(m_WindowHandle, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+					ShowWindow(m_WindowHandle, SW_SHOW);
+				}
 			}
 
 			bool IsOpen()
@@ -151,13 +163,20 @@ namespace aZero
 				}
 			}
 
-			DXM::Vector2 GetDimensions() const
+			DXM::Vector2 GetBackBufferDimensions() const
 			{
 				if (m_BackBuffers.size() > 0)
 				{
 					return DXM::Vector2(m_BackBuffers.at(0)->GetDesc().Width, m_BackBuffers.at(0)->GetDesc().Height);
 				}
 				return DXM::Vector2::Zero;
+			}
+
+			DXM::Vector2 GetClientDimensions() const
+			{
+				RECT Rect;
+				GetClientRect(m_WindowHandle, &Rect);
+				return DXM::Vector2(Rect.right - Rect.left, Rect.bottom - Rect.top);
 			}
 
 			void Resize(const DXM::Vector2& NewDimensions)
@@ -175,7 +194,7 @@ namespace aZero
 				DXGI_SWAP_CHAIN_DESC SwapChainDesc;
 				m_SwapChain->GetDesc(&SwapChainDesc);
 				m_SwapChain->ResizeBuffers(
-					m_NumBackBuffers,
+					m_BackBuffers.size(),
 					NewDimensions.x, NewDimensions.y,
 					SwapChainDesc.BufferDesc.Format,
 					(DXGI_SWAP_CHAIN_FLAG)(DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING)

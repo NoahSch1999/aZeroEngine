@@ -11,13 +11,14 @@ namespace aZero
 		class DescriptorHeap : public NonCopyable
 		{
 		private:
-			bool m_GpuVisible;
 			uint32_t m_DescriptorSize;
-			Descriptor m_StartDescriptor;
+			D3D12_CPU_DESCRIPTOR_HANDLE m_CPUHeapStart;
+			D3D12_GPU_DESCRIPTOR_HANDLE m_GPUHeapStart;
+
 			Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_Heap = nullptr;
 
 			std::set<uint32_t> m_ReusedIndices;
-			uint32_t m_NextFreeIndex = (uint32_t)0;
+			uint32_t m_NextFreeIndex = 0;
 
 			uint32_t GetNextIndex()
 			{
@@ -46,9 +47,9 @@ namespace aZero
 
 			DescriptorHeap(DescriptorHeap&& Other) noexcept
 			{
-				m_GpuVisible = Other.m_GpuVisible;
 				m_DescriptorSize = Other.m_DescriptorSize;
-				m_StartDescriptor = std::move(Other.m_StartDescriptor);
+				m_CPUHeapStart = Other.m_CPUHeapStart;
+				m_GPUHeapStart = Other.m_GPUHeapStart;
 				m_Heap = std::move(m_Heap);
 				m_ReusedIndices = std::move(m_ReusedIndices);
 				m_NextFreeIndex = Other.m_NextFreeIndex;
@@ -58,9 +59,9 @@ namespace aZero
 			{
 				if (this != &Other)
 				{
-					m_GpuVisible = Other.m_GpuVisible;
 					m_DescriptorSize = Other.m_DescriptorSize;
-					m_StartDescriptor = std::move(Other.m_StartDescriptor);
+					m_CPUHeapStart = Other.m_CPUHeapStart;
+					m_GPUHeapStart = Other.m_GPUHeapStart;
 					m_Heap = std::move(m_Heap);
 					m_ReusedIndices = std::move(m_ReusedIndices);
 					m_NextFreeIndex = Other.m_NextFreeIndex;
@@ -77,8 +78,6 @@ namespace aZero
 			{
 				if (!m_Heap)
 				{
-					m_GpuVisible = GpuVisible;
-
 					D3D12_DESCRIPTOR_HEAP_DESC Desc;
 					Desc.NumDescriptors = NumDescriptors;
 					Desc.Type = Type;
@@ -96,20 +95,17 @@ namespace aZero
 						throw std::invalid_argument("DescriptorHeap::Init() => Failed to create heap");
 					}
 
-					D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle = m_Heap->GetCPUDescriptorHandleForHeapStart();
-					D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle(0);
+					m_CPUHeapStart = m_Heap->GetCPUDescriptorHandleForHeapStart();
 					if (Desc.Flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
 					{
-						GpuHandle = m_Heap->GetGPUDescriptorHandleForHeapStart();
+						m_GPUHeapStart = m_Heap->GetGPUDescriptorHandleForHeapStart();
 					}
-
-					m_StartDescriptor = std::move(Descriptor(CpuHandle, GpuHandle, 0));
 
 					m_DescriptorSize = Device->GetDescriptorHandleIncrementSize(Type);
 				}
 			}
 
-			void GetDescriptor(Descriptor& OutDescriptor)
+			Descriptor GetDescriptor()
 			{
 				const uint32_t DescriptorIndex = this->GetNextIndex();
 				if (DescriptorIndex >= m_Heap->GetDesc().NumDescriptors)
@@ -118,25 +114,31 @@ namespace aZero
 				}
 				
 				D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle = { 0 };
-				CpuHandle.ptr = m_StartDescriptor.GetCPUHandle().ptr + DescriptorIndex * m_DescriptorSize;
+				CpuHandle.ptr = m_CPUHeapStart.ptr + DescriptorIndex * m_DescriptorSize;
 
 				D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle = { 0 };
-				if (m_GpuVisible)
+				if (m_Heap->GetDesc().Flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
 				{
-					GpuHandle.ptr = m_StartDescriptor.GetGPUHandle().ptr + DescriptorIndex * m_DescriptorSize;
+					GpuHandle.ptr = m_GPUHeapStart.ptr + DescriptorIndex * m_DescriptorSize;
 				}
 			
-				OutDescriptor = std::move(Descriptor(CpuHandle, GpuHandle, DescriptorIndex));
-				OutDescriptor.m_OwningHeap = this;
+				return Descriptor(CpuHandle, GpuHandle, DescriptorIndex, this);
 			}
 			
 			void RecycleDescriptor(Descriptor& Descriptor)
 			{
-				if (Descriptor.GetHeapIndex() >= 0)
+				if (Descriptor.m_OwningHeap == this)
 				{
 					this->RecycleIndex(Descriptor.GetHeapIndex());
 					Descriptor.m_OwningHeap = nullptr;
 				}
+			}
+
+			// Unsafe version for ImGui
+			void RecycleDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE CPUHandle, D3D12_GPU_DESCRIPTOR_HANDLE GPUHandle)
+			{
+				const uint32_t CPUIndex = (m_CPUHeapStart.ptr - CPUHandle.ptr) / m_DescriptorSize;
+				this->RecycleIndex(CPUIndex);
 			}
 
 			ID3D12DescriptorHeap* const GetDescriptorHeap() const { return m_Heap.Get(); }

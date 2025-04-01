@@ -17,8 +17,8 @@ namespace aZero
 
 			Descriptor(const D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle,
 				const D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle,
-				const uint32_t HeapIndex)
-				:m_CpuHandle(CpuHandle), m_GpuHandle(GpuHandle), m_HeapIndex(HeapIndex)
+				const uint32_t HeapIndex, DescriptorHeap* OwningHeap)
+				:m_CpuHandle(CpuHandle), m_GpuHandle(GpuHandle), m_HeapIndex(HeapIndex), m_OwningHeap(OwningHeap)
 			{
 
 			}

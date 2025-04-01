@@ -11,40 +11,16 @@ namespace aZero
 {
 	namespace Rendering
 	{
-		enum class GRAPH_PASS_TYPE { Per_Object_Static, Compute };
+		enum class GRAPH_PASS_TYPE { Per_Object_Static };
 		class RenderGraphPass
 		{
 		public:
-			struct RenderTargetViewBinding
-			{
-				D3D12::RenderTargetView* View = nullptr;
-				std::variant<D3D12::GPUBuffer*, D3D12::GPUTexture*> Resource;
-			};
 
-			struct DepthStencilViewBinding
-			{
-				D3D12::DepthStencilView* View = nullptr;
-				D3D12::GPUTexture* Resource = nullptr;
-			};
-
-			// All bound buffers
-			// Get bound with VA
-			// Shader reflection show num of these per shader
 			struct BufferBinding
 			{
 				std::string BindingName;
 				D3D12::SHADER_TYPE ShaderType;
 				D3D12::GPUBuffer* Buffer = nullptr;
-			};
-
-			// Views are copied into portion of root constants
-			// The slot (0-9) and before/after state is manually set by the developer
-			struct TextureBinding
-			{
-				std::variant<D3D12::ShaderResourceView*, D3D12::UnorderedAccessView*> View;
-				D3D12::GPUTexture* Texture = nullptr;
-				D3D12_RESOURCE_STATES BeforeState;
-				D3D12_RESOURCE_STATES AfterState;
 			};
 
 			struct RootConstant
@@ -53,25 +29,19 @@ namespace aZero
 				D3D12::SHADER_TYPE ShaderType;
 				std::vector<int32_t> Data;
 			};
-		public:
+
 			D3D12::RenderPass m_Pass;
 			D3D12::PASS_TYPE m_Type;
 			GRAPH_PASS_TYPE m_GraphPassType;
 
-			// All resource vectors etc should be constructred based on D3D12::RenderPass settings 
 			std::vector<BufferBinding> m_BufferBindings;
-			std::vector<TextureBinding> m_TextureBindings;
 			std::vector<RootConstant> m_VSRootConstants;
 			std::vector<RootConstant> m_PSRootConstants;
 			std::vector<RootConstant> m_CSRootConstants;
 
-			// GRAPHICS
-			std::vector<RenderTargetViewBinding> m_RTVBindings;
-			std::optional<DepthStencilViewBinding> m_DSVBinding;
+			std::vector<const D3D12::RenderTargetView*> m_RTVBindings;
+			std::optional<const D3D12::DepthStencilView*> m_DSVBinding;
 			bool m_ShouldClearOnExecute;
-
-			// COMPUTE
-			DXM::Vector3 m_DispatchCount;
 
 		public:
 			RenderGraphPass() = default;
@@ -147,16 +117,17 @@ namespace aZero
 				}
 
 				m_RTVBindings.resize(m_Pass.m_NumRenderTargets);
-				if (m_Pass.m_HasDepthStencilTarget)
-				{
-					m_DSVBinding = DepthStencilViewBinding();
-				}
 
 				m_Type = m_Pass.GetPassType();
 			}
 
 			void BindBuffer(const std::string& ShaderName, D3D12::SHADER_TYPE Type, D3D12::GPUBuffer* Buffer)
 			{
+				if (!Buffer)
+				{
+					throw std::runtime_error("Nullptr buffer bound");
+				}
+
 				for (auto& Binding : m_BufferBindings)
 				{
 					if ((Binding.BindingName == ShaderName) && (Binding.ShaderType == Type))
@@ -167,17 +138,27 @@ namespace aZero
 				}
 			}
 
-			void BindRenderTarget(uint32_t Slot, RenderTargetViewBinding Binding)
+			void BindRenderTarget(uint32_t Slot, const D3D12::RenderTargetView* Binding)
 			{
+				if (!Binding)
+				{
+					throw std::runtime_error("Nullptr RenderTargetView bound");
+				}
+
 				if (m_RTVBindings.size() > Slot)
 				{
 					m_RTVBindings.at(Slot) = Binding;
 				}
 			}
 
-			void BindDepthStencil(DepthStencilViewBinding Binding)
+			void BindDepthStencil(const D3D12::DepthStencilView* Binding)
 			{
-				if (m_DSVBinding.has_value())
+				if (!Binding)
+				{
+					throw std::runtime_error("Nullptr DepthStencilView bound");
+				}
+
+				if (m_Pass.m_HasDepthStencilTarget)
 				{
 					m_DSVBinding = Binding;
 				}
@@ -249,49 +230,45 @@ namespace aZero
 					}
 
 					std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> RTVHandles;
-					for (const RenderTargetViewBinding& Binding : m_RTVBindings)
+					for (const D3D12::RenderTargetView* Binding : m_RTVBindings)
 					{
-						if (!Binding.View)
+						if (!Binding)
 						{
 							return false;
 						}
 
-						RTVHandles.push_back(Binding.View->GetDescriptorHandle());
+						RTVHandles.push_back(Binding->GetDescriptorHandle());
 
 						if (m_ShouldClearOnExecute)
 						{
 							D3D12_CLEAR_VALUE RTVClearValue = D3D12_CLEAR_VALUE();
-							if (std::holds_alternative<D3D12::GPUTexture*>(Binding.Resource))
+							const D3D12::GPUTexture* Texture = Binding->GetResource<D3D12::GPUTexture>();
+							if (Texture->GetClearValue().has_value())
 							{
-								D3D12::GPUTexture* Texture = std::get<D3D12::GPUTexture*>(Binding.Resource);
-								if (Texture->GetClearValue().has_value())
-								{
-									RTVClearValue = Texture->GetClearValue().value();
-								}
+								RTVClearValue = Texture->GetClearValue().value();
 							}
 
-							CmdList->ClearRenderTargetView(Binding.View->GetDescriptorHandle(), RTVClearValue.Color, 0, NULL);
+							CmdList->ClearRenderTargetView(Binding->GetDescriptorHandle(), RTVClearValue.Color, 0, NULL);
 						}
 					}
 
 					if (m_DSVBinding.has_value())
 					{
-						if (!m_DSVBinding.value().View)
-						{
-							return false;
-						}
-
 						if (m_ShouldClearOnExecute)
 						{
-							D3D12_CLEAR_VALUE DSVClearValue = m_DSVBinding.value().Resource->GetClearValue().has_value() ? m_DSVBinding.value().Resource->GetClearValue().value() : D3D12_CLEAR_VALUE();
+							D3D12_CLEAR_VALUE DSVClearValue = 
+								m_DSVBinding.value()->GetResource<D3D12::GPUTexture>()->GetClearValue().has_value() 
+								? 
+								m_DSVBinding.value()->GetResource<D3D12::GPUTexture>()->GetClearValue().value() : D3D12_CLEAR_VALUE();
 
 							CmdList->ClearDepthStencilView(
-								m_DSVBinding.value().View->GetDescriptorHandle(),
+								m_DSVBinding.value()->GetDescriptorHandle(),
 								D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
 								DSVClearValue.DepthStencil.Depth, DSVClearValue.DepthStencil.Stencil,
 								0, NULL);
 						}
-						D3D12_CPU_DESCRIPTOR_HANDLE TempHandle = m_DSVBinding.value().View->GetDescriptorHandle();
+
+						D3D12_CPU_DESCRIPTOR_HANDLE TempHandle = m_DSVBinding.value()->GetDescriptorHandle();
 						CmdList->OMSetRenderTargets(RTVHandles.size(), RTVHandles.data(), false, &TempHandle);
 					}
 					else
@@ -327,10 +304,6 @@ namespace aZero
 								Constant.Data.data(), Constant.Data.size() * sizeof(uint32_t),
 								D3D12::SHADER_TYPE::VS);
 						}
-						/*if (m_VSRootConstants.size())
-						{
-							m_Pass.SetShaderResource(CmdList, "RootConstants", m_VSRootConstants.data(), m_VSRootConstants.size(), D3D12::SHADER_TYPE::VS);
-						}*/
 
 						for (auto& Constant : m_PSRootConstants)
 						{
@@ -339,21 +312,19 @@ namespace aZero
 								Constant.Data.data(), Constant.Data.size() * sizeof(uint32_t),
 								D3D12::SHADER_TYPE::PS);
 						}
-						/*if (m_PSRootConstants.size())
-						{
-							m_Pass.SetShaderResource(CmdList, "RootConstants", m_PSRootConstants.data(), m_PSRootConstants.size(), D3D12::SHADER_TYPE::PS);
-						}*/
 					}
 				}
 				else
 				{
-					for (auto& Constant : m_CSRootConstants)
+					// TODO: Impl
+					throw;
+					/*for (auto& Constant : m_CSRootConstants)
 					{
 						m_Pass.SetShaderResource(CmdList,
 							Constant.BindingName,
 							Constant.Data.data(), Constant.Data.size() * sizeof(uint32_t),
 							D3D12::SHADER_TYPE::CS);
-					}
+					}*/
 					/*if (m_CSRootConstants.size())
 					{
 						m_Pass.SetShaderResource(CmdList, "RootConstants", m_CSRootConstants.data(), m_CSRootConstants.size(), D3D12::SHADER_TYPE::CS);
@@ -366,12 +337,12 @@ namespace aZero
 
 		class RenderGraph
 		{
-		public:
+		private:
 			D3D12::DescriptorHeap* m_ResourceHeap = nullptr;
 			D3D12::DescriptorHeap* m_SamplerHeap = nullptr;
 
-		private:
 			std::list<RenderGraphPass*> m_Passes;
+		private:
 
 			void RenderStaticMeshes(RenderGraphPass& Pass,
 				ID3D12GraphicsCommandList* CmdList,
@@ -439,6 +410,17 @@ namespace aZero
 		public:
 			RenderGraph() = default;
 
+			RenderGraph(D3D12::DescriptorHeap* ResourceDescHeap, D3D12::DescriptorHeap* SamplerDescHeap)
+			{
+				this->Init(ResourceDescHeap, SamplerDescHeap);
+			}
+
+			void Init(D3D12::DescriptorHeap* ResourceDescHeap, D3D12::DescriptorHeap* SamplerDescHeap)
+			{
+				m_ResourceHeap = ResourceDescHeap;
+				m_SamplerHeap = SamplerDescHeap;
+			}
+
 			bool Execute(
 				D3D12::CommandQueue& DirectQueue, 
 				D3D12::CommandContext& Context, 
@@ -468,11 +450,6 @@ namespace aZero
 					{
 						// Do path with input batches
 						this->RenderStaticMeshes(*Pass, Context.GetCommandList(), Camera, InStaticMeshBatches, NumDirectionalLights, NumPointLights, NumSpotLights);
-					}
-					else if(Pass->m_GraphPassType == GRAPH_PASS_TYPE::Compute)
-					{
-						// Dispatch path
-						Context.GetCommandList()->Dispatch(Pass->m_DispatchCount.x, Pass->m_DispatchCount.y, Pass->m_DispatchCount.z);
 					}
 					else
 					{
