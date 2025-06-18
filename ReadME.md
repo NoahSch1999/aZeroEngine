@@ -5,6 +5,8 @@
 
 It's a work-in-progress remake of my old game engine found here: https://github.com/NoahSch1999/aZeroEngine-Project
 
+NOTE! This repository contains main.cpp which uses the aZeroEngine library which for the moment is in the same directory, but planned to be a standalone API.
+
 It has several main interfaces which handle certain functionality:
  - Engine
 	 - Main interface of the engine
