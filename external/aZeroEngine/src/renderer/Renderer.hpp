@@ -53,9 +53,6 @@ namespace aZero
 
 			D3D12::CommandContextAllocator m_GraphicsCmdContextAllocator;
 
-			DXM::Vector2 m_RenderResolution;
-			D3D12_CLEAR_VALUE m_DSVClearColor;
-
 			D3D12::LinearBuffer m_BatchVertexBuffer;
 
 			D3D12::RenderPass m_BatchPassDepthP;
@@ -399,6 +396,7 @@ namespace aZero
 				}
 			}
 			
+			// TODO: Impl up/downscaling to match the SrcTexture to the DstTexture (back buffer)
 			void CompleteRender(ID3D12Resource* DstTexture, ID3D12Resource* SrcTexture)
 			{
 				auto CmdContextHandle = m_GraphicsCmdContextAllocator.GetContext();
@@ -419,12 +417,12 @@ namespace aZero
 			void FlushImmediate() { m_GraphicsQueue.FlushImmediate(); }
 
 		public:
-			Renderer(ID3D12Device* Device, const DXM::Vector2& RenderResolution, uint32_t BufferCount, const std::string& ContentPath)
+			Renderer(ID3D12Device* Device, uint32_t BufferCount, const std::string& ContentPath)
 			{
-				this->Init(Device, RenderResolution, BufferCount, ContentPath);
+				this->Init(Device, BufferCount, ContentPath);
 			}
 
-			void Init(ID3D12Device* Device, const DXM::Vector2& RenderResolution, uint32_t BufferCount, const std::string& ContentPath);
+			void Init(ID3D12Device* Device, uint32_t BufferCount, const std::string& ContentPath);
 
 			~Renderer()
 			{

@@ -8,6 +8,7 @@
 #include "renderer/ResourceRecycler.hpp"
 #include "graphics_api/resource_type/GPUResourceView.hpp"
 #include "misc/NonCopyable.hpp"
+#include "graphics_api/CommandQueue.hpp"
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -23,11 +24,13 @@ namespace aZero
 
 	namespace Window
 	{
-		// TODO: Impl waitable object logic
+		// TODO: Add multi-window support for engine
 		class RenderWindow : public NonCopyable
 		{
 			friend Engine;
 		private:
+
+			// TODO: Cleanup member vars
 			Microsoft::WRL::ComPtr<IDXGISwapChain2> m_SwapChain;
 			HANDLE m_WaitableHandle;
 
@@ -92,7 +95,6 @@ namespace aZero
 				const D3D12::CommandQueue& GraphicsQueue,
 				const std::string& Name,
 				const DXM::Vector2& WindowDimensions,
-				const DXM::Vector2& BackBufferDimensions,
 				std::optional<D3D12::ResourceRecycler*> OptResourceRecycler = std::optional<D3D12::ResourceRecycler*>{},
 				std::uint32_t NumBackBuffers = 3,
 				DXGI_FORMAT BackBufferFormat = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM);
@@ -114,9 +116,9 @@ namespace aZero
 				return *this;
 			}
 
-			void WaitOnSwapchain()
+			bool WaitOnSwapchain()
 			{
-				WaitForSingleObject(m_WaitableHandle, INFINITE);
+				return WaitForSingleObject(m_WaitableHandle, 0) == WAIT_OBJECT_0;
 			}
 
 			HWND GetHandle() const { return m_WindowHandle; }
@@ -132,17 +134,27 @@ namespace aZero
 				m_NextBackBuffer++;
 			}
 
-			void SetFullscreenMode(bool Fullscreen)
+			// TODO: Impl so bb is always same as window client area
+			void SetFullscreenMode(D3D12::CommandQueue& CmdQueue, bool Fullscreen)
 			{
 				if (Fullscreen)
 				{
-					SetWindowLong(m_WindowHandle, GWL_STYLE, WS_POPUP);
+					SetWindowLongA(m_WindowHandle, GWL_STYLE, WS_POPUP);
 					ShowWindow(m_WindowHandle, SW_SHOW);
+					// Resize swapchain
+					CmdQueue.FlushImmediate();
+					int x = GetSystemMetrics(SM_CXSCREEN);
+					int y = GetSystemMetrics(SM_CYSCREEN);
+					this->Resize(DXM::Vector2(x, y));
 				}
 				else
 				{
-					SetWindowLong(m_WindowHandle, GWL_STYLE, WS_OVERLAPPEDWINDOW);
-					ShowWindow(m_WindowHandle, SW_SHOW);
+					SetWindowLongA(m_WindowHandle, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+					// Resize swapchain
+					ShowWindow(m_WindowHandle, SW_SHOW); 
+					CmdQueue.FlushImmediate();
+					auto ClientDims = this->GetClientDimensions();
+					this->Resize(ClientDims);
 				}
 			}
 
@@ -161,15 +173,6 @@ namespace aZero
 					TranslateMessage(&Msg);
 					DispatchMessageA(&Msg);
 				}
-			}
-
-			DXM::Vector2 GetBackBufferDimensions() const
-			{
-				if (m_BackBuffers.size() > 0)
-				{
-					return DXM::Vector2(m_BackBuffers.at(0)->GetDesc().Width, m_BackBuffers.at(0)->GetDesc().Height);
-				}
-				return DXM::Vector2::Zero;
 			}
 
 			DXM::Vector2 GetClientDimensions() const
@@ -201,16 +204,6 @@ namespace aZero
 					| DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
 
 				this->PopulateBackBuffers();
-			}
-
-			void Show()
-			{
-				ShowWindow(m_WindowHandle, SW_SHOW);
-			}
-
-			void Hide()
-			{
-				ShowWindow(m_WindowHandle, SW_HIDE);
 			}
 		};
 	}

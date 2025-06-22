@@ -63,7 +63,7 @@ namespace aZero
 			m_Renderer->m_StaticMeshPass.m_Pass = std::move(Pass);
 		}
 
-		Engine(const DXM::Vector2& WindowResolution, uint32_t BufferCount, const std::string& ContentPath)
+		Engine(uint32_t BufferCount, const std::string& ContentPath)
 		{
 			m_ProjectDirectory = ContentPath; // aZero::Helper::GetProjectDirectory();
 
@@ -73,7 +73,7 @@ namespace aZero
 				throw std::runtime_error("Engine() => Failed to create ID3D12Device");
 			}
 
-			m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), WindowResolution, BufferCount, m_ProjectDirectory);
+			m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), BufferCount, m_ProjectDirectory);
 
 			this->LoadDefaultAssets();
 		}
@@ -95,7 +95,6 @@ namespace aZero
 				m_Renderer->m_GraphicsQueue,
 				Name,
 				Dimensions,
-				m_Renderer->m_RenderResolution,
 				&m_Renderer->m_ResourceRecycler,
 				m_Renderer->m_BufferCount
 			);

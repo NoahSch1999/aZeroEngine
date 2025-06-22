@@ -43,11 +43,10 @@ namespace aZero
 			}
 		}
 
-		void Renderer::Init(ID3D12Device* Device, const DXM::Vector2& RenderResolution, uint32_t BufferCount, const std::string& ContentPath)
+		void Renderer::Init(ID3D12Device* Device, uint32_t BufferCount, const std::string& ContentPath)
 		{
 			m_ContentPath = ContentPath;
 			m_Device = Device;
-			m_RenderResolution = RenderResolution;
 			m_BufferCount = BufferCount;
 
 			m_ResourceHeap.Init(Device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100, true);
@@ -231,6 +230,8 @@ namespace aZero
 
 		void Renderer::CopyRenderSurfaceToTexture(D3D12::CommandContext& CmdContext, ID3D12Resource* DstTexture, ID3D12Resource* SrcTexture)
 		{
+			auto x = DstTexture->GetDesc();
+			auto y = SrcTexture->GetDesc();
 			ID3D12GraphicsCommandList* CmdList = CmdContext.GetCommandList();
 
 			std::vector<D3D12::ResourceTransitionBundles> PreCopyBarriers;

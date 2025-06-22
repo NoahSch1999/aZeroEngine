@@ -68,7 +68,6 @@ aZero::Window::RenderWindow::RenderWindow(
 	const D3D12::CommandQueue& GraphicsQueue,
 	const std::string& Name,
 	const DXM::Vector2& WindowDimensions,
-	const DXM::Vector2& BackBufferDimensions,
 	std::optional<D3D12::ResourceRecycler*> OptResourceRecycler,
 	std::uint32_t NumBackBuffers,
 	DXGI_FORMAT BackBufferFormat
@@ -94,8 +93,6 @@ aZero::Window::RenderWindow::RenderWindow(
 		throw std::invalid_argument("Failed to register window");
 	}
 
-	int x = GetSystemMetrics(SM_CXSCREEN);
-	int y = GetSystemMetrics(SM_CYSCREEN);
 	m_WindowHandle = CreateWindowExA(
 		0,
 		m_Name.c_str(),
@@ -132,7 +129,7 @@ aZero::Window::RenderWindow::RenderWindow(
 		throw std::invalid_argument("Failed to create DXGIFactory");
 	}
 
-	this->CreateSwapchain(GraphicsQueue, BackBufferDimensions, NumBackBuffers, BackBufferFormat);
+	this->CreateSwapchain(GraphicsQueue, this->GetClientDimensions(), NumBackBuffers, BackBufferFormat);
 }
 
 aZero::Window::RenderWindow::~RenderWindow()
