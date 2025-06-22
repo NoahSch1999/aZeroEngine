@@ -62,6 +62,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(DXCompiler)
 #
 
+# DirectXMath
+FetchContent_Declare(
+  DirectXMath
+  GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
+  GIT_TAG        "main"
+)
+FetchContent_MakeAvailable(DirectXMath)
+#
+
 # Agility SDK
 FetchContent_Declare(
     AgilitySDK
@@ -78,6 +87,7 @@ target_include_directories(aZeroEngine
 	PUBLIC ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/inc
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directx-headers-src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directxtk12-src/Inc
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/directxmath-src/Inc
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-build/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-src/include
 )
@@ -85,6 +95,7 @@ target_include_directories(aZeroEngine
 target_link_directories(aZeroEngine
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-build/lib
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-build/contrib/zlib
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/lib/x64
 )
 
 # Linking
@@ -94,6 +105,7 @@ target_link_libraries(aZeroEngine
     PUBLIC DirectX-Headers
     PUBLIC DirectX-Guids
     PUBLIC DirectXTK12
+    PUBLIC DirectXMath
     PUBLIC DXCompiler
     PUBLIC assimp-vc143-mt
     PUBLIC zlibstaticd
