@@ -21,6 +21,8 @@ It has several main interfaces which handle certain functionality:
 ### Usage Guide
 SETUP GUIDE FOR VISUAL STUDIO
 
+Requires at least Windows Kits 10.0.22621.0. Try installing the most up-to-date version of VS2022.
+
 1. Clone repo
 
 2. Right-click aZeroEditor folder and choose "Open with Visual Studio"
