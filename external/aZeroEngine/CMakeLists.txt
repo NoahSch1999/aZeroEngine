@@ -24,7 +24,7 @@ target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
 # Assimp
 FetchContent_Declare(Assimp
     GIT_REPOSITORY https://github.com/assimp/assimp.git
-     GIT_TAG "v5.4.3"
+    GIT_TAG "v6.0.2"
 )
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -62,15 +62,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(DXCompiler)
 #
 
-# DirectXMath
-FetchContent_Declare(
-  DirectXMath
-  GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
-  GIT_TAG        "main"
-)
-FetchContent_MakeAvailable(DirectXMath)
-#
-
 # Agility SDK
 FetchContent_Declare(
     AgilitySDK
@@ -87,7 +78,6 @@ target_include_directories(aZeroEngine
 	PUBLIC ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/inc
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directx-headers-src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directxtk12-src/Inc
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/directxmath-src/Inc
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-build/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-src/include
 )
@@ -105,9 +95,8 @@ target_link_libraries(aZeroEngine
     PUBLIC DirectX-Headers
     PUBLIC DirectX-Guids
     PUBLIC DirectXTK12
-    PUBLIC DirectXMath
     PUBLIC DXCompiler
-    PUBLIC assimp-vc143-mt
+    PUBLIC assimp
     PUBLIC zlibstaticd
     #PUBLIC DXGIDebug.dll
 )
