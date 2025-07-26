@@ -21,6 +21,7 @@ namespace aZero
 			float m_NearPlane;
 			float m_FarPlane;
 			float m_Fov;
+			bool m_IsActive = true;
 
 			CameraComponent() = default;
 

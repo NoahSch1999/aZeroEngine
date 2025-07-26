@@ -59,6 +59,9 @@ namespace aZero
 			bool CompileFromFile(IDxcCompiler3& Compiler, const std::string& ShaderFilePath);
 
 			SHADER_TYPE GetType() const { return m_Type; }
+
+			const std::unordered_map<std::string, ShaderResourceInfo>& GetResourceBindings() const { return m_ResourceNameToInformation; }
+			uint32_t NumRenderTargets() const { return m_RenderTargetMasks.size(); }
 		};
 	}
 }

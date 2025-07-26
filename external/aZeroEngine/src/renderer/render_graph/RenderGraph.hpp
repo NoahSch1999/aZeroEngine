@@ -41,7 +41,7 @@ namespace aZero
 
 			std::vector<const D3D12::RenderTargetView*> m_RTVBindings;
 			std::optional<const D3D12::DepthStencilView*> m_DSVBinding;
-			bool m_ShouldClearOnExecute;
+			bool m_ShouldClearOnExecute = false;
 
 		public:
 			RenderGraphPass() = default;

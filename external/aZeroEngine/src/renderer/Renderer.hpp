@@ -7,28 +7,123 @@
 #include "graphics_api/resource_type/FreelistBuffer.hpp"
 #include "renderer/render_asset/RenderAssetManager.hpp"
 #include "renderer/PrimitiveBatch.hpp"
+#include "LinearAllocator.hpp"
 
 namespace aZero
 {
 	class Engine;
 	namespace Rendering
 	{
-		class RenderContext;
+		class RenderContextNew;
 
+		class RendererNew
+		{
+		public:
+			// TODO: Provide these as renderer API interfaces
+			// Marks the beginning of a frame.
+			void BeginFrame();
+
+			// Copies the rendered surface to the swapchain.
+			void CopyTextureToTexture(ID3D12Resource* DstTexture, ID3D12Resource* SrcTexture);
+
+			// Marks the end of a frame.
+			void EndFrame();
+
+			// Renders a scene to the target surfaces.
+			void Render(Scene::SceneNew& Scene, const D3D12::RenderTargetView& RenderSurface, bool ClearRenderSurface, const D3D12::DepthStencilView& DepthSurface, bool ClearDepthSurface);
+			//
+
+			void FlushGraphicsQueue() { m_GraphicsQueue.FlushImmediate(); }
+
+			void Init(ID3D12Device* device, uint32_t bufferCount, const std::string& contentPath);
+			void InitCommandRecording();
+			void InitRenderPasses();
+			void InitFrameResources();
+			void InitDescriptorHeaps();
+			void InitSamplers();
+
+			// TODO: Maybe move our compiler outside of the renderer to engine or its own "module"?
+			CComPtr<IDxcCompiler3> m_Compiler;
+			std::string m_ContentPath;
+
+			ID3D12Device* m_Device;
+			D3D12::ResourceRecycler m_ResourceRecycler;
+			D3D12::CommandQueue m_GraphicsQueue;
+			D3D12::CommandContextAllocator m_CommandContextAllocator;
+
+			D3D12::DescriptorHeap m_ResourceHeap;
+			D3D12::DescriptorHeap m_SamplerHeap;
+			D3D12::DescriptorHeap m_RTVHeap;
+			D3D12::DescriptorHeap m_DSVHeap;
+
+			uint32_t m_FrameIndex = 0;
+			uint64_t m_FrameCount = 0;
+			uint32_t m_BufferCount;
+
+			RenderGraphPass m_DefaultRenderPass;
+			D3D12::Descriptor m_AnisotropicSampler;
+
+			// TODO: Cerate shader resource views for them and access them bindlessly in the shaders
+			std::vector<D3D12::GPUBuffer> m_StaticMeshFrameBuffers;
+			std::vector<D3D12::GPUBuffer> m_PointLightFrameBuffers;
+			std::vector<D3D12::GPUBuffer> m_SpotLightFrameBuffers;
+			std::vector<D3D12::GPUBuffer> m_DirectionalLightFrameBuffers;
+
+			// TODO: Replace
+			D3D12::FreelistBuffer m_VertexBuffer;
+			D3D12::FreelistBuffer m_IndexBuffer;
+			D3D12::FreelistBuffer m_MeshEntryBuffer;
+			D3D12::FreelistBuffer m_MaterialBuffer;
+			std::unique_ptr<Asset::RenderAssetManager> m_AssetManager;
+			//
+
+			struct MeshHandle
+			{
+				uint32_t Offset;
+				uint32_t NumVertices;
+			};
+
+			std::unordered_map<uint32_t, MeshHandle> m_MeshHandles;
+
+			struct MaterialHandle
+			{
+				uint32_t Index;
+			};
+
+			std::unordered_map<uint32_t, MaterialHandle> m_MaterialHandle;
+
+		private:
+		};
+
+		class RenderContext;
 		class Renderer
 		{
 			friend Engine;
 			friend RenderContext;
 
+		public:
+			
+			/*void Init();
+			void Render(Scene::SceneNew& Scene, const D3D12::RenderTargetView& RenderSurface, bool ClearRenderSurface, const D3D12::DepthStencilView& DepthSurface, bool ClearDepthSurface);
+			void InitCommandRecording();
+			void InitRenderPasses();
+			void InitFrameResource();
+			void InitDescriptorHeaps();
+			void InitSamplers();*/
+
 		private:
-			ID3D12Device* m_Device;
+			ID3D12Device* m_Device; // OK
+
+			D3D12::DescriptorHeap m_ResourceHeap; // OK
+			D3D12::DescriptorHeap m_SamplerHeap; // OK
+			D3D12::DescriptorHeap m_RTVHeap; // OK
+			D3D12::DescriptorHeap m_DSVHeap; // OK
 
 			// TODO: Maybe move our compiler outside of the renderer to engine or its own "module"?
 			CComPtr<IDxcCompiler3> m_Compiler;
 
-			D3D12::CommandQueue m_GraphicsQueue;
-			uint32_t m_FrameIndex = 0;
-			uint64_t m_FrameCount = 0;
+			uint32_t m_FrameIndex = 0; // OK
+			uint64_t m_FrameCount = 0; // OK
 
 			D3D12::ResourceRecycler m_ResourceRecycler;
 
@@ -37,14 +132,10 @@ namespace aZero
 			D3D12::FreelistBuffer m_MeshEntryBuffer;
 			D3D12::FreelistBuffer m_MaterialBuffer;
 
-			D3D12::DescriptorHeap m_ResourceHeap;
-			D3D12::DescriptorHeap m_SamplerHeap;
-			D3D12::DescriptorHeap m_RTVHeap;
-			D3D12::DescriptorHeap m_DSVHeap;
 
 			std::unique_ptr<Asset::RenderAssetManager> m_AssetManager;
 
-			uint32_t m_BufferCount;
+			uint32_t m_BufferCount; // OK
 
 			// TODO: Remove once we have a more sophisticated system
 			std::string m_ContentPath;
@@ -65,9 +156,21 @@ namespace aZero
 			D3D12::RenderPass m_BatchPassNoDepthT;
 
 			RenderGraphPass m_StaticMeshPass;
+			RenderGraph m_RenderGraph;
 			//
 
-			RenderGraph m_RenderGraph;
+			// New stuff
+			D3D12::CommandQueue m_GraphicsQueue; // OK
+			D3D12::CommandContextAllocator m_CommandContextAllocator;
+			RenderGraphPass m_DefaultRenderPass;
+
+			// TODO: Cerate shader resource views for them and access them bindlessly in the shaders
+			std::vector<D3D12::GPUBuffer> m_StaticMeshFrameBuffers; // OK
+			std::vector<D3D12::GPUBuffer> m_PointLightFrameBuffers; // OK
+			std::vector<D3D12::GPUBuffer> m_SpotLightFrameBuffers; // OK
+			std::vector<D3D12::GPUBuffer> m_DirectionalLightFrameBuffers; // OK
+
+			D3D12::Descriptor m_AnisotropicSampler; // OK
 
 		private:
 
@@ -594,6 +697,8 @@ namespace aZero
 				CmdContext->m_Context->StopRecording();
 				m_GraphicsQueue.ExecuteContext(*CmdContext->m_Context);
 			}
+
+			
 		};
 	}
 }

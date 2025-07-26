@@ -46,6 +46,8 @@ namespace aZero
 
 	public:
 
+		Rendering::RendererNew m_RendererNew;
+
 		void RebuildPipeline()
 		{
 			m_Renderer->FlushImmediate();
@@ -74,6 +76,8 @@ namespace aZero
 			}
 
 			m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), BufferCount, m_ProjectDirectory);
+
+			m_RendererNew.Init(m_Device.Get(), BufferCount, m_ProjectDirectory);
 
 			this->LoadDefaultAssets();
 		}

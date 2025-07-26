@@ -1,9 +1,413 @@
 #pragma once
 #include <string>
 #include <span>
+#include <fstream>
 
 #include "ecs/aZeroECS.hpp"
 #include "graphics_api/resource_type/LinearBuffer.hpp"
+#include "misc/SparseMappedVector.hpp"
+#include "misc/Yaml_Operator_Overloads.hpp"
+
+namespace aZero
+{
+	namespace Scene
+	{
+		class SceneNew;
+
+		class SceneProxy
+		{
+		public:
+			friend SceneNew;
+			struct StaticMesh
+			{
+				DXM::Matrix m_Transform;
+				uint32_t m_MeshIndex;
+				uint32_t m_MaterialIndex;
+				DirectX::BoundingSphere m_BoundingSphere;
+			};
+
+			struct Camera
+			{
+				DirectX::BoundingFrustum m_Frustrum;
+				DXM::Matrix m_ViewProjectionMatrix;
+				D3D12_VIEWPORT m_Viewport;
+				D3D12_RECT m_ScizzorRect;
+				bool m_IsActive;
+			};
+
+			struct DirectionalLight
+			{
+				DXM::Vector3 m_Direction;
+				DXM::Vector3 m_Color;
+				float m_Intensity;
+			};
+
+			struct PointLight
+			{
+				DXM::Vector3 m_Position;
+				DXM::Vector3 m_Color;
+				float m_FalloffFactor;
+				float m_Intensity;
+			};
+
+			struct SpotLight
+			{
+				DXM::Vector3 m_Direction;
+				DXM::Vector3 m_Position;
+				DXM::Vector3 m_Color;
+				float m_ConeRadius;
+				float m_Range;
+				float m_Intensity;
+			};
+
+		private:
+		public:
+			DataStructures::SparseMappedVector<ECS::EntityID, StaticMesh> m_StaticMeshes;
+			DataStructures::SparseMappedVector<ECS::EntityID, Camera> m_Cameras;
+			DataStructures::SparseMappedVector<ECS::EntityID, DirectionalLight> m_DirectionalLights;
+			DataStructures::SparseMappedVector<ECS::EntityID, PointLight> m_PointLights;
+			DataStructures::SparseMappedVector<ECS::EntityID, SpotLight> m_SpotLights;
+
+			SceneProxy() = default;
+
+			void Init()
+			{
+
+			}
+		};
+
+		class SceneSerializer;
+
+		using SceneID = uint32_t;
+		class SceneNew
+		{
+			friend SceneSerializer;
+		private:
+
+			SceneID m_ID;
+			std::string m_Name;
+			std::unordered_map<std::string, ECS::Entity> m_Entities;
+			std::unordered_map<ECS::EntityID, std::string> m_Entity_To_Name;
+			ECS::EntityManager m_EntityManager;
+			ECS::ComponentManagerDecl m_ComponentManager;
+
+			// TODO: Add asset manager dependency injection...
+
+
+			std::string GenerateEntityName()
+			{
+				static uint32_t nameDummy = 0;
+				return "Entity_" + std::to_string(nameDummy++);
+			}
+
+			bool IsNameTaken(const std::string& Name)
+			{
+				return m_Entities.count(Name) == 1;
+			}
+
+		public:
+			SceneProxy m_Proxy;
+			// TODO: Make only available to the engine class (or the class that generates scenes with new ids)
+			SceneNew(SceneID ID, const std::string& Name = "")
+			{
+				m_ID = ID;
+				m_Name = Name;
+
+				constexpr uint32_t MaxEntities = 1000;
+				m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(MaxEntities);
+				m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(MaxEntities);
+				m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(MaxEntities);
+				m_ComponentManager.GetComponentArray<ECS::PointLightComponent>().Init(MaxEntities);
+				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(MaxEntities);
+				m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(MaxEntities);
+			}
+
+			void Init(SceneID ID, const std::string& Name = "")
+			{
+				m_ID = ID;
+				m_Name = Name;
+			}
+			//
+
+			SceneNew() = default;
+
+			void RenameScene(const std::string& Name)
+			{
+				m_Name = Name;
+			}
+
+			void RenameEntity(ECS::Entity entity, const std::string& NewName)
+			{
+				if (!this->IsNameTaken(NewName) && m_Entity_To_Name.count(entity.GetID()))
+				{
+					m_Entities[NewName] = entity;
+					m_Entities.erase(m_Entity_To_Name.at(entity.GetID()));
+					m_Entity_To_Name[entity.GetID()] = NewName;
+				}
+			}
+
+			ECS::Entity CreateEntity()
+			{
+				ECS::Entity entity = m_EntityManager.CreateEntity();
+				std::string newName;
+				while (true)
+				{
+					newName = this->GenerateEntityName();
+					if (!this->IsNameTaken(newName))
+					{
+						break;
+					}
+				}
+				m_Entities[newName] = entity;
+				m_Entity_To_Name[entity.GetID()] = newName;
+				m_ComponentManager.AddComponent(entity, ECS::TransformComponent());
+				return entity;
+			}
+
+			void DeleteEntity(const std::string& Name)
+			{
+				if (m_Entities.count(Name))
+				{
+					this->DeleteEntity(m_Entities.at(Name));
+				}
+			}
+
+			void DeleteEntity(ECS::Entity entity)
+			{
+				if (m_Entity_To_Name.count(entity.GetID()))
+				{
+					std::apply([&entity](auto& ... args)
+						{
+							(args.RemoveComponent(entity), ...);
+						}, m_ComponentManager.GetComponentTuple()
+							);
+
+					this->MarkRenderStateDirty(entity);
+
+					m_Entities.erase(m_Entity_To_Name.at(entity.GetID()));
+					m_Entity_To_Name.erase(entity.GetID());
+				}
+			}
+
+			void MarkRenderStateDirty(ECS::Entity entity)
+			{
+				ECS::EntityID id = entity.GetID();
+				if (ECS::TransformComponent* tf = m_ComponentManager.GetComponent<ECS::TransformComponent>(entity))
+				{
+					if (ECS::StaticMeshComponent* mesh = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity))
+					{
+						const DXM::Matrix tfMatrix = tf->GetTransform();
+
+						SceneProxy::StaticMesh meshProxy;
+						const auto& data = mesh->m_MeshReference->GetData();
+						meshProxy.m_Transform = tfMatrix;
+
+						const float XAxisScale = tfMatrix.m[0][0];
+						const float YAxisScale = tfMatrix.m[1][1];
+						const float ZAxisScale = tfMatrix.m[2][2];
+						const float MaxScaleAxis = std::max(abs(XAxisScale), std::max(abs(YAxisScale), abs(ZAxisScale)));
+						meshProxy.m_BoundingSphere = DirectX::BoundingSphere(
+							{ tfMatrix.Translation().x, tfMatrix.Translation().y, tfMatrix.Translation().z },
+							data.BoundingSphereRadius * MaxScaleAxis
+						);
+						meshProxy.m_MeshIndex = 0; // TODO: Get asset id that has been registered to the renderer
+						meshProxy.m_MaterialIndex = 0; // TODO: Get asset id that has been registered to the renderer
+
+						m_Proxy.m_StaticMeshes.AddOrUpdate(id, std::move(meshProxy));
+					}
+					else
+					{
+						m_Proxy.m_StaticMeshes.Remove(id);
+					}
+
+					if (ECS::CameraComponent* camera = m_ComponentManager.GetComponent<ECS::CameraComponent>(entity))
+					{
+						if (camera->m_IsActive)
+						{
+							SceneProxy::Camera cameraProxy;
+							cameraProxy.m_Frustrum = DirectX::BoundingFrustum(camera->GetProjectionMatrix(), true);
+							cameraProxy.m_ViewProjectionMatrix = camera->GetViewMatrix() * camera->GetProjectionMatrix();
+							cameraProxy.m_Viewport = camera->GetViewport();
+							cameraProxy.m_ScizzorRect = camera->GetScizzorRect();
+							m_Proxy.m_Cameras.AddOrUpdate(id, std::move(cameraProxy));
+						}
+						else
+						{
+							m_Proxy.m_Cameras.Remove(id);
+						}
+					}
+					else
+					{
+						m_Proxy.m_Cameras.Remove(id);
+					}
+
+					if (ECS::DirectionalLightComponent* dl = m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(entity))
+					{
+						SceneProxy::DirectionalLight dlProxy;
+						dlProxy.m_Direction = dl->GetData().Direction;
+						dlProxy.m_Color = dl->GetData().Color;
+						dlProxy.m_Intensity = dl->GetData().Intensity;
+						m_Proxy.m_DirectionalLights.AddOrUpdate(id, std::move(dlProxy));
+					}
+					else
+					{
+						m_Proxy.m_DirectionalLights.Remove(id);
+					}
+
+					if(ECS::PointLightComponent* pl = m_ComponentManager.GetComponent<ECS::PointLightComponent>(entity))
+					{
+						SceneProxy::PointLight plProxy;
+						plProxy.m_Position = pl->GetData().Position;
+						plProxy.m_Color = pl->GetData().Color;
+						plProxy.m_Intensity = pl->GetData().Intensity;
+						plProxy.m_FalloffFactor = pl->GetData().FalloffFactor;
+						m_Proxy.m_PointLights.AddOrUpdate(id, std::move(plProxy));
+					}
+					else
+					{
+						m_Proxy.m_PointLights.Remove(id);
+					}
+
+					if (ECS::SpotLightComponent* sl = m_ComponentManager.GetComponent<ECS::SpotLightComponent>(entity))
+					{
+						SceneProxy::SpotLight slProxy;
+						slProxy.m_Direction = sl->GetData().Direction;
+						slProxy.m_Color = sl->GetData().Color;
+						slProxy.m_Intensity = sl->GetData().Intensity;
+						slProxy.m_ConeRadius = sl->GetData().CutoffAngle;
+						slProxy.m_Position = sl->GetData().Position;
+						slProxy.m_Range = sl->GetData().Range;
+						m_Proxy.m_SpotLights.AddOrUpdate(id, std::move(slProxy));
+					}
+					else
+					{
+						m_Proxy.m_SpotLights.Remove(id);
+					}
+				}
+				else
+				{
+					m_Proxy.m_StaticMeshes.Remove(id);
+					m_Proxy.m_Cameras.Remove(id);
+					m_Proxy.m_DirectionalLights.Remove(id);
+					m_Proxy.m_PointLights.Remove(id);
+					m_Proxy.m_SpotLights.Remove(id);
+				}
+			}
+
+			std::optional<ECS::Entity> GetEntity(const std::string& Tag) 
+			{
+				return m_Entities.count(Tag) == 1 ? m_Entities.at(Tag) : std::optional<ECS::Entity>{};
+			}
+
+			ECS::ComponentManagerDecl& GetComponentManager() { return m_ComponentManager; }
+		};
+
+
+		class SceneSerializer
+		{
+		private:
+			static void SerializeEntity( SceneNew& scene, YAML::Emitter& out, const std::string& name, ECS::Entity entity)
+			{
+				out << YAML::BeginMap;
+				out << YAML::Key << "Name" << YAML::Value << name;
+
+				// Serialize each component
+				if ( ECS::TransformComponent* const tf = scene.m_ComponentManager.GetComponent<ECS::TransformComponent>(entity))
+				{
+					out << YAML::Key << "TransformComponent";
+
+					out << YAML::BeginMap;
+					out << YAML::Key << "Translation" << YAML::Value << tf->GetTransform().Translation();
+					out << YAML::Key << "Rotation" << YAML::Value << tf->GetTransform().ToEuler();
+					out << YAML::Key << "Scale" << YAML::Value << DXM::Vector3(tf->GetTransform().m[0][0], tf->GetTransform().m[1][1], tf->GetTransform().m[2][2]);
+					out << YAML::EndMap;
+
+					if ( ECS::StaticMeshComponent* mesh = scene.m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity))
+					{
+						out << YAML::Key << "StaticMeshComponent";
+						out << YAML::BeginMap;
+						out << YAML::Key << "StaticMeshInfo" << YAML::Value << "TODO: Add mesh and material information";
+						out << YAML::EndMap;
+					}
+
+					if ( ECS::CameraComponent* camera = scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(entity))
+					{
+						out << YAML::Key << "CameraComponent";
+						out << YAML::BeginMap;
+						out << YAML::Key << "Info" << YAML::Value << "TODO: Add info";
+						out << YAML::EndMap;
+					}
+
+					if ( ECS::DirectionalLightComponent* dl = scene.m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(entity))
+					{
+						out << YAML::Key << "DirectionalLightComponent";
+						out << YAML::BeginMap;
+						out << YAML::Key << "Info" << YAML::Value << "TODO: Add info";
+						out << YAML::EndMap;
+					}
+
+					if ( ECS::PointLightComponent* pl = scene.m_ComponentManager.GetComponent<ECS::PointLightComponent>(entity))
+					{
+						out << YAML::Key << "PointLightComponent";
+						out << YAML::BeginMap;
+						out << YAML::Key << "Info" << YAML::Value << "TODO: Add info";
+						out << YAML::EndMap;
+					}
+
+					if ( ECS::SpotLightComponent* sl = scene.m_ComponentManager.GetComponent<ECS::SpotLightComponent>(entity))
+					{
+						out << YAML::Key << "SpotLightComponent";
+						out << YAML::BeginMap;
+						out << YAML::Key << "Info" << YAML::Value << "TODO: Add info";
+						out << YAML::EndMap;
+					}
+				}
+
+				out << YAML::EndMap;
+			}
+
+		public:
+			static bool Serialize( SceneNew& scene, const std::string& path)
+			{
+				std::ofstream outFile(path);
+				if (outFile.is_open())
+				{
+					// Early-out if file with name already exists
+
+					// Serialize...
+					YAML::Emitter out;
+
+					out << YAML::BeginMap;
+
+					out << YAML::Key << "Scene";
+					out << YAML::Value << scene.m_Name;
+
+					out << YAML::Key << "Entities";
+					out << YAML::Value << YAML::BeginSeq;
+					for (const auto& [name, entity] : scene.m_Entities)
+					{
+						SerializeEntity(scene, out, name, entity);
+					}
+					out << YAML::EndSeq;
+
+					outFile << out.c_str();
+					outFile.close();
+				}
+
+				return true;
+			}
+
+			static std::optional<SceneNew> Deserialize(const std::string& Path)
+			{
+				SceneNew newScene;
+				// Serialize...
+
+				//
+				return newScene;
+			}
+		};
+	}
+}
 
 namespace aZero
 {
@@ -34,7 +438,6 @@ namespace aZero
 	namespace Scene
 	{
 		class Scene;
-		using SceneID = uint16_t;
 		constexpr SceneID InvalidSceneID = std::numeric_limits<SceneID>::max();
 
 		class SceneEntity : public NonCopyable
@@ -562,6 +965,63 @@ namespace aZero
 				if (auto Entity = m_NameToEntityID.find(EntityName); Entity != m_NameToEntityID.end())
 				{
 					this->MarkRenderStateDirty(m_Entities.at(Entity->second));
+				}
+			}
+
+			void Save(const std::string& Path)
+			{
+				YAML::Emitter output;
+				output << YAML::BeginMap;
+				output << YAML::Key << "Scene";
+				output << YAML::Value << "Scene name DUMMY";
+				output << YAML::Key << "Entities";
+				output << YAML::Value << YAML::BeginSeq;
+				for (const auto& [entityID, sceneEntity] : m_Entities)
+				{
+					const std::string& entityName = m_EntityIDToName.at(entityID);
+					const ECS::TransformComponent* tf = m_ComponentManager.GetComponent<ECS::TransformComponent>(sceneEntity.m_Entity);
+					const ECS::StaticMeshComponent* mesh = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(sceneEntity.m_Entity);
+					const ECS::CameraComponent* camera = m_ComponentManager.GetComponent<ECS::CameraComponent>(sceneEntity.m_Entity);
+					const ECS::PointLightComponent* pl = m_ComponentManager.GetComponent<ECS::PointLightComponent>(sceneEntity.m_Entity);
+					const ECS::DirectionalLightComponent* dl = m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(sceneEntity.m_Entity);
+					const ECS::SpotLightComponent* sl = m_ComponentManager.GetComponent<ECS::SpotLightComponent>(sceneEntity.m_Entity);
+
+					output << YAML::BeginMap;
+					output << YAML::Key << "Entity";
+					output << YAML::EndMap;
+
+					if (tf)
+					{
+						output << YAML::Key << "TransformComponent";
+						output << YAML::BeginMap;
+						output << YAML::Flow;
+						output << YAML::EndMap;
+					}
+
+					if (mesh)
+					{
+
+					}
+
+					if (camera)
+					{
+
+					}
+
+					if (pl)
+					{
+
+					}
+
+					if (dl)
+					{
+
+					}
+
+					if (sl)
+					{
+
+					}
 				}
 			}
 		};

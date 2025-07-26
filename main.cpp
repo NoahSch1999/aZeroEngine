@@ -61,6 +61,38 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		}
 		//
 
+		Scene::SceneNew scene(0, "MyScene");
+		{
+			ECS::Entity ent = scene.CreateEntity();
+			ECS::Entity ent2 = scene.CreateEntity();
+			ECS::Entity ent3 = scene.CreateEntity();
+			ECS::Entity ent4 = scene.CreateEntity();
+			scene.RenameEntity(ent2, "noah");
+			scene.RenameEntity(ent, "Entity_1");
+
+			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(2) /** DXM::Matrix::CreateRotationY(3.1415 / 2)*/ * DXM::Matrix::CreateTranslation(1337, 5, 42));
+
+			ECS::StaticMeshComponent CubeMeshComp;
+			CubeMeshComp.m_MeshReference = Engine.GetCubeMesh();
+			CubeMeshComp.m_MaterialReference = Engine.GetDefaultMaterial();
+			scene.GetComponentManager().AddComponent(ent2, CubeMeshComp);
+
+			ECS::CameraComponent CamComp;
+			CamComp.m_TopLeft = { 0,0 };
+			CamComp.m_Dimensions = ActiveWindow->GetClientDimensions();
+			CamComp.m_NearPlane = 0.001f;
+			CamComp.m_FarPlane = 1000.f;
+			CamComp.m_Fov = 3.14 / 2.f;
+			scene.GetComponentManager().AddComponent(ent2, CamComp);
+
+			scene.MarkRenderStateDirty(ent2);
+
+			Scene::SceneSerializer::Serialize(scene, "C:/Projects/Programming/aZeroEditor/idk.aZene");
+			auto loadedScene = Scene::SceneSerializer::Deserialize("C:/Projects/Programming/aZeroEditor/idk.aZene");
+		}
+		
+		//Engine.m_RendererNew.Render(scene, SceneColorSurface.GetView<D3D12::RenderTargetView>(), true, SceneDepthSurface.GetView<D3D12::DepthStencilView>(), true);
+
 		RenderContext.FlushRenderingCommands();
 
 		while (ActiveWindow->IsOpen())

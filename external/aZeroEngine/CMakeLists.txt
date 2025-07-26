@@ -72,6 +72,33 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(AgilitySDK)
 #
 
+# YAML-CPP
+FetchContent_Declare(
+    yaml-cpp
+    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+    GIT_TAG        "master"
+)
+FetchContent_MakeAvailable(yaml-cpp)
+#
+
+# aZero Sparse Set
+FetchContent_Declare(
+    aZero-Sparse-Set
+    GIT_REPOSITORY https://github.com/NoahSch1999/aZero-Sparse-Set.git
+    GIT_TAG        "master"
+)
+FetchContent_MakeAvailable(aZero-Sparse-Set)
+#
+
+# aZero Linear Allocator
+FetchContent_Declare(
+    aZero-Linear-Allocator
+    GIT_REPOSITORY https://github.com/NoahSch1999/aZero-LinearAllocator.git
+    GIT_TAG        "master"
+)
+FetchContent_MakeAvailable(aZero-Linear-Allocator)
+#
+
 target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -80,6 +107,9 @@ target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directxtk12-src/Inc
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-build/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-src/include
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/yaml-cpp-src/include
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-sparse-set-src/src/include
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include
 )
 
 target_link_directories(aZeroEngine
@@ -98,6 +128,7 @@ target_link_libraries(aZeroEngine
     PUBLIC DXCompiler
     PUBLIC assimp
     PUBLIC zlibstaticd
+    PUBLIC yaml-cpp
     #PUBLIC DXGIDebug.dll
 )
 #

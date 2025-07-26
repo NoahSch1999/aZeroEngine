@@ -6,6 +6,43 @@ namespace aZero
 {
 	namespace Rendering
 	{
+		class RenderContextNew
+		{
+		public:
+			RenderContextNew(RendererNew& renderer)
+				:m_Renderer(renderer){}
+
+			void BeginFrame()
+			{
+				m_Renderer.BeginFrame();
+			}
+
+			void CopySurfaceToResource(Rendering::RenderSurface& renderSurface, ID3D12Resource* dstTexture)
+			{
+				m_Renderer.CopyTextureToTexture(dstTexture, renderSurface.GetTexture().GetResource());
+			}
+
+			void EndFrame()
+			{
+				m_Renderer.EndFrame();
+			}
+
+			// TODO: Change once we use multiple command queues etc.
+			void FlushRenderingCommands()
+			{
+				m_Renderer.FlushGraphicsQueue();
+			}
+
+			// TODO: Implement for each type of asset, ex. mesh, material, texture
+			void MarkRenderStateDirty()
+			{
+
+			}
+
+		private:
+			RendererNew& m_Renderer;
+		};
+
 		class RenderContext
 		{
 		private:

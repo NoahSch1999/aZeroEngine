@@ -78,7 +78,7 @@ namespace aZero
 
 			bool Init(ID3D12Device* Device, const Shader& VertexShader, const Shader& PixelShader, const std::vector<DXGI_FORMAT>& RtvFormats, DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE)
 			{
-				if (VertexShader.GetType() != SHADER_TYPE::VS && VertexShader.GetType() != SHADER_TYPE::PS)
+				if (VertexShader.GetType() != SHADER_TYPE::VS && PixelShader.GetType() != SHADER_TYPE::PS)
 				{
 					DEBUG_PRINT("One or more input shader didn't form a valid graphics pipeline");
 					return false;

@@ -1,46 +1,318 @@
 #include "Renderer.hpp"
+#include "Renderer.hpp"
+#include "Renderer.hpp"
+#include "Renderer.hpp"
+#include "Renderer.hpp"
+#include "Renderer.hpp"
+#include "Renderer.hpp"
+#include "Renderer.hpp"
+#include "Renderer.hpp"
+#include "Renderer.hpp"
 #include "scene/Scene.hpp"
 
 namespace aZero
 {
 	namespace Rendering
 	{
-		void SetRenderPass(ID3D12GraphicsCommandList* CmdList, D3D12::RenderPass& Pass)
+		void RendererNew::BeginFrame()
 		{
-			CmdList->SetPipelineState(Pass.GetPipelineState());
+			m_FrameIndex = static_cast<uint32_t>(m_FrameCount % m_BufferCount);
+		}
 
-			if (Pass.IsComputePass())
+		void RendererNew::CopyTextureToTexture(ID3D12Resource* DstTexture, ID3D12Resource* SrcTexture)
+		{
+			auto CmdContextHandle = m_CommandContextAllocator.GetContext();
+			if (!CmdContextHandle.has_value())
 			{
-				CmdList->SetComputeRootSignature(Pass.GetRootSignature());
+				throw std::runtime_error("No more command contexts");
 			}
-			else
-			{
-				CmdList->SetGraphicsRootSignature(Pass.GetRootSignature());
 
-				const D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = Pass.GetTopologyType();
-				switch (TopologyType)
+			D3D12::CommandContext& CmdContext = *CmdContextHandle->m_Context;
+
+			auto x = DstTexture->GetDesc();
+			auto y = SrcTexture->GetDesc();
+			ID3D12GraphicsCommandList* CmdList = CmdContext.GetCommandList();
+
+			std::vector<D3D12::ResourceTransitionBundles> PreCopyBarriers;
+			PreCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, DstTexture });
+			PreCopyBarriers.push_back({ D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE, SrcTexture });
+			D3D12::TransitionResources(CmdList, PreCopyBarriers);
+
+			CmdList->CopyResource(DstTexture, SrcTexture);
+
+			std::vector<D3D12::ResourceTransitionBundles> PostCopyBarriers;
+			PostCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON, DstTexture });
+			PostCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, SrcTexture });
+			D3D12::TransitionResources(CmdList, PostCopyBarriers);
+
+			m_GraphicsQueue.ExecuteContext(CmdContext);
+		}
+
+		void RendererNew::EndFrame()
+		{
+			if (m_FrameCount % m_BufferCount == 0)
+			{
+				m_GraphicsQueue.FlushCommands();
+				m_ResourceRecycler.ReleaseResources();
+				m_CommandContextAllocator.FreeCommandBuffers();
+			}
+
+			m_FrameCount++;
+		}
+
+		void RendererNew::Render(Scene::SceneNew& Scene, const D3D12::RenderTargetView& RenderSurface, bool ClearRenderSurface, const D3D12::DepthStencilView& DepthSurface, bool ClearDepthSurface)
+		{
+			/* BASIC STRUCTURE
+			for each active camera:
+				for each visual entity in the scene:
+					perform culling
+					add to batch if mesh type
+
+				for each light:
+					upload data to the gpu
+
+				for each render pass:
+					for each batch:
+						bind object render pipeline & buffers
+						upload data to the gpu
+						perform draw call to render surfaces
+			*/
+
+			auto prepRenderCommandContext = m_CommandContextAllocator.GetContext();
+			if (!prepRenderCommandContext.has_value())
+				throw;
+
+			auto prepRenderCommandList = prepRenderCommandContext.value().m_Context->GetCommandList();
+
+			if (ClearRenderSurface)
+			{
+				prepRenderCommandList->ClearRenderTargetView(RenderSurface.GetDescriptorHandle(), RenderSurface.GetClearValue().Color, 0, NULL);
+			}
+
+			if (ClearDepthSurface)
+			{
+				prepRenderCommandList->ClearDepthStencilView(
+					DepthSurface.GetDescriptorHandle(),
+					D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+					DepthSurface.GetClearValue().DepthStencil.Depth, DepthSurface.GetClearValue().DepthStencil.Stencil,
+					0, NULL);
+			}
+			
+			m_GraphicsQueue.ExecuteContext(*prepRenderCommandContext.value().m_Context);
+
+			struct StaticMeshInstanceData
+			{
+				DXM::Matrix Transform;
+			};
+
+			// TODO: Try to reuse the allocated memory in-between frames
+			
+			// TODO: Create the allocator with the different mapped "upload heap" buffers
+			LinearAllocator frameBatchAllocator(nullptr, 0);
+			std::unordered_map<uint32_t, std::unordered_map<uint32_t, std::vector<StaticMeshInstanceData>>> batches;
+
+			LinearAllocator framePointLightAllocator(nullptr, 0);
+			std::vector<Scene::SceneProxy::PointLight> pointLights;
+
+			LinearAllocator frameSpotLightAllocator(nullptr, 0);
+			std::vector<Scene::SceneProxy::SpotLight> spotLights;
+
+			LinearAllocator frameDirectionalLightAllocator(nullptr, 0);
+			std::vector<Scene::SceneProxy::DirectionalLight> directionalLights;
+
+			const auto& sceneProxy = Scene.m_Proxy;
+			for (const auto& camera : sceneProxy.m_Cameras.GetData())
+			{
+				for (const auto& staticMeshEntity : sceneProxy.m_StaticMeshes.GetData())
 				{
-				case D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE:
-				{
-					CmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-					break;
+					if (camera.m_Frustrum.Intersects(staticMeshEntity.m_BoundingSphere))
+					{
+						StaticMeshInstanceData instanceData;
+						instanceData.Transform = staticMeshEntity.m_Transform;
+						batches[staticMeshEntity.m_MeshIndex][staticMeshEntity.m_MaterialIndex].emplace_back();
+					}
 				}
-				case D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE:
+
+				for (const auto& pointLight : sceneProxy.m_PointLights.GetData())
 				{
-					CmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-					break;
+					if (true/* TODO: Perform culling */)
+					{
+						pointLights.emplace_back(pointLight);
+					}
 				}
-				case D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT:
+
+				for (const auto& spotLight : sceneProxy.m_SpotLights.GetData())
 				{
-					CmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
-					break;
+					if (true/* TODO: Perform culling */)
+					{
+						spotLights.emplace_back(spotLight);
+					}
 				}
-				default:
+
+				LinearAllocator::Allocation pointLightAllocation = framePointLightAllocator.Append((void*)pointLights.data(), pointLights.size() * sizeof(decltype(pointLights)::value_type));
+				LinearAllocator::Allocation spotLightAllocation = frameSpotLightAllocator.Append((void*)spotLights.data(), spotLights.size() * sizeof(decltype(spotLights)::value_type));
+				LinearAllocator::Allocation directionalLightAllocation = frameDirectionalLightAllocator.Append((void*)sceneProxy.m_DirectionalLights.GetData().data(), sceneProxy.m_DirectionalLights.GetData().size() * sizeof(decltype(sceneProxy.m_DirectionalLights.GetData())::value_type));
+
+				// TODO: This should be done per render pass, ex. depth pass -> geometry pass -> deffered light pass -> per camera post-process pass etc...
+				//		Replace this once some kind of rendergraph is implemented.
 				{
-					DEBUG_PRINT("Input pass has an invalid topology type");
-				}
+					struct VertexPerPassData
+					{
+						DXM::Matrix ViewProjectionMatrix;
+					};
+
+					struct PixelPerPassData
+					{
+						uint32_t samplerIndex;
+					};
+
+					VertexPerPassData vertexShaderPassData;
+					vertexShaderPassData.ViewProjectionMatrix = camera.m_ViewProjectionMatrix;
+
+					PixelPerPassData pixelShaderPassData;
+					pixelShaderPassData.samplerIndex = m_AnisotropicSampler.GetHeapIndex();
+
+					// TODO: Remove this type of binding...
+					m_DefaultRenderPass.BindBuffer("InstanceBuffer", D3D12::SHADER_TYPE::VS, &m_StaticMeshFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindBuffer("PointLightBuffer", D3D12::SHADER_TYPE::VS, &m_PointLightFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindBuffer("SpotLightBuffer", D3D12::SHADER_TYPE::VS, &m_SpotLightFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindBuffer("DirectionalLightBuffer", D3D12::SHADER_TYPE::VS, &m_DirectionalLightFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindConstant("PixelShaderConstantsBuffer", D3D12::SHADER_TYPE::PS, &pixelShaderPassData, sizeof(pixelShaderPassData));
+
+					for (const auto& [meshIndex, batchArrayMap] : batches)
+					{
+						for (const auto& [materialIndex, batchArray] : batchArrayMap)
+						{
+							// TODO: Handle situation if the allocator memory pool gets full
+							LinearAllocator::Allocation batchAllocation = frameBatchAllocator.Append((void*)batchArray.data(), batchArray.size() * sizeof(decltype(batchArray)::value_type));
+							const MeshHandle& meshHandle = m_MeshHandles.at(meshIndex);
+							const MaterialHandle& materialHandle = m_MaterialHandle.at(meshIndex);
+
+							struct VertexPerDrawData
+							{
+								uint32_t meshStartOffset;
+								uint32_t batchStartOffset;
+							};
+
+							struct PixelPerDrawData
+							{
+								uint32_t materialIndex;
+								uint32_t numDirectionalLights;
+								uint32_t numPointLights;
+								uint32_t numSpotLights;
+							};
+
+							VertexPerDrawData vertexPerDrawData;
+							vertexPerDrawData.meshStartOffset = meshHandle.Offset;
+							vertexPerDrawData.batchStartOffset = batchAllocation.Offset;
+
+							PixelPerDrawData pixelPerDrawData;
+							pixelPerDrawData.materialIndex = materialHandle.Index;
+							pixelPerDrawData.numPointLights = pointLights.size() * sizeof(decltype(pointLights)::value_type);
+							pixelPerDrawData.numSpotLights = spotLights.size() * sizeof(decltype(spotLights)::value_type);
+							pixelPerDrawData.numDirectionalLights = sceneProxy.m_DirectionalLights.GetData().size() * sizeof(decltype(sceneProxy.m_DirectionalLights.GetData())::value_type);
+
+							auto batchCommandContext = m_CommandContextAllocator.GetContext();
+							if (!batchCommandContext.has_value())
+								throw;
+
+							auto batchCommandList = batchCommandContext.value().m_Context->GetCommandList();
+
+							ID3D12DescriptorHeap* Heaps[2] = { m_ResourceHeap.GetDescriptorHeap(), m_SamplerHeap.GetDescriptorHeap() };
+							batchCommandList->SetDescriptorHeaps(2, Heaps);
+
+							if (!m_DefaultRenderPass.BeginPass(batchCommandList))
+								throw;
+
+							batchCommandList->RSSetViewports(1, &camera.m_Viewport);
+							batchCommandList->RSSetScissorRects(1, &camera.m_ScizzorRect);
+
+							// TODO: Change name from "CameraDataBuffer" to "VertexPerPassData"
+							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "CameraDataBuffer", (void*)&vertexShaderPassData, sizeof(vertexShaderPassData), D3D12::SHADER_TYPE::VS);
+							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&vertexPerDrawData, sizeof(vertexPerDrawData), D3D12::SHADER_TYPE::VS);
+
+							uint32_t numVertices = meshHandle.NumVertices;
+							batchCommandList->DrawInstanced(numVertices, batchArray.size(), 0, 0);
+
+							m_GraphicsQueue.ExecuteContext(*batchCommandContext.value().m_Context);
+						}
+					}
 				}
 			}
+		}
+
+		void RendererNew::Init(ID3D12Device* device, uint32_t bufferCount, const std::string& contentPath)
+		{
+			m_Device = device;
+			m_BufferCount = bufferCount;
+			m_ContentPath = contentPath;
+
+			DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_Compiler));
+
+			this->InitCommandRecording();
+			this->InitDescriptorHeaps();
+			this->InitFrameResources();
+			this->InitSamplers();
+			this->InitRenderPasses();
+		}
+
+		void RendererNew::InitCommandRecording()
+		{
+			m_GraphicsQueue.Init(m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+			m_CommandContextAllocator.Init(m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT, 10);
+		}
+
+
+		void RendererNew::InitDescriptorHeaps()
+		{
+			m_ResourceHeap.Init(m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100, true);
+			m_SamplerHeap.Init(m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 20, true);
+			m_RTVHeap.Init(m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 100, false);
+			m_DSVHeap.Init(m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 100, false);
+		}
+
+		void RendererNew::InitFrameResources()
+		{
+			constexpr uint64_t frameBufferStartCount = 10000;
+			for (int i = 0; i < m_BufferCount; i++)
+			{
+				m_StaticMeshFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferStartCount, m_ResourceRecycler));
+
+				m_PointLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferStartCount, m_ResourceRecycler));
+
+				m_SpotLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferStartCount, m_ResourceRecycler));
+
+				m_DirectionalLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferStartCount, m_ResourceRecycler));
+			}
+		}
+
+		void RendererNew::InitSamplers()
+		{
+			m_AnisotropicSampler = m_SamplerHeap.GetDescriptor();
+			D3D12_SAMPLER_DESC SamplerDesc;
+			SamplerDesc.Filter = D3D12_FILTER_ANISOTROPIC;
+			SamplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+			SamplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+			SamplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+			SamplerDesc.MipLODBias = 0.f;
+			SamplerDesc.MaxAnisotropy = 8;
+			SamplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NONE;
+			SamplerDesc.MinLOD = 0;
+			SamplerDesc.MaxLOD = 6;
+			m_Device->CreateSampler(&SamplerDesc, m_AnisotropicSampler.GetCPUHandle());
+		}
+
+		void RendererNew::InitRenderPasses()
+		{
+			D3D12::Shader BasePassVS;
+			BasePassVS.CompileFromFile(*m_Compiler.p, m_ContentPath + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
+
+			D3D12::Shader BasePassPS;
+			BasePassPS.CompileFromFile(*m_Compiler.p, m_ContentPath + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+
+			D3D12::RenderPass Pass;
+			Pass.Init(m_Device, BasePassVS, BasePassPS, { DXGI_FORMAT_R8G8B8A8_UNORM_SRGB }, DXGI_FORMAT_D24_UNORM_S8_UINT);
+			m_DefaultRenderPass = RenderGraphPass(std::move(Pass));
 		}
 
 		void Renderer::Init(ID3D12Device* Device, uint32_t BufferCount, const std::string& ContentPath)
@@ -73,6 +345,8 @@ namespace aZero
 		{
 			m_FrameIndex = static_cast<uint32_t>(m_FrameCount % m_BufferCount);
 		}
+
+		
 
 		void Renderer::RenderPrimitiveBatch(D3D12::CommandContext& CmdContext, const D3D12::RenderTargetView& ColorView, const PrimitiveBatch& Batch, const Scene::Scene::Camera& Camera)
 		{
