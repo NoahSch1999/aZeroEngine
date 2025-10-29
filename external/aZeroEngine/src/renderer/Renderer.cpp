@@ -1,14 +1,6 @@
 #include "Renderer.hpp"
-#include "Renderer.hpp"
-#include "Renderer.hpp"
-#include "Renderer.hpp"
-#include "Renderer.hpp"
-#include "Renderer.hpp"
-#include "Renderer.hpp"
-#include "Renderer.hpp"
-#include "Renderer.hpp"
-#include "Renderer.hpp"
 #include "scene/Scene.hpp"
+#include "assets/AssetManager.hpp"
 
 namespace aZero
 {
@@ -82,7 +74,7 @@ namespace aZero
 			if (!prepRenderCommandContext.has_value())
 				throw;
 
-			auto prepRenderCommandList = prepRenderCommandContext.value().m_Context->GetCommandList();
+			ID3D12GraphicsCommandList* prepRenderCommandList = prepRenderCommandContext.value().m_Context->GetCommandList();
 
 			if (ClearRenderSurface)
 			{
@@ -105,56 +97,65 @@ namespace aZero
 				DXM::Matrix Transform;
 			};
 
-			// TODO: Try to reuse the allocated memory in-between frames
-			
-			// TODO: Create the allocator with the different mapped "upload heap" buffers
-			LinearAllocator frameBatchAllocator(nullptr, 0);
-			std::unordered_map<uint32_t, std::unordered_map<uint32_t, std::vector<StaticMeshInstanceData>>> batches;
+			//// TODO: Try to reuse the allocated memory for the batches in-between frames
+			//// TODO: Remove "frameBufferSize" once the buffers auto-expand once they are full
+			const uint64_t frameBufferSize = 10000;
+			LinearAllocator frameBatchAllocator(m_StaticMeshFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
 
-			LinearAllocator framePointLightAllocator(nullptr, 0);
+			struct StaticMeshBatchDrawData
+			{
+				std::vector<StaticMeshInstanceData> InstanceData;
+				uint32_t NumVertices;
+			};
+			std::unordered_map<uint32_t, std::unordered_map<uint32_t, StaticMeshBatchDrawData>> batches;
+
+			LinearAllocator framePointLightAllocator(m_PointLightFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
 			std::vector<Scene::SceneProxy::PointLight> pointLights;
-
-			LinearAllocator frameSpotLightAllocator(nullptr, 0);
+			
+			LinearAllocator frameSpotLightAllocator(m_SpotLightFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
 			std::vector<Scene::SceneProxy::SpotLight> spotLights;
 
-			LinearAllocator frameDirectionalLightAllocator(nullptr, 0);
+			LinearAllocator frameDirectionalLightAllocator(m_DirectionalLightFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
 			std::vector<Scene::SceneProxy::DirectionalLight> directionalLights;
 
-			const auto& sceneProxy = Scene.m_Proxy;
-			for (const auto& camera : sceneProxy.m_Cameras.GetData())
+			const Scene::SceneProxy& sceneProxy = Scene.m_Proxy;
+			for (const Scene::SceneProxy::Camera& camera : sceneProxy.m_Cameras.GetData())
 			{
-				for (const auto& staticMeshEntity : sceneProxy.m_StaticMeshes.GetData())
+				for (const Scene::SceneProxy::StaticMesh& staticMeshEntity : sceneProxy.m_StaticMeshes.GetData())
 				{
-					if (camera.m_Frustrum.Intersects(staticMeshEntity.m_BoundingSphere))
+					if (true/* TODO: Perform frustrum culling */)
 					{
 						StaticMeshInstanceData instanceData;
 						instanceData.Transform = staticMeshEntity.m_Transform;
-						batches[staticMeshEntity.m_MeshIndex][staticMeshEntity.m_MaterialIndex].emplace_back();
+						auto batch = batches[staticMeshEntity.m_MeshIndex][staticMeshEntity.m_MaterialIndex];
+						batch.NumVertices = staticMeshEntity.m_NumVertices;
+						batch.InstanceData.emplace_back();
 					}
 				}
 
-				for (const auto& pointLight : sceneProxy.m_PointLights.GetData())
+				for (const Scene::SceneProxy::PointLight& pointLight : sceneProxy.m_PointLights.GetData())
 				{
-					if (true/* TODO: Perform culling */)
+					if (true/* TODO: Perform frustrum culling */)
 					{
 						pointLights.emplace_back(pointLight);
 					}
 				}
 
-				for (const auto& spotLight : sceneProxy.m_SpotLights.GetData())
+				for (const Scene::SceneProxy::SpotLight& spotLight : sceneProxy.m_SpotLights.GetData())
 				{
-					if (true/* TODO: Perform culling */)
+					if (true/* TODO: Perform frustrum culling */)
 					{
 						spotLights.emplace_back(spotLight);
 					}
 				}
 
-				LinearAllocator::Allocation pointLightAllocation = framePointLightAllocator.Append((void*)pointLights.data(), pointLights.size() * sizeof(decltype(pointLights)::value_type));
-				LinearAllocator::Allocation spotLightAllocation = frameSpotLightAllocator.Append((void*)spotLights.data(), spotLights.size() * sizeof(decltype(spotLights)::value_type));
-				LinearAllocator::Allocation directionalLightAllocation = frameDirectionalLightAllocator.Append((void*)sceneProxy.m_DirectionalLights.GetData().data(), sceneProxy.m_DirectionalLights.GetData().size() * sizeof(decltype(sceneProxy.m_DirectionalLights.GetData())::value_type));
+				LinearAllocator<>::Allocation pointLightAllocation = framePointLightAllocator.Append((void*)pointLights.data(), pointLights.size() * sizeof(decltype(pointLights)::value_type));
+				LinearAllocator<>::Allocation spotLightAllocation = frameSpotLightAllocator.Append((void*)spotLights.data(), spotLights.size() * sizeof(decltype(spotLights)::value_type));
+				
+				// Fetching all directional lights from the scene since nothing gets culled from it
+				LinearAllocator<>::Allocation directionalLightAllocation = frameDirectionalLightAllocator.Append((void*)sceneProxy.m_DirectionalLights.GetData().data(), sceneProxy.m_DirectionalLights.GetData().size() * sizeof(decltype(sceneProxy.m_DirectionalLights.GetData())::value_type));
 
-				// TODO: This should be done per render pass, ex. depth pass -> geometry pass -> deffered light pass -> per camera post-process pass etc...
-				//		Replace this once some kind of rendergraph is implemented.
+				// TODO: This should be done per pass, ex. depth pass -> geometry pass -> deffered light pass -> per camera post-process pass etc...
 				{
 					struct VertexPerPassData
 					{
@@ -172,7 +173,14 @@ namespace aZero
 					PixelPerPassData pixelShaderPassData;
 					pixelShaderPassData.samplerIndex = m_AnisotropicSampler.GetHeapIndex();
 
-					// TODO: Remove this type of binding...
+					// TODO: Remove this type of binding and use pure bindless
+					m_DefaultRenderPass.BindBuffer("PositionBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_PositionBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("UVBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_UVBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("NormalBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_NormalBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("TangentBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("IndexBufferNew", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("MeshEntryBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_MeshEntryBuffer.GetBuffer());
+
 					m_DefaultRenderPass.BindBuffer("InstanceBuffer", D3D12::SHADER_TYPE::VS, &m_StaticMeshFrameBuffers.at(m_FrameIndex));
 					m_DefaultRenderPass.BindBuffer("PointLightBuffer", D3D12::SHADER_TYPE::VS, &m_PointLightFrameBuffers.at(m_FrameIndex));
 					m_DefaultRenderPass.BindBuffer("SpotLightBuffer", D3D12::SHADER_TYPE::VS, &m_SpotLightFrameBuffers.at(m_FrameIndex));
@@ -183,10 +191,14 @@ namespace aZero
 					{
 						for (const auto& [materialIndex, batchArray] : batchArrayMap)
 						{
-							// TODO: Handle situation if the allocator memory pool gets full
-							LinearAllocator::Allocation batchAllocation = frameBatchAllocator.Append((void*)batchArray.data(), batchArray.size() * sizeof(decltype(batchArray)::value_type));
-							const MeshHandle& meshHandle = m_MeshHandles.at(meshIndex);
-							const MaterialHandle& materialHandle = m_MaterialHandle.at(meshIndex);
+							// TODO: Handle auto-resizing of the buffers if the allocator memory pool gets full
+							LinearAllocator<>::Allocation batchAllocation = frameBatchAllocator.Append((void*)batchArray.InstanceData.data(), batchArray.InstanceData.size() * sizeof(decltype(batchArray.InstanceData)::value_type));
+							MeshHandle meshHandle;
+							meshHandle.NumVertices = batchArray.NumVertices;
+							meshHandle.StartIndex = meshIndex;
+
+							MaterialHandle materialHandle;
+							materialHandle.Index = materialIndex;
 
 							struct VertexPerDrawData
 							{
@@ -203,7 +215,7 @@ namespace aZero
 							};
 
 							VertexPerDrawData vertexPerDrawData;
-							vertexPerDrawData.meshStartOffset = meshHandle.Offset;
+							vertexPerDrawData.meshStartOffset = meshHandle.StartIndex;
 							vertexPerDrawData.batchStartOffset = batchAllocation.Offset;
 
 							PixelPerDrawData pixelPerDrawData;
@@ -232,7 +244,7 @@ namespace aZero
 							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&vertexPerDrawData, sizeof(vertexPerDrawData), D3D12::SHADER_TYPE::VS);
 
 							uint32_t numVertices = meshHandle.NumVertices;
-							batchCommandList->DrawInstanced(numVertices, batchArray.size(), 0, 0);
+							batchCommandList->DrawInstanced(numVertices, batchArray.InstanceData.size(), 0, 0);
 
 							m_GraphicsQueue.ExecuteContext(*batchCommandContext.value().m_Context);
 						}
@@ -273,17 +285,27 @@ namespace aZero
 
 		void RendererNew::InitFrameResources()
 		{
-			constexpr uint64_t frameBufferStartCount = 10000;
+			// TODO: Remove once the buffers auto-expand once they are full
+			const uint64_t frameBufferSize = 10000;
 			for (int i = 0; i < m_BufferCount; i++)
 			{
-				m_StaticMeshFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferStartCount, m_ResourceRecycler));
+				m_StaticMeshFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
+				
+				m_PointLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 
-				m_PointLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferStartCount, m_ResourceRecycler));
+				m_SpotLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 
-				m_SpotLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferStartCount, m_ResourceRecycler));
-
-				m_DirectionalLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferStartCount, m_ResourceRecycler));
+				m_DirectionalLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_Device, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 			}
+
+			// TODO: Change so these use 64bit ints
+			m_FrameAllocator.Init(m_Device, sizeof(int32_t) * 100000, m_ResourceRecycler);
+			m_MeshBuffers.m_PositionBuffer.Init(m_Device, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_UVBuffer.Init(m_Device, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_NormalBuffer.Init(m_Device, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_TangentBuffer.Init(m_Device, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_IndexBuffer.Init(m_Device, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_MeshEntryBuffer.Init(m_Device, sizeof(int32_t) * 10000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 		}
 
 		void RendererNew::InitSamplers()
@@ -313,6 +335,214 @@ namespace aZero
 			D3D12::RenderPass Pass;
 			Pass.Init(m_Device, BasePassVS, BasePassPS, { DXGI_FORMAT_R8G8B8A8_UNORM_SRGB }, DXGI_FORMAT_D24_UNORM_S8_UINT);
 			m_DefaultRenderPass = RenderGraphPass(std::move(Pass));
+		}
+
+		void RendererNew::AllocateFreelistMesh(AssetNew::Mesh& mesh, ID3D12GraphicsCommandList* cmdList)
+		{
+			int allocSize = mesh.m_VertexData.Positions.size() * sizeof(mesh.m_VertexData.Positions.at(0)); // TODO: Indices might be larger...
+			DS::FreelistAllocator::AllocationHandle allocHandle;
+
+			m_MeshBuffers.m_PositionBuffer.Allocate(allocHandle, allocSize);
+			m_MeshBuffers.m_PositionBuffer.Write(cmdList, m_FrameAllocator, allocHandle, mesh.m_VertexData.Positions.data());
+			m_MeshBuffers.m_PositionAllocMap[mesh.m_AssetID] = std::move(allocHandle);
+
+			m_MeshBuffers.m_NormalBuffer.Allocate(allocHandle, allocSize);
+			m_MeshBuffers.m_NormalBuffer.Write(cmdList, m_FrameAllocator, allocHandle, mesh.m_VertexData.Normals.data());
+			m_MeshBuffers.m_NormalAllocMap[mesh.m_AssetID] = std::move(allocHandle);
+
+			m_MeshBuffers.m_UVBuffer.Allocate(allocHandle, allocSize);
+			m_MeshBuffers.m_UVBuffer.Write(cmdList, m_FrameAllocator, allocHandle, mesh.m_VertexData.UVs.data());
+			m_MeshBuffers.m_UVAllocMap[mesh.m_AssetID] = std::move(allocHandle);
+
+			m_MeshBuffers.m_TangentBuffer.Allocate(allocHandle, allocSize);
+			m_MeshBuffers.m_TangentBuffer.Write(cmdList, m_FrameAllocator, allocHandle, mesh.m_VertexData.Tangents.data());
+			m_MeshBuffers.m_TangentAllocMap[mesh.m_AssetID] = std::move(allocHandle);
+
+			m_MeshBuffers.m_IndexBuffer.Allocate(allocHandle, allocSize);
+			m_MeshBuffers.m_IndexBuffer.Write(cmdList, m_FrameAllocator, allocHandle, mesh.m_VertexData.Indices.data());
+			m_MeshBuffers.m_IndexAllocMap[mesh.m_AssetID] = std::move(allocHandle);
+		}
+
+		void RendererNew::Upload(AssetNew::Mesh& mesh)
+		{
+			// hitta plats i vertex buffrarna och i MeshHandle
+			if (mesh.m_VertexData.Positions.size() == 0)
+			{
+				return;
+			}
+
+			// TODO: implement resize with this cmdlist, otherwise it isnt needed
+			auto cmdList = m_CommandContextAllocator.GetContext()->m_Context->GetCommandList();
+
+			if (mesh.m_RenderID == std::numeric_limits<AssetNew::RenderID>::max())
+			{
+				// ladda upp datan
+				this->AllocateFreelistMesh(mesh, cmdList);
+
+				DS::FreelistAllocator::AllocationHandle allocHandle;
+				MeshHandle meshHandle;
+				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[mesh.m_AssetID].GetStartOffset() / sizeof(mesh.m_VertexData.Positions.at(0));
+				meshHandle.NumVertices = mesh.m_VertexData.Indices.size();
+				m_MeshBuffers.m_MeshEntryBuffer.Allocate(allocHandle, sizeof(MeshHandle));
+				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_FrameAllocator, allocHandle, &meshHandle);
+				m_MeshBuffers.m_MeshEntryAllocMap[mesh.m_AssetID] = std::move(allocHandle);
+
+				// sätt renderID till MeshHandle index
+				mesh.m_RenderID = allocHandle.GetStartOffset() / sizeof(MeshHandle);
+			}
+			else
+			{
+				// free-a upp platsen i freelistarna för vertex buffrarna
+				m_MeshBuffers.m_PositionAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_UVAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_NormalAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_TangentAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_IndexAllocMap.erase(mesh.m_AssetID);
+
+				this->AllocateFreelistMesh(mesh, cmdList);
+
+				// updatera MeshHandle för meshens renderID
+				MeshHandle meshHandle;
+				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[mesh.m_AssetID].GetStartOffset() / sizeof(mesh.m_VertexData.Positions.at(0));
+				meshHandle.NumVertices = mesh.m_VertexData.Indices.size();
+				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_FrameAllocator, m_MeshBuffers.m_MeshEntryAllocMap[mesh.m_AssetID], &meshHandle);
+			}
+		}
+
+		void RendererNew::Upload(AssetNew::Material& material)
+		{
+			std::weak_ptr<AssetNew::Texture> albedoTexture = material.m_Data.AlbedoTexture;
+			std::weak_ptr<AssetNew::Texture> normalTexture = material.m_Data.NormalMap;
+
+			DS::FreelistAllocator::AllocationHandle allocHandle;
+
+			struct MaterialData
+			{
+				int32_t AlbedoIndex;
+				int32_t NormalIndex;
+			};
+			MaterialData materialData;
+
+			if (albedoTexture.expired() || albedoTexture.lock()->m_RenderID == std::numeric_limits<AssetNew::RenderID>::max())
+			{
+				materialData.AlbedoIndex = -1;
+			}
+			else
+			{
+				materialData.AlbedoIndex = albedoTexture.lock()->m_RenderID;
+			}
+
+			if (normalTexture.expired() || normalTexture.lock()->m_RenderID == std::numeric_limits<AssetNew::RenderID>::max())
+			{
+				materialData.NormalIndex = -1;
+			}
+			else
+			{
+				materialData.NormalIndex = normalTexture.lock()->m_RenderID;
+			}
+
+			if (material.m_RenderID == std::numeric_limits<AssetNew::RenderID>::max())
+			{
+				m_MaterialBuffer.Allocate(allocHandle, sizeof(materialData));
+				material.m_RenderID = allocHandle.GetStartOffset() / sizeof(materialData);
+				m_MaterialAllocMap[material.m_AssetID] = std::move(allocHandle);
+			}
+				
+			m_MaterialBuffer.Write(nullptr, m_FrameAllocator, m_MaterialAllocMap[material.m_AssetID], &materialData);
+		}
+
+		void RendererNew::Upload(AssetNew::Texture& texture)
+		{
+			TextureRenderAsset assetData;
+			assetData.m_Resource = D3D12::GPUTexture(m_Device,
+				DXM::Vector3(texture.m_Data.Width, texture.m_Data.Height, 1),
+				DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+				D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
+				m_ResourceRecycler,
+				1);
+
+			// TODO: Be sure the old texture isnt accessed when/after the same descriptor index is reallocated
+				// We need to use the same descriptor index since we need to keep the renderID valid
+			assetData.m_Srv.Init(m_Device, m_ResourceHeap.GetDescriptor(), assetData.m_Resource, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+
+			if (texture.m_RenderID == std::numeric_limits<AssetNew::RenderID>::max())
+			{
+				texture.m_RenderID = assetData.m_Srv.GetDescriptorIndex();
+			}
+
+			// Upload texel data
+			const uint64_t StagingBufferSize = static_cast<uint64_t>(GetRequiredIntermediateSize(assetData.m_Resource.GetResource(), 0, 1));
+			D3D12::GPUBuffer StagingBuffer;
+			StagingBuffer.Init(m_Device, D3D12_HEAP_TYPE_UPLOAD, StagingBufferSize, m_ResourceRecycler);
+
+			std::vector<D3D12::ResourceTransitionBundles> Bundle;
+			Bundle.push_back({});
+			Bundle.at(0).ResourcePtr = assetData.m_Resource.GetResource();
+			Bundle.at(0).StateBefore = D3D12_RESOURCE_STATE_COMMON;
+			Bundle.at(0).StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+
+			auto CmdContext = m_CommandContextAllocator.GetContext();
+			if (!CmdContext.has_value())
+			{
+				throw std::runtime_error("No more command contexts");
+			}
+			ID3D12GraphicsCommandList* CmdList = CmdContext->m_Context->GetCommandList();
+			D3D12::TransitionResources(CmdList, Bundle);
+
+			D3D12_SUBRESOURCE_DATA SubresourceData{};
+			SubresourceData.pData = texture.m_Data.TexelData.data();
+			SubresourceData.RowPitch = /*roundUp(*/texture.m_Data.Width * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/;
+			SubresourceData.SlicePitch = SubresourceData.RowPitch * texture.m_Data.Height;
+
+			UpdateSubresources(
+				CmdList,
+				assetData.m_Resource.GetResource(),
+				StagingBuffer.GetResource(),
+				0, 0, 1, &SubresourceData);
+
+			Bundle.at(0).ResourcePtr = assetData.m_Resource.GetResource();
+			Bundle.at(0).StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+			Bundle.at(0).StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			D3D12::TransitionResources(CmdList, Bundle);
+
+			m_GraphicsQueue.ExecuteContext(*CmdContext->m_Context);
+
+
+			m_TextureAllocMap[texture.m_AssetID] = std::move(assetData);
+		}
+
+		void RendererNew::Deload(AssetNew::Mesh& mesh)
+		{
+			if (mesh.m_RenderID != std::numeric_limits<AssetNew::RenderID>::max())
+			{
+				mesh.m_RenderID = std::numeric_limits<AssetNew::RenderID>::max();
+				m_MeshBuffers.m_PositionAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_UVAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_NormalAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_TangentAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_IndexAllocMap.erase(mesh.m_AssetID);
+				m_MeshBuffers.m_MeshEntryAllocMap.erase(mesh.m_AssetID);
+			}
+		}
+
+		void RendererNew::Deload(AssetNew::Material& material)
+		{
+			if (material.m_RenderID != std::numeric_limits<AssetNew::RenderID>::max())
+			{
+				material.m_RenderID = std::numeric_limits<AssetNew::RenderID>::max();
+				m_MaterialAllocMap.erase(material.m_AssetID);
+			}
+		}
+
+		void RendererNew::Deload(AssetNew::Texture& texture)
+		{
+			if (texture.m_RenderID != std::numeric_limits<AssetNew::RenderID>::max())
+			{
+				texture.m_RenderID = std::numeric_limits<AssetNew::RenderID>::max();
+
+				// TODO: Remove it after its last usage so we dont create a new view with the same descriptor index while its still accessed on the gpu
+				m_TextureAllocMap.erase(texture.m_AssetID);
+			}
 		}
 
 		void Renderer::Init(ID3D12Device* Device, uint32_t BufferCount, const std::string& ContentPath)
@@ -363,9 +593,6 @@ namespace aZero
 				CmdList->SetDescriptorHeaps(2, Heaps);
 
 				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> RTVHandles = { ColorView.GetDescriptorHandle() };
-				// TODO: Fix
-				//D3D12_CPU_DESCRIPTOR_HANDLE DSVHandle = m_SceneDepthTextureDSV.GetDescriptorHandle();
-				//CmdList->OMSetRenderTargets(static_cast<UINT>(RTVHandles.size()), RTVHandles.data(), false, &DSVHandle);
 
 				D3D12::RenderPass* Pass = nullptr;
 				const PrimitiveBatch::RenderLayer RenderLayer = Batch.GetLayer();
@@ -462,7 +689,6 @@ namespace aZero
 				m_FrameAllocators[BufferIndex].Init(m_Device, sizeof(int32_t) * 1, m_ResourceRecycler);
 			}
 
-			// TODO: Check func and alloc size etc
 			m_VertexBuffer.Init(m_Device, sizeof(Asset::VertexData), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			m_IndexBuffer.Init(m_Device,sizeof(uint32_t), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			m_MeshEntryBuffer.Init(m_Device, sizeof(Asset::MeshEntry), m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);

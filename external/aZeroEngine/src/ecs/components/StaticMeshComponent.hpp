@@ -1,6 +1,7 @@
 #pragma once
 #include "graphics_api/D3D12Include.hpp"
-#include "renderer/render_asset/RenderAsset.hpp"
+#include "assets/Mesh.hpp"
+#include "assets/Material.hpp"
 
 namespace aZero
 {
@@ -9,8 +10,12 @@ namespace aZero
 		class StaticMeshComponent
 		{
 		public:
-			std::shared_ptr<Asset::Mesh> m_MeshReference;
-			std::shared_ptr<Asset::Material> m_MaterialReference;
+			std::weak_ptr<AssetNew::Mesh> m_MeshReferenceNew;
+			std::weak_ptr<AssetNew::Material> m_MaterialReferenceNew;
+
+			// TODO: delete
+			std::shared_ptr<AssetNew::Mesh> m_MeshReference;
+			std::shared_ptr<AssetNew::Material> m_MaterialReference;
 
 			StaticMeshComponent() = default;
 			

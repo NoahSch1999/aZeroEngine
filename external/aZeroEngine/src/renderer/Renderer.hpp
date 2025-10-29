@@ -8,9 +8,17 @@
 #include "renderer/render_asset/RenderAssetManager.hpp"
 #include "renderer/PrimitiveBatch.hpp"
 #include "LinearAllocator.hpp"
+#include "assets/Asset.hpp"
 
 namespace aZero
 {
+	namespace AssetNew
+	{
+		class Mesh;
+		class Material;
+		class Texture;
+	}
+
 	class Engine;
 	namespace Rendering
 	{
@@ -19,11 +27,11 @@ namespace aZero
 		class RendererNew
 		{
 		public:
-			// TODO: Provide these as renderer API interfaces
 			// Marks the beginning of a frame.
 			void BeginFrame();
 
 			// Copies the rendered surface to the swapchain.
+			// TODO: Impl up/downscaling to match the SrcTexture to the DstTexture (back buffer)
 			void CopyTextureToTexture(ID3D12Resource* DstTexture, ID3D12Resource* SrcTexture);
 
 			// Marks the end of a frame.
@@ -31,8 +39,8 @@ namespace aZero
 
 			// Renders a scene to the target surfaces.
 			void Render(Scene::SceneNew& Scene, const D3D12::RenderTargetView& RenderSurface, bool ClearRenderSurface, const D3D12::DepthStencilView& DepthSurface, bool ClearDepthSurface);
-			//
-
+			
+			// Stalls the CPU until all GPU work is finished
 			void FlushGraphicsQueue() { m_GraphicsQueue.FlushImmediate(); }
 
 			void Init(ID3D12Device* device, uint32_t bufferCount, const std::string& contentPath);
@@ -42,7 +50,7 @@ namespace aZero
 			void InitDescriptorHeaps();
 			void InitSamplers();
 
-			// TODO: Maybe move our compiler outside of the renderer to engine or its own "module"?
+			// TODO: This should probably be moved out from the renderer entirely once there's a more sophisticated shader/pass builder in the engine
 			CComPtr<IDxcCompiler3> m_Compiler;
 			std::string m_ContentPath;
 
@@ -63,36 +71,63 @@ namespace aZero
 			RenderGraphPass m_DefaultRenderPass;
 			D3D12::Descriptor m_AnisotropicSampler;
 
-			// TODO: Cerate shader resource views for them and access them bindlessly in the shaders
+			// TODO: Create shader resource views for them and access them bindlessly in the shaders
 			std::vector<D3D12::GPUBuffer> m_StaticMeshFrameBuffers;
 			std::vector<D3D12::GPUBuffer> m_PointLightFrameBuffers;
 			std::vector<D3D12::GPUBuffer> m_SpotLightFrameBuffers;
 			std::vector<D3D12::GPUBuffer> m_DirectionalLightFrameBuffers;
 
-			// TODO: Replace
-			D3D12::FreelistBuffer m_VertexBuffer;
-			D3D12::FreelistBuffer m_IndexBuffer;
-			D3D12::FreelistBuffer m_MeshEntryBuffer;
-			D3D12::FreelistBuffer m_MaterialBuffer;
-			std::unique_ptr<Asset::RenderAssetManager> m_AssetManager;
-			//
+			D3D12::LinearFrameAllocator m_FrameAllocator;
 
+			struct MeshBuffers
+			{
+				std::unordered_map<AssetNew::AssetID, DS::FreelistAllocator::AllocationHandle> m_PositionAllocMap;
+				std::unordered_map<AssetNew::AssetID, DS::FreelistAllocator::AllocationHandle> m_UVAllocMap;
+				std::unordered_map<AssetNew::AssetID, DS::FreelistAllocator::AllocationHandle> m_NormalAllocMap;
+				std::unordered_map<AssetNew::AssetID, DS::FreelistAllocator::AllocationHandle> m_TangentAllocMap;
+				std::unordered_map<AssetNew::AssetID, DS::FreelistAllocator::AllocationHandle> m_IndexAllocMap;
+				std::unordered_map<AssetNew::AssetID, DS::FreelistAllocator::AllocationHandle> m_MeshEntryAllocMap;
+				D3D12::FreelistBuffer m_PositionBuffer;
+				D3D12::FreelistBuffer m_UVBuffer;
+				D3D12::FreelistBuffer m_NormalBuffer;
+				D3D12::FreelistBuffer m_TangentBuffer;
+				D3D12::FreelistBuffer m_IndexBuffer;
+				D3D12::FreelistBuffer m_MeshEntryBuffer;
+			};
+
+			MeshBuffers m_MeshBuffers;
+
+			D3D12::FreelistBuffer m_MaterialBuffer;
+			std::unordered_map<AssetNew::AssetID, DS::FreelistAllocator::AllocationHandle> m_MaterialAllocMap;
+
+			struct TextureRenderAsset
+			{
+				D3D12::ShaderResourceView m_Srv;
+				D3D12::GPUTexture m_Resource;
+			};
+
+			std::unordered_map<AssetNew::AssetID, TextureRenderAsset> m_TextureAllocMap;
+
+			// Used to know where a mesh is located in the buffers
 			struct MeshHandle
 			{
-				uint32_t Offset;
-				uint32_t NumVertices;
+				uint32_t StartIndex; // Index to the first vertex/index for the mesh in the buffers. This is used to know where to start fetching the vertices from in the vs
+				uint32_t NumVertices; // Number of vertices/indices that the mesh has. This is used for the draw call
 			};
 
-			std::unordered_map<uint32_t, MeshHandle> m_MeshHandles;
-
+			// Used to know where a material is located in the buffer
 			struct MaterialHandle
 			{
-				uint32_t Index;
+				uint32_t Index; // Index into the material buffer
 			};
 
-			std::unordered_map<uint32_t, MaterialHandle> m_MaterialHandle;
-
-		private:
+			void AllocateFreelistMesh(AssetNew::Mesh& mesh, ID3D12GraphicsCommandList* cmdList);
+			void Upload(AssetNew::Mesh& mesh);
+			void Upload(AssetNew::Material& material);
+			void Upload(AssetNew::Texture& texture);
+			void Deload(AssetNew::Mesh& mesh);
+			void Deload(AssetNew::Material& material);
+			void Deload(AssetNew::Texture& texture);
 		};
 
 		class RenderContext;
@@ -164,7 +199,7 @@ namespace aZero
 			D3D12::CommandContextAllocator m_CommandContextAllocator;
 			RenderGraphPass m_DefaultRenderPass;
 
-			// TODO: Cerate shader resource views for them and access them bindlessly in the shaders
+			// TODO: Create shader resource views for them and access them bindlessly in the shaders
 			std::vector<D3D12::GPUBuffer> m_StaticMeshFrameBuffers; // OK
 			std::vector<D3D12::GPUBuffer> m_PointLightFrameBuffers; // OK
 			std::vector<D3D12::GPUBuffer> m_SpotLightFrameBuffers; // OK
@@ -351,36 +386,16 @@ namespace aZero
 
 			void UploadStaticMeshData(StaticMeshBatches& OutStaticMeshBatches, const DirectX::BoundingFrustum& Frustum, const DXM::Matrix& ViewMatrix, Scene::Scene& Scene, D3D12::CommandContext& CmdContext)
 			{
-				for (const auto& StaticMesh : Scene.GetObjects<Scene::Scene::StaticMesh>())
+				for (const auto& StaticMesh : Scene.GetObjects<Scene::SceneProxy::StaticMesh>())
 				{
-					const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(StaticMesh.DXBounds.Center, ViewMatrix), StaticMesh.DXBounds.Radius);
+					const DirectX::BoundingSphere Sphere(DXM::Vector3::Transform(StaticMesh.m_BoundingSphere.Center, ViewMatrix), StaticMesh.m_BoundingSphere.Radius);
 					if (Frustum.Intersects(Sphere))
 					{
-						uint32_t MeshIndex;
-						uint32_t MaterialIndex;
-						if (m_AssetManager->HasRenderHandle(*StaticMesh.Mesh.get()))
-						{
-							MeshIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Mesh.get()).value()->MeshEntryAllocHandle.GetStartOffset() / sizeof(Asset::MeshEntry::GPUData);
-						}
-						else
-						{
-							continue;
-						}
-
-						if (m_AssetManager->HasRenderHandle(*StaticMesh.Material.get()))
-						{
-							MaterialIndex = m_AssetManager->GetRenderHandle(*StaticMesh.Material.get()).value()->MaterialAllocHandle.GetStartOffset() / sizeof(Asset::MaterialData::MaterialRenderData);
-						}
-						else
-						{
-							continue;
-						}
-
-						auto& Batch = OutStaticMeshBatches.Batches[MaterialIndex][MeshIndex];
-						Batch.NumVertices = StaticMesh.Mesh->GetData().Indices.size();
+						auto& Batch = OutStaticMeshBatches.Batches[StaticMesh.m_MaterialIndex][StaticMesh.m_MeshIndex];
+						Batch.NumVertices = StaticMesh.m_NumVertices;
 
 						StaticMeshBatches::PerInstanceData InstanceData;
-						InstanceData.WorldMatrix = StaticMesh.WorldMatrix;
+						InstanceData.WorldMatrix = StaticMesh.m_WorldMatrix;
 						Batch.InstanceData.emplace_back(std::move(InstanceData));
 					}
 				}
@@ -402,7 +417,6 @@ namespace aZero
 					);
 				}
 
-				// TODO: Try making this purely vectors
 				uint32_t InstanceStartOffset = 0;
 				for (auto& [MaterialIndex, MeshToBatchMap] : OutStaticMeshBatches.Batches)
 				{
@@ -479,7 +493,6 @@ namespace aZero
 				m_GraphicsQueue.ExecuteContext(CmdContext);
 			}
 
-			// TODO: Impl
 			void Render(Scene::Scene::Camera& Camera, const std::vector<PrimitiveBatch*>& PrimitiveBatches, D3D12::RenderTargetView& RenderSurface, bool ClearRenderSurface, D3D12::DepthStencilView& DepthSurface, bool ClearDepthSurface)
 			{
 				auto CmdContextHandle = m_GraphicsCmdContextAllocator.GetContext();
@@ -499,7 +512,6 @@ namespace aZero
 				}
 			}
 			
-			// TODO: Impl up/downscaling to match the SrcTexture to the DstTexture (back buffer)
 			void CompleteRender(ID3D12Resource* DstTexture, ID3D12Resource* SrcTexture)
 			{
 				auto CmdContextHandle = m_GraphicsCmdContextAllocator.GetContext();
@@ -532,7 +544,6 @@ namespace aZero
 				m_GraphicsQueue.FlushCommands();
 			}
 
-			// TODO: Engine should own compiler and not the renderer
 			IDxcCompiler3& GetCompiler() { return *m_Compiler.p; }
 
 			void MarkRenderStateDirty(const std::shared_ptr<Asset::Mesh>& MeshAsset)
@@ -586,10 +597,6 @@ namespace aZero
 					CmdContext->m_Context->StopRecording();
 					m_GraphicsQueue.ExecuteContext(*CmdContext->m_Context);
 				}
-				else
-				{
-					// TODO: Impl
-				}
 			}
 
 			void MarkRenderStateDirty(const std::shared_ptr<Asset::Texture>& TextureAsset)
@@ -605,7 +612,7 @@ namespace aZero
 						Data.m_Format,
 						D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
 						m_ResourceRecycler,
-						1, // TODO: Mip should be in the m_AssetData cache
+						1,
 						D3D12_RESOURCE_STATE_COMMON,
 						std::optional<D3D12_CLEAR_VALUE>{}
 					);
@@ -649,10 +656,6 @@ namespace aZero
 					NewEntry.SRV.Init(m_Device, m_ResourceHeap.GetDescriptor(), NewEntry.Texture, NewEntry.Texture.GetResource()->GetDesc().Format, 1, 0, 0, 0);
 
 					m_AssetManager->AddRenderHandle(*TextureAsset.get(), std::move(NewEntry));
-				}
-				else
-				{
-					// TODO: Impl
 				}
 			}
 

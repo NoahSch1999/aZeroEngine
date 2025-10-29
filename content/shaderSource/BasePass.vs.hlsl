@@ -41,6 +41,13 @@ StructuredBuffer<unsigned int> IndexBuffer : register(t2);
 StructuredBuffer<MeshEntry> MeshEntries : register(t3);
 StructuredBuffer<InstanceData> InstanceBuffer : register(t4);
 
+StructuredBuffer<float3> PositionBuffer : register(t5);
+StructuredBuffer<float2> UVBuffer : register(t6);
+StructuredBuffer<float3> NormalBuffer : register(t7);
+StructuredBuffer<float3> TangentBuffer : register(t8);
+StructuredBuffer<unsigned int> IndexBufferNew : register(t9);
+StructuredBuffer<MeshEntry> MeshEntryBuffer : register(t10);
+
 VertexData GetVertexFromID(
     in const StructuredBuffer<VertexData> VertexBuffer,
     in const StructuredBuffer<uint> IndexBuffer,

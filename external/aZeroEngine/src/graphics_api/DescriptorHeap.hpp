@@ -7,7 +7,7 @@ namespace aZero
 {
 	namespace D3D12
 	{
-		// TODO: Implement heap-auto-expand on GetDescriptor()
+		// TODO: Implement the option to resize it
 		class DescriptorHeap : public NonCopyable
 		{
 		private:

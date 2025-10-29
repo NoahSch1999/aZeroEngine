@@ -2,7 +2,6 @@
 #include "misc/NonCopyable.hpp"
 #include <optional>
 
-// TODO: Replace rendergraph etc...
 namespace aZero
 {
 	namespace Rendering

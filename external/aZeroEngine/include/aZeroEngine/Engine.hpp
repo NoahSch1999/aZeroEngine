@@ -48,23 +48,6 @@ namespace aZero
 
 		Rendering::RendererNew m_RendererNew;
 
-		void RebuildPipeline()
-		{
-			m_Renderer->FlushImmediate();
-			D3D12::RenderPass Pass;
-			{
-				D3D12::Shader BasePassVS;
-				BasePassVS.CompileFromFile(this->m_Renderer->GetCompiler(), m_ProjectDirectory + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
-
-				D3D12::Shader BasePassPS;
-				BasePassPS.CompileFromFile(this->m_Renderer->GetCompiler(), m_ProjectDirectory + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
-
-				Pass.Init(m_Device.Get(), BasePassVS, BasePassPS, { DXGI_FORMAT_R8G8B8A8_UNORM_SRGB }, DXGI_FORMAT_D24_UNORM_S8_UINT);
-			}
-
-			m_Renderer->m_StaticMeshPass.m_Pass = std::move(Pass);
-		}
-
 		Engine(uint32_t BufferCount, const std::string& ContentPath)
 		{
 			m_ProjectDirectory = ContentPath; // aZero::Helper::GetProjectDirectory();
@@ -150,7 +133,7 @@ namespace aZero
 			return m_ProjectDirectory;
 		}
 
-		// TODO: Rework these or try to remove
+		// TODO: Rework these or remove
 		std::shared_ptr<Asset::Mesh> GetCubeMesh() { return m_DefaultCube; }
 
 		std::shared_ptr<Asset::Material> GetDefaultMaterial() { return m_DefaultMaterial; }

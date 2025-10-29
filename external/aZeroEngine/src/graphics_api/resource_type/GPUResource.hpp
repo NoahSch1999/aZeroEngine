@@ -8,7 +8,6 @@ namespace aZero
 {
 	namespace D3D12
 	{
-		// TODO: Rework at some point, or move to enhanced barriers
 		struct ResourceTransitionBundles
 		{
 			D3D12_RESOURCE_STATES StateBefore, StateAfter;
@@ -16,7 +15,6 @@ namespace aZero
 		};
 
 		void TransitionResources(ID3D12GraphicsCommandList* CmdList, const std::vector<ResourceTransitionBundles>& Bundles);
-		//
 
 		class GPUResource : public NonCopyable
 		{

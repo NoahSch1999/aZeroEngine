@@ -7,6 +7,9 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 using namespace aZero;
 using namespace Rendering;
 
+#include "assets/AssetManager.hpp"
+#include "scene/SceneManager.hpp"
+
 int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int showCommand)
 {
 #if USE_DEBUG
@@ -25,6 +28,34 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	{
 		aZero::Engine Engine(3, aZero::Helper::GetProjectDirectory() + "/../../../content");
 		Rendering::RenderContext RenderContext = Engine.GetRenderContext();
+
+		aZero::AssetNew::AssetManager am;
+		auto myMesh = am.CreateMesh("mesh");
+		auto mys = am.CreateMesh("meshsa");
+		auto x = am.CreateMesh("meshs");
+		auto myMaterial = am.CreateMaterial("material");
+		auto myTexture = am.CreateTexture("texture");
+
+		SceneTemp::SceneManager sm;
+		RendererNew rendNew;
+		rendNew.Init(Engine.GetDevice(), 3, aZero::Helper::GetProjectDirectory() + "/../../../content");
+		AssetNew::Mesh& mesh = *myMesh.lock();
+		mesh.Load("C:/Projects/Programming/aZeroEditor/content/assets/meshes/cube.fbx");
+		rendNew.Upload(mesh);
+
+		AssetNew::Mesh& meshs = *mys.lock();
+		meshs.Load("C:/Projects/Programming/aZeroEditor/content/assets/meshes/cube.fbx");
+		rendNew.Upload(mesh);
+
+		myMaterial.lock()->m_Data.AlbedoTexture = myTexture;
+		myMaterial.lock()->m_Data.NormalMap = myTexture;
+
+		myTexture.lock()->Load("C:/Users/Noah Schierenbeck/Pictures/Funny Pictures/freakycat.png");
+		rendNew.Upload(*myTexture.lock());
+
+		auto cmdList = rendNew.m_CommandContextAllocator.GetContext()->m_Context->GetCommandList();
+		rendNew.m_FrameAllocator.RecordAllocations(cmdList);
+		rendNew.m_GraphicsQueue.ExecuteContext(*rendNew.m_CommandContextAllocator.GetContext()->m_Context);
 
 		std::shared_ptr<aZero::Window::RenderWindow> ActiveWindow = Engine.CreateRenderWindow({ 1920, 1080 }, "aZero Engine");
 
@@ -61,7 +92,8 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		}
 		//
 
-		Scene::SceneNew scene(0, "MyScene");
+		auto sceneptr = sm.CreateScene("MyScene").lock();
+		Scene::SceneNew& scene = *sceneptr.get();
 		{
 			ECS::Entity ent = scene.CreateEntity();
 			ECS::Entity ent2 = scene.CreateEntity();

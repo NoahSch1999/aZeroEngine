@@ -1,6 +1,7 @@
 #pragma once
 #include "Renderer.hpp"
 #include "RenderSurface.hpp"
+#include "assets/Mesh.hpp"
 
 namespace aZero
 {
@@ -27,14 +28,19 @@ namespace aZero
 				m_Renderer.EndFrame();
 			}
 
-			// TODO: Change once we use multiple command queues etc.
+			// TODO: This is OK for now, but needs to change once there's use multiple command queues etc.
 			void FlushRenderingCommands()
 			{
 				m_Renderer.FlushGraphicsQueue();
 			}
 
+			void RecompileRenderPasses()
+			{
+				m_Renderer.InitRenderPasses();
+			}
+
 			// TODO: Implement for each type of asset, ex. mesh, material, texture
-			void MarkRenderStateDirty()
+			void MarkRenderStateDirty(const AssetNew::Mesh& mesh)
 			{
 
 			}
@@ -131,6 +137,27 @@ namespace aZero
 			void MarkRenderStateDirty(const std::shared_ptr<Asset::Material>& MaterialAsset)
 			{
 				m_Renderer.MarkRenderStateDirty(MaterialAsset);
+			}
+
+			/* TODO per asset: 
+					-Hitta "plats" i gpu resource
+					-Ladda upp datan
+					-Hämta index och sätt assettens renderID till det
+					OBS: casta error/logga om något går fel, inte säker på hur det ska hanteras. Sätt iaf inte renderID till ett valid index
+			*/
+			void MarkRenderStateDirt(AssetNew::Mesh& mesh)
+			{
+
+			}
+
+			void MarkRenderStateDirt(AssetNew::Material& material)
+			{
+
+			}
+
+			void MarkRenderStateDirt(AssetNew::Texture& texture)
+			{
+
 			}
 		};
 	}

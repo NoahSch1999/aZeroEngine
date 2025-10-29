@@ -10,6 +10,11 @@
 
 namespace aZero
 {
+	namespace SceneTemp
+	{
+		class SceneManager;
+		using SceneID = uint32_t;
+	}
 	namespace Scene
 	{
 		class SceneNew;
@@ -24,6 +29,7 @@ namespace aZero
 				uint32_t m_MeshIndex;
 				uint32_t m_MaterialIndex;
 				DirectX::BoundingSphere m_BoundingSphere;
+				uint32_t m_NumVertices;
 			};
 
 			struct Camera
@@ -62,6 +68,13 @@ namespace aZero
 
 		private:
 		public:
+			/*
+			NOTE:
+				If we move to a fully gpu-driven rendering pipeline this data need to have a mirrored version in vram.
+				We can probably skip having mirrored versions of the cameras since we probably can upload them per-frame.
+				In best case we can simply change the logic of adding a new entry in the SparseMappedVector to include gpu-upload of the data too.
+					Then, instead of the renderer owning the instance buffers etc, we can have the renderer fetch the buffers from the scene proxy and set them.
+			*/
 			DataStructures::SparseMappedVector<ECS::EntityID, StaticMesh> m_StaticMeshes;
 			DataStructures::SparseMappedVector<ECS::EntityID, Camera> m_Cameras;
 			DataStructures::SparseMappedVector<ECS::EntityID, DirectionalLight> m_DirectionalLights;
@@ -78,21 +91,17 @@ namespace aZero
 
 		class SceneSerializer;
 
-		using SceneID = uint32_t;
 		class SceneNew
 		{
-			friend SceneSerializer;
 		private:
+			friend SceneSerializer;
+			friend SceneTemp::SceneManager;
 
-			SceneID m_ID;
 			std::string m_Name;
 			std::unordered_map<std::string, ECS::Entity> m_Entities;
 			std::unordered_map<ECS::EntityID, std::string> m_Entity_To_Name;
 			ECS::EntityManager m_EntityManager;
 			ECS::ComponentManagerDecl m_ComponentManager;
-
-			// TODO: Add asset manager dependency injection...
-
 
 			std::string GenerateEntityName()
 			{
@@ -105,10 +114,10 @@ namespace aZero
 				return m_Entities.count(Name) == 1;
 			}
 
-		public:
-			SceneProxy m_Proxy;
-			// TODO: Make only available to the engine class (or the class that generates scenes with new ids)
-			SceneNew(SceneID ID, const std::string& Name = "")
+			SceneNew() = default;
+
+			// TODO: Make only available to the engine class (or the class that generates scenes with new ids) since each scene created has to have a unique ID
+			SceneNew(SceneTemp::SceneID ID, const std::string& Name)
 			{
 				m_ID = ID;
 				m_Name = Name;
@@ -121,15 +130,12 @@ namespace aZero
 				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(MaxEntities);
 				m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(MaxEntities);
 			}
-
-			void Init(SceneID ID, const std::string& Name = "")
-			{
-				m_ID = ID;
-				m_Name = Name;
-			}
+		public:
+			SceneTemp::SceneID m_ID;
+			SceneProxy m_Proxy;
+			
 			//
 
-			SceneNew() = default;
 
 			void RenameScene(const std::string& Name)
 			{
@@ -150,6 +156,8 @@ namespace aZero
 			{
 				ECS::Entity entity = m_EntityManager.CreateEntity();
 				std::string newName;
+
+				// TODO: Flytta ut så logiken kan användas i ex. assetmanager och scenemanager
 				while (true)
 				{
 					newName = this->GenerateEntityName();
@@ -194,24 +202,42 @@ namespace aZero
 				ECS::EntityID id = entity.GetID();
 				if (ECS::TransformComponent* tf = m_ComponentManager.GetComponent<ECS::TransformComponent>(entity))
 				{
-					if (ECS::StaticMeshComponent* mesh = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity))
+					ECS::StaticMeshComponent* mesh = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity);
+
+					std::shared_ptr<AssetNew::Mesh> meshRef;
+					std::shared_ptr<AssetNew::Material> materialRef;
+					if (mesh && !mesh->m_MeshReferenceNew.expired() && !mesh->m_MaterialReferenceNew.expired())
 					{
+						meshRef = mesh->m_MeshReferenceNew.lock();
+						materialRef = mesh->m_MaterialReferenceNew.lock();
+					}
+
+					if (mesh && !meshRef && !materialRef 
+						&& meshRef->m_RenderID != std::numeric_limits<AssetNew::RenderID>::max()
+						&& materialRef->m_RenderID != std::numeric_limits<AssetNew::RenderID>::max())
+					{
+
 						const DXM::Matrix tfMatrix = tf->GetTransform();
 
 						SceneProxy::StaticMesh meshProxy;
-						const auto& data = mesh->m_MeshReference->GetData();
+						meshProxy.m_NumVertices = meshRef->m_VertexData.Indices.size();
 						meshProxy.m_Transform = tfMatrix;
-
+						
 						const float XAxisScale = tfMatrix.m[0][0];
 						const float YAxisScale = tfMatrix.m[1][1];
 						const float ZAxisScale = tfMatrix.m[2][2];
 						const float MaxScaleAxis = std::max(abs(XAxisScale), std::max(abs(YAxisScale), abs(ZAxisScale)));
 						meshProxy.m_BoundingSphere = DirectX::BoundingSphere(
 							{ tfMatrix.Translation().x, tfMatrix.Translation().y, tfMatrix.Translation().z },
-							data.BoundingSphereRadius * MaxScaleAxis
+							meshRef->m_BoundingSphereRadius * MaxScaleAxis
 						);
-						meshProxy.m_MeshIndex = 0; // TODO: Get asset id that has been registered to the renderer
-						meshProxy.m_MaterialIndex = 0; // TODO: Get asset id that has been registered to the renderer
+						meshProxy.m_MeshIndex = meshRef->m_RenderID;
+						meshProxy.m_MaterialIndex = materialRef->m_RenderID;
+
+						// TODO: Maybe have a separate set of meshes for all of them with transparency enabled?
+						// I think the component should control the transparency setting
+						//		This is because it's gonna be a problem if the material changes but the mesh is in the array of non-transparent meshes...
+						//			How do we structure it????
 
 						m_Proxy.m_StaticMeshes.AddOrUpdate(id, std::move(meshProxy));
 					}
@@ -437,6 +463,7 @@ namespace aZero
 
 	namespace Scene
 	{
+		using SceneID = uint32_t;
 		class Scene;
 		constexpr SceneID InvalidSceneID = std::numeric_limits<SceneID>::max();
 
@@ -493,6 +520,9 @@ namespace aZero
 				std::shared_ptr<Asset::Material> Material;
 				float Bounds;
 				DirectX::BoundingSphere DXBounds;
+				uint32_t MeshIndex;
+				uint32_t MaterialIndex;
+				uint32_t NumVertices;
 			};
 
 			struct Camera
@@ -515,15 +545,6 @@ namespace aZero
 				std::unordered_map<uint32_t, ECS::EntityID> m_Index_To_Entity;
 				std::vector<ObjectType> m_Data;
 				uint32_t m_CurrentLastIndex = 0;
-
-				// TODO: Check performance diff if we copy the indices instead and keep the actual instance data on the gpu the entire time
-				//  If we send indices instead of the whole prim:
-					/*
-						1. Copy primitive data into upload heap and enqueue copy to gpu-only buffer
-						2. StaticMesh should have an index to the gpu-only buffer index, the bounds and mesh/mat info
-						3. When performing culling, we use bounds to cull and then copy id to per-render instance buffer containing all ids
-						4. In shader, we use id to get per-instance data
-					*/
 				std::vector<D3D12::LinearBuffer> m_RenderBuffers;
 
 			public:
@@ -704,10 +725,6 @@ namespace aZero
 
 			~Scene()
 			{
-				if (m_ID != InvalidSceneID)
-				{
-					// TODO: Implement faster clearing if needed
-				}
 			}
 
 			Scene(Scene&& Other) noexcept
@@ -888,18 +905,6 @@ namespace aZero
 						MeshPrim.Bounds = StaticMeshComp->m_MeshReference->GetData().BoundingSphereRadius * MaxScaleAxis;
 						const DXM::Vector3 Position(WorldMatrix.m[3][0], WorldMatrix.m[3][1], WorldMatrix.m[3][2]);
 						MeshPrim.DXBounds = DirectX::BoundingSphere(Position, StaticMeshComp->m_MeshReference->GetData().BoundingSphereRadius * MaxScaleAxis);
-						// TODO: This should be changed to avoid using pointers because its gonna be slow af when batching...
-						/*
-							Current problem is we need refcount to the meshes used.
-							This can be moved so we keep a map with primitive -> mesh/mat instead to avoid fetching ptr when culling
-							But we also need the MeshEntryIndex, MaterialIndex and num indices when drawing...
-							MeshEntryIndex and MaterialIndex can be fetched once and stored in the per-prim data.
-							However... the difficult part is the num indices data.
-								Since the asset might change, we need to reflect that on the per-prim data...
-								HOW?
-								This will easily be solved once we do indirect drawing using MeshEntry which contains num indices...
-								But for now...maybe just not allow setting data if the new num indices are not the same?
-						*/
 						MeshPrim.Mesh = StaticMeshComp->m_MeshReference;
 						MeshPrim.Material = StaticMeshComp->m_MaterialReference;
 

@@ -18,7 +18,7 @@ namespace aZero
 			uint32_t m_CurrentSize;
 			std::list<AllocationNode> m_FreeNodes;
 
-			// TODO: Optimize
+			// TODO: Make this faster :(
 			void InsertNode(const AllocationNode& InNode)
 			{
 				std::list<AllocationNode>::iterator it;

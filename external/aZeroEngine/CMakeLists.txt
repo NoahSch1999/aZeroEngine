@@ -16,7 +16,7 @@ add_library(aZeroEngine
     "src/renderer/render_graph/Shader.cpp"
     "src/renderer/Renderer.cpp"
     "src/window/RenderWindow.cpp"
- )
+  "src/assets/Mesh.cpp" "src/assets/Material.cpp" "src/assets/Texture.cpp")
 
 # PRE-PROCESSOR SETTINGS
 target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)

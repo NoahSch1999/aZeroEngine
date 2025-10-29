@@ -114,13 +114,6 @@ namespace aZero
 				return this->ForceSignal();
 			}
 
-			// TODO: Check if this works...
-			UINT64 ExecuteContextsAfterSync(const std::vector<CommandContext*>& Contexts, const CommandQueue& OtherQueue, UINT64 SignalValue)
-			{
-				m_Queue->Wait(OtherQueue.m_Fence.Get(), SignalValue);
-				return this->ExecuteContexts(Contexts);
-			}
-
 			ID3D12CommandQueue* const GetCommandQueue() const { return m_Queue.Get(); }
 			uint64_t GetLatestFenceValue() const { return m_LatestFenceValue; }
 		};
