@@ -11,5 +11,25 @@ namespace aZero
 #if USE_DEBUG
 		std::string GetDebugProjectDirectory();
 #endif
+		//
+
+		template<typename ValueType>
+		std::string HandleNameCollision(const std::string& name, const std::unordered_map<std::string, ValueType>& map)
+		{
+			std::string tempName;
+			while (map.count(name) > 0)
+			{
+				uint32_t incr = 0;
+				tempName = name + "_" + std::to_string(incr);
+				incr++;
+			}
+
+			if (tempName.length() > 0)
+			{
+				return tempName;
+			}
+
+			return name;
+		}
 	}
 }

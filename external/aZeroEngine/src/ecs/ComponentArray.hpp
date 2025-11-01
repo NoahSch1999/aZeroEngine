@@ -1,6 +1,6 @@
 #pragma once
 #include "Entity.hpp"
-#include "SparseLookupArray.hpp"
+#include "misc/SparseSet.hpp"
 
 namespace aZero
 {
@@ -11,7 +11,7 @@ namespace aZero
 		class ComponentArray
 		{
 		private:
-			aZero::DataStructures::SparseLookupArray<ComponentType> m_ComponentArray;
+			aZero::SparseSet<EntityID, ComponentType> m_ComponentArray;
 			int m_AdditionalElementsWhenResize = 1;
 
 		public:
@@ -41,7 +41,7 @@ namespace aZero
 				{
 					return nullptr;
 				}
-				return m_ComponentArray.Get(Ent.GetID());
+				return &m_ComponentArray.Get(Ent.GetID());
 			}
 
 			/** Returns a pointer to a const component tied to the input aZero::ECS::Entity
@@ -55,7 +55,7 @@ namespace aZero
 				{
 					return nullptr;
 				}
-				return m_ComponentArray.Get(Ent.GetID());
+				return &m_ComponentArray.Get(Ent.GetID());
 			}
 
 			/** Returns a pointer to a component tied to the input ID
@@ -69,7 +69,7 @@ namespace aZero
 				{
 					return nullptr;
 				}
-				return m_ComponentArray.Get(ID);
+				return &m_ComponentArray.Get(ID);
 			}
 
 			/** Returns a pointer to a const component tied to the input ID
@@ -83,7 +83,7 @@ namespace aZero
 				{
 					return nullptr;
 				}
-				return m_ComponentArray.Get(ID);
+				return &m_ComponentArray.Get(ID);
 			}
 
 			/** Returns a reference to the internal sparse array containing all the components
@@ -91,7 +91,7 @@ namespace aZero
 			*/
 			std::vector<ComponentType>& GetInternalArray()
 			{
-				return m_ComponentArray.GetArray();
+				return m_ComponentArray.GetData();
 			}
 
 			/** Returns a const reference to the internal sparse array containing all the components
@@ -99,7 +99,7 @@ namespace aZero
 			*/
 			const std::vector<ComponentType>& GetInternalArray() const
 			{
-				return m_ComponentArray.GetArray();
+				return m_ComponentArray.GetData();
 			}
 
 			/** Adds the input component to the input Entity.
@@ -113,9 +113,9 @@ namespace aZero
 			{
 				if (Ent.GetID() != std::numeric_limits<uint32_t>::max())
 				{
-					if (Ent.GetID() >= m_ComponentArray.GetArray().size())
+					if (Ent.GetID() >= m_ComponentArray.GetData().size())
 					{
-						m_ComponentArray.ForceExpand(m_AdditionalElementsWhenResize);
+						m_ComponentArray.ExtendTo(m_AdditionalElementsWhenResize);
 					}
 					m_ComponentArray.Add(Ent.GetID(), std::forward<ComponentType>(Component));
 				}
@@ -125,9 +125,9 @@ namespace aZero
 			{
 				if (Ent.GetID() != std::numeric_limits<uint32_t>::max())
 				{
-					if (Ent.GetID() >= m_ComponentArray.GetArray().size())
+					if (Ent.GetID() >= m_ComponentArray.GetData().size())
 					{
-						m_ComponentArray.ForceExpand(m_AdditionalElementsWhenResize);
+						m_ComponentArray.ExtendTo(m_AdditionalElementsWhenResize);
 					}
 					m_ComponentArray.Add(Ent.GetID(), Component);
 				}

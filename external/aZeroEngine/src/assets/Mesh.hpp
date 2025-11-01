@@ -1,11 +1,10 @@
+#pragma once
 #include <vector>
 #include "Asset.hpp"
 
-#pragma once
-
 namespace aZero
 {
-	namespace AssetNew
+	namespace Asset
 	{
 		using VertexIndex = uint32_t;
 
@@ -14,6 +13,11 @@ namespace aZero
 		private:
 			friend class AssetAllocator<Mesh>;
 			Mesh() = default;
+			Mesh(AssetID assetID, const std::string& name)
+				:AssetBase(assetID, name)
+			{
+
+			}
 		public:
 			struct VertexData
 			{

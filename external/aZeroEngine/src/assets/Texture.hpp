@@ -1,17 +1,22 @@
+#pragma once
 #include <vector>
 #include "Asset.hpp"
 
-#pragma once
 
 namespace aZero
 {
-	namespace AssetNew
+	namespace Asset
 	{
 		class Texture : public AssetBase
 		{
 		private:
 			friend class AssetAllocator<Texture>;
 			Texture() = default;
+			Texture(AssetID assetID, const std::string& name)
+				: AssetBase(assetID, name)
+			{
+
+			}
 		public:
 			struct Data
 			{

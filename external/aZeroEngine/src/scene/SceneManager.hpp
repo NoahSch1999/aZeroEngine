@@ -1,39 +1,33 @@
+#pragma once
+
 #include "scene/Scene.hpp"
 
 namespace aZero
 {
-	namespace SceneTemp
+	namespace Scene
 	{
-		class SceneManager
+		class SceneManager : public NonCopyable, public NonMovable
 		{
 		private:
-			SceneTemp::SceneID m_NextSceneID;
-			std::unordered_map<std::string, std::shared_ptr<Scene::SceneNew>> m_SceneMap;
-
-			// TODO: Make this public for other classes (ex. AssetManager)
-			bool ValidateName(std::string& name)
-			{
-				// TODO: Recursive logic to change name if needed to make it unique
-				return true;
-			}
+			SceneID m_NextSceneID;
+			std::unordered_map<std::string, std::shared_ptr<Scene>> m_SceneMap;
 
 		public:
 			SceneManager():m_NextSceneID(0){}
 
-			std::weak_ptr<Scene::SceneNew> CreateScene(const std::string& name)
+			std::weak_ptr<Scene> CreateScene(const std::string& name)
 			{
-				if (m_NextSceneID == std::numeric_limits<SceneTemp::SceneID>::max())
+				if (m_NextSceneID == std::numeric_limits<SceneID>::max())
 				{
 					// TODO: Figure out exactly how to handle this case
-					throw;
+						// Maybe just throw exception since it's probably not gonna happen? Otherwise return an empty weak_ptr?
+					throw std::runtime_error("Max scenes created during runtime.");
 				}
 
-				std::string sceneName = name;
-				this->ValidateName(sceneName);
-
-				SceneTemp::SceneID newSceneID = m_NextSceneID;
+				std::string sceneName = Helper::HandleNameCollision(name, m_SceneMap);
+				SceneID newSceneID = m_NextSceneID;
 				m_NextSceneID++;
-				m_SceneMap[sceneName] = std::shared_ptr<Scene::SceneNew>(new Scene::SceneNew(newSceneID, sceneName));
+				m_SceneMap[sceneName] = std::shared_ptr<Scene>(new Scene(newSceneID, sceneName));
 				
 				return m_SceneMap[sceneName];
 			}
@@ -42,20 +36,19 @@ namespace aZero
 			{
 				if (m_SceneMap.find(name) != m_SceneMap.end())
 				{
-					// TODO: Deallocate everything needed and then the rest via the scene destructor
 					m_SceneMap.erase(name);
 					return true;
 				}
 				return false;
 			}
 
-			std::weak_ptr<Scene::SceneNew> Get(const std::string& name)
+			std::weak_ptr<Scene> Get(const std::string& name)
 			{
 				if (m_SceneMap.find(name) != m_SceneMap.end())
 				{
 					return m_SceneMap.at(name);
 				}
-				return std::weak_ptr<Scene::SceneNew>();
+				return std::weak_ptr<Scene>();
 			}
 		};
 	}

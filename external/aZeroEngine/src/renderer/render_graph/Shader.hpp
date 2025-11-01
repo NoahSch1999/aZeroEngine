@@ -10,15 +10,22 @@
 
 namespace aZero
 {
+	namespace Pipeline
+	{
+		class ScenePass;
+	}
+
 	namespace D3D12
 	{
 		enum class SHADER_TYPE { NONE, VS, PS, CS };
 
 		class RenderPass;
 
+		// TODO: Rework
 		class Shader
 		{
 			friend RenderPass;
+			friend Pipeline::ScenePass;
 
 		private:
 			SHADER_TYPE m_Type;

@@ -27,34 +27,38 @@ struct InstanceData
     float4x4 WorldMatrix;
 };
 
-struct PerBatchConstants
+struct VSPerBatchConstants
 {
     unsigned int StartInstanceOffset;
     unsigned int MeshEntryIndex;
 };
 
-ConstantBuffer<CameraData> CameraDataBuffer : register(b0);
+ConstantBuffer<CameraData> VertexPerPassData : register(b0);
 ConstantBuffer<PerBatchConstants> PerBatchConstantsBuffer : register(b1);
 
-StructuredBuffer<VertexData> VertexBuffer : register(t1);
-StructuredBuffer<unsigned int> IndexBuffer : register(t2);
-StructuredBuffer<MeshEntry> MeshEntries : register(t3);
-StructuredBuffer<InstanceData> InstanceBuffer : register(t4);
+StructuredBuffer<float3> PositionBuffer : register(t0);
+StructuredBuffer<float2> UVBuffer : register(t1);
+StructuredBuffer<float3> NormalBuffer : register(t2);
+StructuredBuffer<float3> TangentBuffer : register(t3);
+StructuredBuffer<unsigned int> IndexBuffer : register(t4);
+StructuredBuffer<MeshEntry> MeshEntryBuffer : register(t5);
+StructuredBuffer<InstanceData> InstanceBuffer : register(t6);
 
-StructuredBuffer<float3> PositionBuffer : register(t5);
-StructuredBuffer<float2> UVBuffer : register(t6);
-StructuredBuffer<float3> NormalBuffer : register(t7);
-StructuredBuffer<float3> TangentBuffer : register(t8);
-StructuredBuffer<unsigned int> IndexBufferNew : register(t9);
-StructuredBuffer<MeshEntry> MeshEntryBuffer : register(t10);
+VertexData GetVertexFromChannels(unsigned int Index)
+{
+    VertexData vertex;
+    vertex.Position = PositionBuffer.Load(Index);
+    vertex.UV = UVBuffer.Load(Index);
+    vertex.Normal = NormalBuffer.Load(Index);
+    vertex.Tangent = TangentBuffer.Load(Index);
+    return vertex;
+}
 
 VertexData GetVertexFromID(
-    in const StructuredBuffer<VertexData> VertexBuffer,
-    in const StructuredBuffer<uint> IndexBuffer,
     in MeshEntry Mesh, unsigned int ID)
 {
     unsigned int Index = IndexBuffer.Load(ID + Mesh.IndexStartOffset);
-    return VertexBuffer.Load(Index + Mesh.VertexStartOffset);
+    return GetVertexFromChannels(Index + Mesh.VertexStartOffset);
 }
 
 struct InputData
@@ -75,8 +79,8 @@ struct OutputData
 
 OutputData main(InputData Input)
 {
-    const MeshEntry Mesh = MeshEntries.Load(PerBatchConstantsBuffer.MeshEntryIndex);
-    const VertexData Vertex = GetVertexFromID(VertexBuffer, IndexBuffer, Mesh, Input.VertexID);
+    const MeshEntry Mesh = MeshEntryBuffer.Load(PerBatchConstantsBuffer.MeshEntryIndex);
+    const VertexData Vertex = GetVertexFromID(Mesh, Input.VertexID);
     //VertexData Vertex;
     //Vertex.Position = float3(0, 0, 0);
     //Vertex.Normal = float3(1, 0, 0);
@@ -87,7 +91,7 @@ OutputData main(InputData Input)
     OutputData Output;
     Output.Position = mul(WorldMatrix, float4(Vertex.Position, 1.f));
     Output.WorldPosition = Output.Position.xyz;
-    Output.Position = mul(CameraDataBuffer.ViewProjectionMatrix, Output.Position);
+    Output.Position = mul(VertexPerPassData.ViewProjectionMatrix, Output.Position);
     
     Output.UV = Vertex.UV;
     

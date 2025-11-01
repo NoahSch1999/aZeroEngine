@@ -1,10 +1,14 @@
-#include "graphics_api/D3D12Include.hpp"
-
 #pragma once
+#include "graphics_api/D3D12Include.hpp"
 
 namespace aZero
 {
-	namespace AssetNew
+	namespace Rendering
+	{
+		class Renderer;
+	}
+
+	namespace Asset
 	{
 		template<typename T>
 		class AssetAllocator;
@@ -14,10 +18,19 @@ namespace aZero
 
 		class AssetBase
 		{
-		public:
+			friend Rendering::Renderer;
+		private:
+			RenderID m_RenderID = std::numeric_limits<RenderID>::max();
 			AssetID m_AssetID;
-			RenderID m_RenderID = std::numeric_limits<AssetNew::RenderID>::max(); // TODO: Make accessible to the renderer
 			std::string m_Name;
+
+		public:
+			AssetBase(AssetID assetID, const std::string& name)
+				:m_AssetID(assetID), m_Name(name) { }
+
+			AssetID GetAssetID() const { return m_AssetID; }
+			RenderID GetRenderID() const { return m_RenderID; }
+			const std::string& GetName() const { return m_Name; }
 		};
 	}
 }

@@ -11,6 +11,7 @@ namespace aZero
 {
 	namespace Rendering
 	{
+		// TODO: Rework
 		enum class GRAPH_PASS_TYPE { Per_Object_Static };
 		class RenderGraphPass
 		{
@@ -289,6 +290,7 @@ namespace aZero
 					}
 					else
 					{
+						DEBUG_PRINT("Forgot to bind: " + RootBinding.BindingName);
 						return false;
 					}
 				}
@@ -332,150 +334,6 @@ namespace aZero
 				}
 
 				return true;
-			}
-		};
-
-		class RenderGraph
-		{
-		private:
-			D3D12::DescriptorHeap* m_ResourceHeap = nullptr;
-			D3D12::DescriptorHeap* m_SamplerHeap = nullptr;
-
-			std::list<RenderGraphPass*> m_Passes;
-		private:
-
-			void RenderStaticMeshes(RenderGraphPass& Pass,
-				ID3D12GraphicsCommandList* CmdList,
-				const Scene::Scene::Camera& Camera,
-				const StaticMeshBatches& StaticMeshBatches,
-				uint32_t NumDirectionalLights,
-				uint32_t NumPointLights,
-				uint32_t NumSpotLights
-			)
-			{
-				CmdList->RSSetViewports(1, &Camera.Viewport);
-				CmdList->RSSetScissorRects(1, &Camera.ScizzorRect);
-
-				{
-					struct PixelShaderConstants
-					{
-						uint32_t SamplerIndex;
-					};
-
-					struct VertexShaderConstants
-					{
-						DXM::Matrix ViewProjectionMatrix;
-					} CameraConstants;
-					CameraConstants.ViewProjectionMatrix = Camera.ViewMatrix * Camera.ProjMatrix;
-					Pass.m_Pass.SetShaderResource(CmdList, "CameraDataBuffer", (void*)&CameraConstants, sizeof(CameraConstants), D3D12::SHADER_TYPE::VS);
-
-					struct PerBatchConstantsVS
-					{
-						uint32_t StartInstanceOffset;
-						uint32_t MeshEntryIndex;
-					};
-
-					struct PerBatchConstantsPS
-					{
-						uint32_t MaterialIndex;
-						uint32_t NumDirectionalLights;
-						uint32_t NumPointLights;
-						uint32_t NumSpotLights;
-					};
-
-					PerBatchConstantsPS RootConstantsPS;
-					RootConstantsPS.NumDirectionalLights = NumDirectionalLights;
-					RootConstantsPS.NumPointLights = NumPointLights;
-					RootConstantsPS.NumSpotLights = NumSpotLights;
-
-					for (auto& [MaterialIndex, MeshToBatchMap] : StaticMeshBatches.Batches)
-					{
-						RootConstantsPS.MaterialIndex = MaterialIndex;
-						for (auto& [MeshIndex, Batch] : MeshToBatchMap)
-						{
-							PerBatchConstantsVS VSConstants;
-							VSConstants.MeshEntryIndex = MeshIndex;
-							VSConstants.StartInstanceOffset = Batch.StartInstanceOffset;
-
-							const uint32_t NumInstances = Batch.InstanceData.size();
-							Pass.m_Pass.SetShaderResource(CmdList, "PerBatchConstantsBuffer", (void*)&VSConstants, sizeof(VSConstants), D3D12::SHADER_TYPE::VS);
-							Pass.m_Pass.SetShaderResource(CmdList, "PerBatchConstantsBuffer", (void*)&RootConstantsPS, sizeof(PerBatchConstantsPS), D3D12::SHADER_TYPE::PS);
-
-							CmdList->DrawInstanced(static_cast<UINT>(Batch.NumVertices), NumInstances, 0, 0);
-						}
-					}
-				}
-			}
-
-		public:
-			RenderGraph() = default;
-
-			RenderGraph(D3D12::DescriptorHeap* ResourceDescHeap, D3D12::DescriptorHeap* SamplerDescHeap)
-			{
-				this->Init(ResourceDescHeap, SamplerDescHeap);
-			}
-
-			void Init(D3D12::DescriptorHeap* ResourceDescHeap, D3D12::DescriptorHeap* SamplerDescHeap)
-			{
-				m_ResourceHeap = ResourceDescHeap;
-				m_SamplerHeap = SamplerDescHeap;
-			}
-
-			bool Execute(
-				D3D12::CommandQueue& DirectQueue, 
-				D3D12::CommandContext& Context, 
-				const Scene::Scene::Camera& Camera,
-
-				// Generated from the renderer/culling system for the input camera
-				const Rendering::StaticMeshBatches& InStaticMeshBatches,
-				uint32_t NumDirectionalLights,
-				uint32_t NumPointLights,
-				uint32_t NumSpotLights
-				//
-			)
-			{
-				for (RenderGraphPass* Pass : m_Passes)
-				{
-					ID3D12DescriptorHeap* Heaps[2] = { m_ResourceHeap->GetDescriptorHeap(), m_SamplerHeap->GetDescriptorHeap() };
-					Context.GetCommandList()->SetDescriptorHeaps(2, Heaps);
-
-					bool Succeeded = Pass->BeginPass(Context.GetCommandList());
-					if (!Succeeded)
-					{
-						Context.FreeCommandBuffer();
-						return false;
-					}
-
-					if (Pass->m_GraphPassType == GRAPH_PASS_TYPE::Per_Object_Static)
-					{
-						// Do path with input batches
-						this->RenderStaticMeshes(*Pass, Context.GetCommandList(), Camera, InStaticMeshBatches, NumDirectionalLights, NumPointLights, NumSpotLights);
-					}
-					else
-					{
-						throw;
-					}
-
-					DirectQueue.ExecuteContext(Context);
-				}
-
-				return true;
-			}
-
-			void OptimizeDependencies()
-			{
-				// TODO: Impl
-
-				//
-			}
-
-			void AddPass(RenderGraphPass& Pass, uint32_t PositionIndex)
-			{
-				// TODO: Impl
-				m_Passes.emplace_back(&Pass);
-				//
-
-				this->OptimizeDependencies();
 			}
 		};
 	}

@@ -5,10 +5,8 @@ extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
 
 using namespace aZero;
-using namespace Rendering;
 
-#include "assets/AssetManager.hpp"
-#include "scene/SceneManager.hpp"
+#include "pipeline/ScenePass.hpp"
 
 int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int showCommand)
 {
@@ -26,74 +24,34 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 	try
 	{
-		aZero::Engine Engine(3, aZero::Helper::GetProjectDirectory() + "/../../../content");
-		Rendering::RenderContext RenderContext = Engine.GetRenderContext();
-
-		aZero::AssetNew::AssetManager am;
-		auto myMesh = am.CreateMesh("mesh");
-		auto mys = am.CreateMesh("meshsa");
-		auto x = am.CreateMesh("meshs");
-		auto myMaterial = am.CreateMaterial("material");
-		auto myTexture = am.CreateTexture("texture");
-
-		SceneTemp::SceneManager sm;
-		RendererNew rendNew;
-		rendNew.Init(Engine.GetDevice(), 3, aZero::Helper::GetProjectDirectory() + "/../../../content");
-		AssetNew::Mesh& mesh = *myMesh.lock();
-		mesh.Load("C:/Projects/Programming/aZeroEditor/content/assets/meshes/cube.fbx");
-		rendNew.Upload(mesh);
-
-		AssetNew::Mesh& meshs = *mys.lock();
-		meshs.Load("C:/Projects/Programming/aZeroEditor/content/assets/meshes/cube.fbx");
-		rendNew.Upload(mesh);
-
-		myMaterial.lock()->m_Data.AlbedoTexture = myTexture;
-		myMaterial.lock()->m_Data.NormalMap = myTexture;
-
-		myTexture.lock()->Load("C:/Users/Noah Schierenbeck/Pictures/Funny Pictures/freakycat.png");
-		rendNew.Upload(*myTexture.lock());
-
-		auto cmdList = rendNew.m_CommandContextAllocator.GetContext()->m_Context->GetCommandList();
-		rendNew.m_FrameAllocator.RecordAllocations(cmdList);
-		rendNew.m_GraphicsQueue.ExecuteContext(*rendNew.m_CommandContextAllocator.GetContext()->m_Context);
-
-		std::shared_ptr<aZero::Window::RenderWindow> ActiveWindow = Engine.CreateRenderWindow({ 1920, 1080 }, "aZero Engine");
-
-		Rendering::RenderSurface SceneColorSurface(
-			Engine.CreateRenderSurface(ActiveWindow->GetClientDimensions(), 
-				Rendering::RenderSurface::Type::Color_Target, DXM::Vector4(0.2,0.2,0.2,0)));
-		
-		Rendering::RenderSurface SceneDepthSurface(
-			Engine.CreateRenderSurface(ActiveWindow->GetClientDimensions(), 
-				Rendering::RenderSurface::Type::Depth_Target));
-
-		// Scene creation
-		Scene::Scene CurrentScene = Engine.CreateScene();
-		{
-			Scene::SceneEntity& CubeEntity = *CurrentScene.CreateEntity("Cube");
-			ECS::TransformComponent CubeTf;
-			CubeTf.SetTransform(DXM::Matrix::CreateTranslation(0, 0, 3));
-			CurrentScene.AddComponent<ECS::TransformComponent>(CubeEntity, std::move(CubeTf));
-			ECS::StaticMeshComponent CubeMeshComp;
-			CubeMeshComp.m_MeshReference = Engine.GetCubeMesh();
-			CubeMeshComp.m_MaterialReference = Engine.GetDefaultMaterial();
-			CurrentScene.AddComponent<ECS::StaticMeshComponent>(CubeEntity, std::move(CubeMeshComp));
-			CurrentScene.MarkRenderStateDirty(CubeEntity);
-
-			Scene::SceneEntity& CameraEntity = *CurrentScene.CreateEntity("Camera");
-			ECS::CameraComponent CamComp;
-			CamComp.m_TopLeft = { 0,0 };
-			CamComp.m_Dimensions = ActiveWindow->GetClientDimensions();
-			CamComp.m_NearPlane = 0.001f;
-			CamComp.m_FarPlane = 1000.f;
-			CamComp.m_Fov = 3.14 / 2.f;
-			CurrentScene.AddComponent(CameraEntity, std::move(CamComp));
-			CurrentScene.MarkRenderStateDirty(CameraEntity);
-		}
+		// API Interfaces
+		aZero::Engine engine(3, aZero::Helper::GetProjectDirectory() + "/../../../content");
+		std::shared_ptr<aZero::Window::RenderWindow> activeWindow = engine.CreateRenderWindow({ 1920, 1080 }, "aZero engine");
+		Rendering::RenderContext renderContext = engine.GetRenderContext();
+		Asset::AssetManager& assetManager = engine.GetAssetManager();
+		Scene::SceneManager& sceneManager = engine.GetSceneManager();
 		//
 
-		auto sceneptr = sm.CreateScene("MyScene").lock();
-		Scene::SceneNew& scene = *sceneptr.get();
+		// Creating a scene
+		auto sceneptr = sceneManager.CreateScene("MyScene").lock();
+		Scene::Scene& scene = *sceneptr.get();
+
+		// Creating a mesh
+		auto myMesh = assetManager.CreateMesh("mesh");
+		myMesh.lock()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "cube.fbx");
+		renderContext.UpdateRenderState(*myMesh.lock());
+
+		// Creating a texture
+		auto myTexture = assetManager.CreateTexture("texture");
+		myTexture.lock()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "freakycat.png");
+		renderContext.UpdateRenderState(*myTexture.lock());
+
+		// Creating a material
+		auto myMaterial = assetManager.CreateMaterial("material");
+		myMaterial.lock()->m_Data.AlbedoTexture = myTexture;
+		myMaterial.lock()->m_Data.NormalMap = myTexture;
+		renderContext.UpdateRenderState(*myMaterial.lock());
+
 		{
 			ECS::Entity ent = scene.CreateEntity();
 			ECS::Entity ent2 = scene.CreateEntity();
@@ -105,83 +63,90 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(2) /** DXM::Matrix::CreateRotationY(3.1415 / 2)*/ * DXM::Matrix::CreateTranslation(1337, 5, 42));
 
 			ECS::StaticMeshComponent CubeMeshComp;
-			CubeMeshComp.m_MeshReference = Engine.GetCubeMesh();
-			CubeMeshComp.m_MaterialReference = Engine.GetDefaultMaterial();
+			CubeMeshComp.m_MeshReference = myMesh;
+			CubeMeshComp.m_MaterialReference = myMaterial;
 			scene.GetComponentManager().AddComponent(ent2, CubeMeshComp);
 
-			ECS::CameraComponent CamComp;
-			CamComp.m_TopLeft = { 0,0 };
-			CamComp.m_Dimensions = ActiveWindow->GetClientDimensions();
-			CamComp.m_NearPlane = 0.001f;
-			CamComp.m_FarPlane = 1000.f;
-			CamComp.m_Fov = 3.14 / 2.f;
-			scene.GetComponentManager().AddComponent(ent2, CamComp);
+			ECS::CameraComponent cameraComp;
+			cameraComp.m_TopLeft = { 0,0 };
+			cameraComp.m_Dimensions = activeWindow->GetClientDimensions();
+			cameraComp.m_NearPlane = 0.001f;
+			cameraComp.m_FarPlane = 1000.f;
+			cameraComp.m_Fov = 3.14 / 2.f;
+			scene.GetComponentManager().AddComponent(ent2, cameraComp);
 
-			scene.MarkRenderStateDirty(ent2);
+			scene.UpdateRenderState(ent2);
 
-			Scene::SceneSerializer::Serialize(scene, "C:/Projects/Programming/aZeroEditor/idk.aZene");
-			auto loadedScene = Scene::SceneSerializer::Deserialize("C:/Projects/Programming/aZeroEditor/idk.aZene");
+			//Scene::SceneSerializer::Serialize(scene, "C:/Projects/PrograssetManagerming/aZeroEditor/idk.aZene");
+			//auto loadedScene = Scene::SceneSerializer::Deserialize("C:/Projects/PrograssetManagerming/aZeroEditor/idk.aZene");
 		}
+
+		Rendering::RenderSurface SceneColorSurface(
+			engine.CreateRenderSurface(activeWindow->GetClientDimensions(), 
+				Rendering::RenderSurface::Type::Color_Target, DXM::Vector4(0.2,0.2,0.2,0)));
 		
-		//Engine.m_RendererNew.Render(scene, SceneColorSurface.GetView<D3D12::RenderTargetView>(), true, SceneDepthSurface.GetView<D3D12::DepthStencilView>(), true);
+		Rendering::RenderSurface SceneDepthSurface(
+			engine.CreateRenderSurface(activeWindow->GetClientDimensions(), 
+				Rendering::RenderSurface::Type::Depth_Target));
 
-		RenderContext.FlushRenderingCommands();
-
-		while (ActiveWindow->IsOpen())
+		while (activeWindow->IsOpen())
 		{
-			ActiveWindow->HandleMessages();
+			activeWindow->HandleMessages();
 
-			RenderContext.BeginRenderFrame();
+			renderContext.BeginFrame();
 
 			if (GetAsyncKeyState(VK_ESCAPE))
 			{
 				break;
 			}
 
-			Scene::SceneEntity& CameraEntity = *CurrentScene.GetEntity("Camera");
+			// Example of moving the camera
+			ECS::Entity camEnt = scene.GetEntity("noah").value();
+			ECS::CameraComponent& cam = *scene.GetComponentManager().GetComponent<ECS::CameraComponent>(camEnt);
 			if (GetAsyncKeyState('W'))
 			{
-				ECS::CameraComponent* Cam = CurrentScene.GetComponent<ECS::CameraComponent>(CameraEntity);
-				Cam->m_Position += DXM::Vector3(0, 0, 0.01f);
-				CurrentScene.MarkRenderStateDirty(CameraEntity);
+				cam.m_Position += DXM::Vector3(0, 0, 0.01f);
+				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('S'))
 			{
-				ECS::CameraComponent* Cam = CurrentScene.GetComponent<ECS::CameraComponent>(CameraEntity);
-				Cam->m_Position += DXM::Vector3(0, 0, -0.03f);
-				CurrentScene.MarkRenderStateDirty(CameraEntity);
+				cam.m_Position += DXM::Vector3(0, 0, -0.03f);
+				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('D'))
 			{
-				ECS::CameraComponent* Cam = CurrentScene.GetComponent<ECS::CameraComponent>(CameraEntity);
-				Cam->m_Position += DXM::Vector3(-0.01f, 0, 0);
-				CurrentScene.MarkRenderStateDirty(CameraEntity);
+				cam.m_Position += DXM::Vector3(-0.01f, 0, 0);
+				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('A'))
 			{
-				ECS::CameraComponent* Cam = CurrentScene.GetComponent<ECS::CameraComponent>(CameraEntity);
-				Cam->m_Position += DXM::Vector3(0.01f, 0, 0);
-				CurrentScene.MarkRenderStateDirty(CameraEntity);
+				cam.m_Position += DXM::Vector3(0.01f, 0, 0);
+				scene.UpdateRenderState(camEnt);
+			}
+			//
+
+			// Example of render pipeline hotreloading
+			if (GetAsyncKeyState(VK_SPACE))
+			{
+				renderContext.HotreloadRenderPipeline();
 			}
 
-			// Re-run frame if swapchain isnt ready for a new frame
-			// This reduces input latency (in theory) 
-			if (ActiveWindow->WaitOnSwapchain())
+			if (activeWindow->WaitOnSwapchain())
 			{
-				RenderContext.Render(CurrentScene, SceneColorSurface, true, SceneDepthSurface, true);
+				renderContext.Render(scene, SceneColorSurface, true, SceneDepthSurface, true);
 
-				RenderContext.CompleteRender(SceneColorSurface, ActiveWindow);
+				renderContext.CompleteRender(SceneColorSurface, activeWindow);
 
-				RenderContext.EndRenderFrame();
+				renderContext.EndFrame();
 
-				ActiveWindow->Present();
+				activeWindow->Present();
 			}
 		}
 
-		RenderContext.FlushRenderingCommands();
+		renderContext.FlushRenderingCommands();
 	}
 	catch (std::invalid_argument& e)
 	{

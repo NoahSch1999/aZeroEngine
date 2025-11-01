@@ -2,7 +2,7 @@
 #include "misc/EngineDebugMacros.hpp"
 #include "misc/stb_image.h"
 
-bool aZero::AssetNew::Texture::Load(const std::string& filePath)
+bool aZero::Asset::Texture::Load(const std::string& filePath)
 {
 	std::int32_t width, height, channels;
 	stbi_uc* loadedImage = stbi_load(filePath.c_str(), &width, &height, &channels, STBI_rgb_alpha);

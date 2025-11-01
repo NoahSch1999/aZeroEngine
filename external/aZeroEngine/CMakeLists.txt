@@ -12,11 +12,13 @@ add_library(aZeroEngine
     "src/graphics_api/Descriptor.cpp"
     "src/misc/HelperFunctions.cpp"
     "src/misc/STBIHack.cpp"
-    "src/renderer/render_asset/RenderAssetData.cpp"
     "src/renderer/render_graph/Shader.cpp"
     "src/renderer/Renderer.cpp"
     "src/window/RenderWindow.cpp"
-  "src/assets/Mesh.cpp" "src/assets/Material.cpp" "src/assets/Texture.cpp")
+    "src/assets/Mesh.cpp" 
+    "src/assets/Material.cpp" 
+    "src/assets/Texture.cpp"
+    "src/engine/Engine.cpp")
 
 # PRE-PROCESSOR SETTINGS
 target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
@@ -101,7 +103,7 @@ FetchContent_MakeAvailable(aZero-Linear-Allocator)
 
 target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 	PUBLIC ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/inc
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directx-headers-src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/directxtk12-src/Inc

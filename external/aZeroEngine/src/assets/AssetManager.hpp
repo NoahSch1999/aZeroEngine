@@ -1,3 +1,4 @@
+#pragma once
 #include "misc/NonCopyable.hpp"
 #include "misc/NonMovable.hpp"
 #include "assets/Mesh.hpp"
@@ -9,21 +10,16 @@
 
 namespace aZero
 {
-	namespace AssetNew
+	namespace Asset
 	{
 		template<typename AssetType>
 		class AssetAllocator : public NonCopyable, public NonMovable
 		{
 		public:
-			AssetAllocator():m_NextAssetID(0) {};
+			AssetAllocator():m_NextAssetID(0) {}
 
 			AssetID m_NextAssetID;
 			std::unordered_map<std::string, std::shared_ptr<AssetType>> m_AssetMap;
-
-			void ValidateName(std::string& name)
-			{
-				// TODO: Recursive logic to change name if needed to make it unique
-			}
 
 			std::weak_ptr<AssetType> Create(const std::string& name)
 			{
@@ -33,16 +29,10 @@ namespace aZero
 					throw;
 				}
 
-				std::string assetName = name;
-				this->ValidateName(assetName);
-
+				std::string assetName = Helper::HandleNameCollision(name, m_AssetMap);
 				AssetID newAssetID = m_NextAssetID;
 				m_NextAssetID++;
-				m_AssetMap[assetName] = std::shared_ptr<AssetType>(new AssetType());
-
-				// TODO: replace with constructor
-				m_AssetMap[assetName]->m_AssetID = newAssetID;
-				m_AssetMap[assetName]->m_Name = assetName;
+				m_AssetMap[assetName] = std::shared_ptr<AssetType>(new AssetType(newAssetID, assetName));
 				return m_AssetMap[assetName];
 			}
 
@@ -145,11 +135,3 @@ namespace aZero
 		};
 	}
 }
-/*
-creates assets and store with name and id keys
-when material/mesh is removed
-	=> remove asset from renderer using id
-	when scene is rendered
-		=> if batch uses material or mesh that isnt in the renderer we set default material/mesh
-when texture is removed, go through all materials and set the texture that was removed to the default texture and update render state
-*/

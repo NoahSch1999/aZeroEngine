@@ -24,13 +24,11 @@ namespace aZero
 
 	namespace Window
 	{
-		// TODO: Add multi-window support for engine
+		// TODO: Remove this from the API and let the user copy the final rendered frame to their own texture that they want to present
 		class RenderWindow : public NonCopyable
 		{
 			friend Engine;
 		private:
-
-			// TODO: Cleanup member vars
 			Microsoft::WRL::ComPtr<IDXGISwapChain2> m_SwapChain;
 			HANDLE m_WaitableHandle;
 
@@ -88,9 +86,6 @@ namespace aZero
 			}
 
 		public:
-
-			// TODO: Add parenting:
-				// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa#:~:text=in%2C%20optional%5D%20HWND-,hWndParent,-%2C%0A%20%20%5Bin%2C%20optional%5D%20HMENU
 			RenderWindow(
 				const D3D12::CommandQueue& GraphicsQueue,
 				const std::string& Name,
@@ -134,14 +129,12 @@ namespace aZero
 				m_NextBackBuffer++;
 			}
 
-			// TODO: Impl so bb is always same as window client area
 			void SetFullscreenMode(D3D12::CommandQueue& CmdQueue, bool Fullscreen)
 			{
 				if (Fullscreen)
 				{
 					SetWindowLongA(m_WindowHandle, GWL_STYLE, WS_POPUP);
 					ShowWindow(m_WindowHandle, SW_SHOW);
-					// Resize swapchain
 					CmdQueue.FlushImmediate();
 					int x = GetSystemMetrics(SM_CXSCREEN);
 					int y = GetSystemMetrics(SM_CYSCREEN);
@@ -150,7 +143,6 @@ namespace aZero
 				else
 				{
 					SetWindowLongA(m_WindowHandle, GWL_STYLE, WS_OVERLAPPEDWINDOW);
-					// Resize swapchain
 					ShowWindow(m_WindowHandle, SW_SHOW); 
 					CmdQueue.FlushImmediate();
 					auto ClientDims = this->GetClientDimensions();

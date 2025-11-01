@@ -15,6 +15,7 @@ namespace aZero
 		public:
 			enum class Type { Color_Target, Depth_Target };
 		private:
+			Type m_Type;
 			std::unique_ptr<D3D12::GPUTexture> m_Texture;
 			std::variant<D3D12::RenderTargetView, D3D12::DepthStencilView> m_View;
 
@@ -86,6 +87,8 @@ namespace aZero
 							ClearValue
 						));
 				}
+
+				m_Type = InType;
 			}
 
 		public:
@@ -124,6 +127,18 @@ namespace aZero
 					throw std::runtime_error("RenderSurface is uninitialized");
 				}
 				return *m_Texture.get(); 
+			}
+
+			void RecordClear(ID3D12GraphicsCommandList* cmdList)
+			{
+				if (m_Type == Type::Color_Target)
+				{
+					cmdList->ClearRenderTargetView(std::get<D3D12::RenderTargetView>(m_View).GetDescriptorHandle(), m_Texture->GetClearValue()->Color, 0, nullptr);
+				}
+				else if (m_Type == Type::Depth_Target)
+				{
+					cmdList->ClearDepthStencilView(std::get<D3D12::DepthStencilView>(m_View).GetDescriptorHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_Texture->GetClearValue()->DepthStencil.Depth, m_Texture->GetClearValue()->DepthStencil.Stencil, 0, nullptr);
+				}
 			}
 		};
 	}

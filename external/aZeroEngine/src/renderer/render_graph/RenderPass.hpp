@@ -11,8 +11,6 @@ namespace aZero
 
 	namespace D3D12
 	{
-		// TODO: Minimize mem footprint based on cs or graphics pass
-		// TODO: Remove from D3D12 namespace
 		enum class PASS_TYPE { INVALID, GRAPHICS, COMPUTE };
 
 		class RenderPass : public NonCopyable

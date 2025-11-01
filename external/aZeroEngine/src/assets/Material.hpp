@@ -1,16 +1,20 @@
-#include "Texture.hpp"
-
 #pragma once
+#include "Texture.hpp"
 
 namespace aZero
 {
-	namespace AssetNew
+	namespace Asset
 	{
 		class Material : public AssetBase
 		{
 		private:
 			friend class AssetAllocator<Material>;
 			Material() = default;
+			Material(AssetID assetID, const std::string& name)
+				:AssetBase(assetID, name)
+			{
+
+			}
 		public:
 			struct Data
 			{

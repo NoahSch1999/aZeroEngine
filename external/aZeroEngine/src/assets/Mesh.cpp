@@ -4,7 +4,7 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 
-bool aZero::AssetNew::Mesh::Load(const std::string& path)
+bool aZero::Asset::Mesh::Load(const std::string& path)
 {
 	Assimp::Importer importer;
 	const aiScene* const scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);

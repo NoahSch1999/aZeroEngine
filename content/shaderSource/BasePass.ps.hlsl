@@ -18,7 +18,7 @@ struct PixelShaderConstants
     int SamplerIndex;
 };
 
-struct PerBatchConstants
+struct PSPerBatchConstants
 {
     unsigned int MaterialEntryIndex;
     unsigned int NumDirectionalLights;
