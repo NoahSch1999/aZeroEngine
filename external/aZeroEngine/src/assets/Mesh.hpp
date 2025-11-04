@@ -1,3 +1,11 @@
+/**
+ * @file Mesh.h
+ * @brief Defines the Mesh asset class.
+ *
+ * @date 2025-11-04
+ * @version 1.0
+ */
+
 #pragma once
 #include <vector>
 #include "Asset.hpp"
@@ -8,6 +16,17 @@ namespace aZero
 	{
 		using VertexIndex = uint32_t;
 
+		/**
+		 * @class Mesh
+		 * @brief Represents a 3D mesh asset containing vertex and index data.
+		 *
+		 * The `Mesh` class derives from `AssetBase` and encapsulates all the vertex-level
+		 * data required for rendering. It stores vertex attributes such as positions,
+		 * UVs, normals, and tangents, as well as index data. 
+		 * Mesh data can be loaded from an external file using the `Load()`.
+		 * 
+		 * Instances are managed by the AssetManager class.
+		 */
 		class Mesh : public AssetBase
 		{
 		private:

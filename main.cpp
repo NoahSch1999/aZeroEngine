@@ -38,19 +38,19 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 		// Creating a mesh
 		auto myMesh = assetManager.CreateMesh("mesh");
-		myMesh.lock()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "cube.fbx");
-		renderContext.UpdateRenderState(*myMesh.lock());
+		myMesh.GetAsset()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "cube.fbx");
+		renderContext.UpdateRenderState(myMesh);
 
 		// Creating a texture
 		auto myTexture = assetManager.CreateTexture("texture");
-		myTexture.lock()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "freakycat.png");
-		renderContext.UpdateRenderState(*myTexture.lock());
+		myTexture.GetAsset()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "freakycat.png");
+		renderContext.UpdateRenderState(myTexture);
 
 		// Creating a material
 		auto myMaterial = assetManager.CreateMaterial("material");
-		myMaterial.lock()->m_Data.AlbedoTexture = myTexture;
-		myMaterial.lock()->m_Data.NormalMap = myTexture;
-		renderContext.UpdateRenderState(*myMaterial.lock());
+		myMaterial.GetAsset()->m_Data.AlbedoTexture = myTexture;
+		myMaterial.GetAsset()->m_Data.NormalMap = myTexture;
+		renderContext.UpdateRenderState(myMaterial);
 
 		{
 			ECS::Entity ent = scene.CreateEntity();

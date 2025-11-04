@@ -185,9 +185,9 @@ namespace aZero
 					return false;
 				}
 
-				if (m_Bindings.DepthStencilTarget.ShouldClear)
+				if (m_Bindings.DepthStencilTarget->ShouldClear)
 				{
-					cmdList->ClearDepthStencilView(m_Bindings.DepthStencilTarget.Descriptor.lock()->GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_Bindings.DepthStencilTarget.Depth, m_Bindings.DepthStencilTarget.Stencil, 0, nullptr);
+					cmdList->ClearDepthStencilView(m_Bindings.DepthStencilTarget->Descriptor.lock()->GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_Bindings.DepthStencilTarget->Depth, m_Bindings.DepthStencilTarget->Stencil, 0, nullptr);
 				}
 				
 				for (auto& [name, rtv] : m_Bindings.RenderTargets)
@@ -243,7 +243,7 @@ namespace aZero
 			struct Bindings
 			{
 				// TODO: Replace with RenderSurface?
-				DepthStencilBinding DepthStencilTarget;
+				std::optional<DepthStencilBinding> DepthStencilTarget;
 				std::unordered_map<std::string, RenderTargetBinding> RenderTargets;
 				//
 
@@ -271,26 +271,28 @@ namespace aZero
 				ID3D12DescriptorHeap* heaps[2] = { resourceHeap, samplerHeap };
 				cmdList->SetDescriptorHeaps(2, heaps);
 				
+				// We want to support not binding either a dsv or any rtvs since we might want depth-only passes etc...
 				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
 				for (auto& rtv : m_Bindings.RenderTargets)
 				{
-					// TODO: Look other TODO
-					//if (rtv.second.Descriptor.expired())
-					//{
-					//	return false;
-					//}
+					if (rtv.second.Descriptor.expired())
+					{
+						DEBUG_PRINT("Render target with name || " + rtv.first + " || has expired.");
+						return false;
+					}
 					rtvHandles.emplace_back(rtv.second.Descriptor.lock()->GetCPUHandle());
 				}
 
-				// TODO: Look other TODO
-				//if (m_Bindings.DepthStencilTarget.Descriptor.expired())
-				//{
-				//	return false;
-				//}
-
-				if (!m_Bindings.DepthStencilTarget.Descriptor.expired())
+				if (m_Bindings.DepthStencilTarget.has_value() && m_Bindings.DepthStencilTarget->Descriptor.expired())
 				{
-					D3D12_CPU_DESCRIPTOR_HANDLE tempHandle = m_Bindings.DepthStencilTarget.Descriptor.lock()->GetCPUHandle();
+					DEBUG_PRINT("Depth stencil has expired.");
+					return false;
+				}
+				//
+
+				if (m_Bindings.DepthStencilTarget.has_value())
+				{
+					D3D12_CPU_DESCRIPTOR_HANDLE tempHandle = m_Bindings.DepthStencilTarget->Descriptor.lock()->GetCPUHandle();
 					cmdList->OMSetRenderTargets(rtvHandles.size(), rtvHandles.data(), false, &tempHandle);
 				}
 				else
@@ -452,13 +454,13 @@ namespace aZero
 
 			bool ValidateBoundRenderSurfaces()
 			{
-				if (m_Bindings.DepthStencilTarget.Descriptor.expired())
+				if (m_Bindings.DepthStencilTarget.has_value() && m_Bindings.DepthStencilTarget->Descriptor.expired())
 				{
 					// LOG
 					return false;
 				}
 
-				if (m_Bindings.DepthStencilTarget.Descriptor.lock()->GetHeapIndex() == -1) // TODO: Change "-1" to a constexpr static var
+				if (m_Bindings.DepthStencilTarget->Descriptor.lock()->GetHeapIndex() == -1) // TODO: Change "-1" to a constexpr static var
 				{
 					// LOG
 					return false;

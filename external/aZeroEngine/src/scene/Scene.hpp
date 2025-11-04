@@ -182,42 +182,47 @@ namespace aZero
 				{
 					ECS::StaticMeshComponent* mesh = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity);
 
-					std::shared_ptr<Asset::Mesh> meshRef = mesh->m_MeshReference.lock();
-					std::shared_ptr<Asset::Material> materialRef = mesh->m_MaterialReference.lock();
-					if (mesh && !mesh->m_MeshReference.expired() && !mesh->m_MaterialReference.expired())
+					auto meshRef = mesh->m_MeshReference;
+					auto materialRef = mesh->m_MaterialReference;
+
+					if (meshRef.IsValid() && materialRef.IsValid()
+						&& meshRef.GetAsset()->GetRenderID() != std::numeric_limits<Asset::RenderID>::max()
+						&& materialRef.GetAsset()->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
 					{
-						meshRef = mesh->m_MeshReference.lock();
-						materialRef = mesh->m_MaterialReference.lock();
-					}
+						auto meshAsset = meshRef.GetAsset();
+						auto materialAsset = materialRef.GetAsset();
 
-					if (mesh && meshRef && materialRef 
-						&& meshRef->GetRenderID() != std::numeric_limits<Asset::RenderID>::max()
-						&& materialRef->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
-					{
+						if (meshAsset->GetRenderID() != std::numeric_limits<Asset::RenderID>::max()
+							&& materialAsset->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+						{
+							const DXM::Matrix tfMatrix = tf->GetTransform();
 
-						const DXM::Matrix tfMatrix = tf->GetTransform();
+							SceneProxy::StaticMesh meshProxy;
+							meshProxy.m_NumVertices = meshAsset->m_VertexData.Indices.size();
+							meshProxy.m_Transform = tfMatrix;
 
-						SceneProxy::StaticMesh meshProxy;
-						meshProxy.m_NumVertices = meshRef->m_VertexData.Indices.size();
-						meshProxy.m_Transform = tfMatrix;
-						
-						const float XAxisScale = tfMatrix.m[0][0];
-						const float YAxisScale = tfMatrix.m[1][1];
-						const float ZAxisScale = tfMatrix.m[2][2];
-						const float MaxScaleAxis = std::max(abs(XAxisScale), std::max(abs(YAxisScale), abs(ZAxisScale)));
-						meshProxy.m_BoundingSphere = DirectX::BoundingSphere(
-							{ tfMatrix.Translation().x, tfMatrix.Translation().y, tfMatrix.Translation().z },
-							meshRef->m_BoundingSphereRadius * MaxScaleAxis
-						);
-						meshProxy.m_MeshIndex = meshRef->GetRenderID();
-						meshProxy.m_MaterialIndex = materialRef->GetRenderID();
+							const float XAxisScale = tfMatrix.m[0][0];
+							const float YAxisScale = tfMatrix.m[1][1];
+							const float ZAxisScale = tfMatrix.m[2][2];
+							const float MaxScaleAxis = std::max(abs(XAxisScale), std::max(abs(YAxisScale), abs(ZAxisScale)));
+							meshProxy.m_BoundingSphere = DirectX::BoundingSphere(
+								{ tfMatrix.Translation().x, tfMatrix.Translation().y, tfMatrix.Translation().z },
+								meshAsset->m_BoundingSphereRadius * MaxScaleAxis
+							);
+							meshProxy.m_MeshIndex = meshAsset->GetRenderID();
+							meshProxy.m_MaterialIndex = materialAsset->GetRenderID();
 
-						// TODO: Maybe have a separate set of meshes for all of them with transparency enabled (similar to how skeletal meshes etc might work)?
-						// I think the component should control the transparency setting
-						//		This is because it's gonna be a problem if the material changes but the mesh is in the array of non-transparent meshes...
-						//			How do we structure it????
+							// TODO: Maybe have a separate set of meshes for all of them with transparency enabled (similar to how skeletal meshes etc might work)?
+							// I think the component should control the transparency setting
+							//		This is because it's gonna be a problem if the material changes but the mesh is in the array of non-transparent meshes...
+							//			How do we structure it????
 
-						m_Proxy.m_StaticMeshes.AddOrUpdate(id, std::move(meshProxy));
+							m_Proxy.m_StaticMeshes.AddOrUpdate(id, std::move(meshProxy));
+						}
+						else
+						{
+							m_Proxy.m_StaticMeshes.Remove(id);
+						}
 					}
 					else
 					{

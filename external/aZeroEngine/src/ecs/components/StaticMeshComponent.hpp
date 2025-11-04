@@ -10,8 +10,8 @@ namespace aZero
 		class StaticMeshComponent
 		{
 		public:
-			std::weak_ptr<Asset::Mesh> m_MeshReference;
-			std::weak_ptr<Asset::Material> m_MaterialReference;
+			Asset::AssetHandle<Asset::Mesh> m_MeshReference;
+			Asset::AssetHandle<Asset::Material> m_MaterialReference;
 
 			StaticMeshComponent() = default;
 		};

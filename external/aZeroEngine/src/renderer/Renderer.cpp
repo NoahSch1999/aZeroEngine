@@ -392,9 +392,16 @@ namespace aZero
 			m_MeshBuffers.m_IndexAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 		}
 
-		void Renderer::UpdateRenderState(Asset::Mesh& mesh)
+		void Renderer::UpdateRenderState(Asset::AssetHandle<Asset::Mesh>& mesh)
 		{
-			if (mesh.m_VertexData.Positions.size() == 0)
+			if (!mesh.IsValid())
+			{
+				DEBUG_PRINT("Invalid mesh handle.");
+			}
+
+			auto& meshAsset = *mesh.GetAsset();
+
+			if (meshAsset.m_VertexData.Positions.size() == 0)
 			{
 				return;
 			}
@@ -402,39 +409,46 @@ namespace aZero
 			// TODO: implement resize of FreelistBuffer with this cmdlist, otherwise it isnt needed
 			auto cmdList = m_CommandContextAllocator.GetContext()->m_Context->GetCommandList();
 
-			if (mesh.GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
+			if (meshAsset.GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
 			{
-				this->AllocateFreelistMesh(mesh, cmdList);
+				this->AllocateFreelistMesh(meshAsset, cmdList);
 
 				DS::FreelistAllocator::AllocationHandle allocHandle;
 				MeshHandle meshHandle;
-				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[mesh.GetAssetID()].GetStartOffset() / sizeof(mesh.m_VertexData.Positions.at(0));
-				meshHandle.NumVertices = mesh.m_VertexData.Indices.size();
+				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[meshAsset.GetAssetID()].GetStartOffset() / sizeof(meshAsset.m_VertexData.Positions.at(0));
+				meshHandle.NumVertices = meshAsset.m_VertexData.Indices.size();
 				m_MeshBuffers.m_MeshEntryBuffer.Allocate(allocHandle, sizeof(MeshHandle));
 				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, &meshHandle);
-				m_MeshBuffers.m_MeshEntryAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
-				mesh.m_RenderID = allocHandle.GetStartOffset() / sizeof(MeshHandle);
+				m_MeshBuffers.m_MeshEntryAllocMap[meshAsset.GetAssetID()] = std::move(allocHandle);
+				meshAsset.m_RenderID = allocHandle.GetStartOffset() / sizeof(MeshHandle);
 			}
 			else
 			{
-				m_MeshBuffers.m_PositionAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_UVAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_NormalAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_TangentAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_IndexAllocMap.erase(mesh.GetAssetID());
+				const Asset::AssetID id = meshAsset.GetAssetID();
+				m_MeshBuffers.m_PositionAllocMap.erase(id);
+				m_MeshBuffers.m_UVAllocMap.erase(id);
+				m_MeshBuffers.m_NormalAllocMap.erase(id);
+				m_MeshBuffers.m_TangentAllocMap.erase(id);
+				m_MeshBuffers.m_IndexAllocMap.erase(id);
 
-				this->AllocateFreelistMesh(mesh, cmdList);
+				this->AllocateFreelistMesh(meshAsset, cmdList);
 				MeshHandle meshHandle;
-				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[mesh.GetAssetID()].GetStartOffset() / sizeof(mesh.m_VertexData.Positions.at(0));
-				meshHandle.NumVertices = mesh.m_VertexData.Indices.size();
-				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocator, m_MeshBuffers.m_MeshEntryAllocMap[mesh.GetAssetID()], &meshHandle);
+				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[id].GetStartOffset() / sizeof(meshAsset.m_VertexData.Positions.at(0));
+				meshHandle.NumVertices = meshAsset.m_VertexData.Indices.size();
+				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocator, m_MeshBuffers.m_MeshEntryAllocMap[id], &meshHandle);
 			}
 		}
 
-		void Renderer::UpdateRenderState(Asset::Material& material)
+		void Renderer::UpdateRenderState(Asset::AssetHandle<Asset::Material>& material)
 		{
-			std::weak_ptr<Asset::Texture> albedoTexture = material.m_Data.AlbedoTexture;
-			std::weak_ptr<Asset::Texture> normalTexture = material.m_Data.NormalMap;
+			if (!material.IsValid())
+			{
+				DEBUG_PRINT("Invalid material handle.");
+			}
+
+			Asset::Material* materialAsset = material.GetAsset();
+			Asset::Texture* albedoTexture = materialAsset->m_Data.AlbedoTexture.GetAsset();
+			Asset::Texture* normalTexture = materialAsset->m_Data.NormalMap.GetAsset();
 
 			DS::FreelistAllocator::AllocationHandle allocHandle;
 
@@ -445,39 +459,52 @@ namespace aZero
 			};
 			MaterialData materialData;
 
-			if (albedoTexture.expired() || albedoTexture.lock()->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
+			if (albedoTexture == nullptr || (albedoTexture && albedoTexture->GetRenderID() == std::numeric_limits<Asset::RenderID>::max()))
 			{
 				materialData.AlbedoIndex = -1;
 			}
 			else
 			{
-				materialData.AlbedoIndex = albedoTexture.lock()->GetRenderID();
+				materialData.AlbedoIndex = albedoTexture->GetRenderID();
 			}
 
-			if (normalTexture.expired() || normalTexture.lock()->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
+			if (normalTexture == nullptr || (normalTexture && normalTexture->GetRenderID() == std::numeric_limits<Asset::RenderID>::max()))
 			{
 				materialData.NormalIndex = -1;
 			}
 			else
 			{
-				materialData.NormalIndex = normalTexture.lock()->GetRenderID();
+				materialData.NormalIndex = normalTexture->GetRenderID();
 			}
 
-			if (material.GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
+			if (materialAsset->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
 			{
 				m_MaterialBuffer.Allocate(allocHandle, sizeof(materialData));
-				material.m_RenderID = allocHandle.GetStartOffset() / sizeof(materialData);
-				m_MaterialAllocMap[material.GetAssetID()] = std::move(allocHandle);
+				materialAsset->m_RenderID = allocHandle.GetStartOffset() / sizeof(materialData);
+				m_MaterialAllocMap[materialAsset->GetAssetID()] = std::move(allocHandle);
 			}
 				
-			m_MaterialBuffer.Write(nullptr, m_AssetStagingAllocator, m_MaterialAllocMap[material.GetAssetID()], &materialData);
+			m_MaterialBuffer.Write(nullptr, m_AssetStagingAllocator, m_MaterialAllocMap[materialAsset->GetAssetID()], &materialData);
 		}
 
-		void Renderer::UpdateRenderState(Asset::Texture& texture)
+		void Renderer::UpdateRenderState(Asset::AssetHandle<Asset::Texture>& texture)
 		{
+			if (!texture.IsValid())
+			{
+				DEBUG_PRINT("Invalid texture handle.");
+			}
+
+			Asset::Texture* textureAsset = texture.GetAsset();
+
+			if (textureAsset->m_Data.TexelData.size() 
+				== textureAsset->m_Data.Height * textureAsset->m_Data.Width * textureAsset->m_Data.NumChannels)
+			{
+				DEBUG_PRINT("Texel data size doesn't match the Texture dimensions and channel count.");
+			}
+
 			TextureRenderAsset assetData;
 			assetData.m_Resource = D3D12::GPUTexture(m_diDevice,
-				DXM::Vector3(texture.m_Data.Width, texture.m_Data.Height, 1),
+				DXM::Vector3(textureAsset->m_Data.Width, textureAsset->m_Data.Height, 1),
 				DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
 				D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
 				m_ResourceRecycler,
@@ -487,9 +514,9 @@ namespace aZero
 				// We need to use the same descriptor index since we need to keep the renderID valid
 			assetData.m_Srv.Init(m_diDevice, m_ResourceHeap.GetDescriptor(), assetData.m_Resource, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
 
-			if (texture.GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
+			if (textureAsset->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
 			{
-				texture.m_RenderID = assetData.m_Srv.GetDescriptorIndex();
+				textureAsset->m_RenderID = assetData.m_Srv.GetDescriptorIndex();
 			}
 
 			// UpdateRenderState texel data
@@ -504,17 +531,14 @@ namespace aZero
 			Bundle.at(0).StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
 
 			auto CmdContext = m_CommandContextAllocator.GetContext();
-			if (!CmdContext.has_value())
-			{
-				throw std::runtime_error("No more command contexts");
-			}
+
 			ID3D12GraphicsCommandList* CmdList = CmdContext->m_Context->GetCommandList();
 			D3D12::TransitionResources(CmdList, Bundle);
 
 			D3D12_SUBRESOURCE_DATA SubresourceData{};
-			SubresourceData.pData = texture.m_Data.TexelData.data();
-			SubresourceData.RowPitch = /*roundUp(*/texture.m_Data.Width * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/;
-			SubresourceData.SlicePitch = SubresourceData.RowPitch * texture.m_Data.Height;
+			SubresourceData.pData = textureAsset->m_Data.TexelData.data();
+			SubresourceData.RowPitch = /*roundUp(*/textureAsset->m_Data.Width * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/;
+			SubresourceData.SlicePitch = SubresourceData.RowPitch * textureAsset->m_Data.Height;
 
 			UpdateSubresources(
 				CmdList,
@@ -530,40 +554,44 @@ namespace aZero
 			m_GraphicsQueue.ExecuteContext(*CmdContext->m_Context);
 
 
-			m_TextureAllocMap[texture.GetAssetID()] = std::move(assetData);
+			m_TextureAllocMap[textureAsset->GetAssetID()] = std::move(assetData);
 		}
 
-		void Renderer::RemoveRenderState(Asset::Mesh& mesh)
+		void Renderer::RemoveRenderState(Asset::AssetHandle<Asset::Mesh>& mesh)
 		{
-			if (mesh.GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+			Asset::Mesh* meshAsset = mesh.GetAsset();
+			if (meshAsset && meshAsset->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
 			{
-				mesh.m_RenderID = std::numeric_limits<Asset::RenderID>::max();
-				m_MeshBuffers.m_PositionAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_UVAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_NormalAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_TangentAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_IndexAllocMap.erase(mesh.GetAssetID());
-				m_MeshBuffers.m_MeshEntryAllocMap.erase(mesh.GetAssetID());
+				Asset::AssetID id = meshAsset->GetAssetID();
+				meshAsset->m_RenderID = std::numeric_limits<Asset::RenderID>::max();
+				m_MeshBuffers.m_PositionAllocMap.erase(id);
+				m_MeshBuffers.m_UVAllocMap.erase(id);
+				m_MeshBuffers.m_NormalAllocMap.erase(id);
+				m_MeshBuffers.m_TangentAllocMap.erase(id);
+				m_MeshBuffers.m_IndexAllocMap.erase(id);
+				m_MeshBuffers.m_MeshEntryAllocMap.erase(id);
 			}
 		}
 
-		void Renderer::RemoveRenderState(Asset::Material& material)
+		void Renderer::RemoveRenderState(Asset::AssetHandle<Asset::Material>& material)
 		{
-			if (material.GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+			Asset::Material* materialAsset = material.GetAsset();
+			if (materialAsset && materialAsset->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
 			{
-				material.m_RenderID = std::numeric_limits<Asset::RenderID>::max();
-				m_MaterialAllocMap.erase(material.GetAssetID());
+				materialAsset->m_RenderID = std::numeric_limits<Asset::RenderID>::max();
+				m_MaterialAllocMap.erase(materialAsset->GetAssetID());
 			}
 		}
 
-		void Renderer::RemoveRenderState(Asset::Texture& texture)
+		void Renderer::RemoveRenderState(Asset::AssetHandle<Asset::Texture>& texture)
 		{
-			if (texture.GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+			Asset::Texture* textureAsset = texture.GetAsset();
+			if (textureAsset->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
 			{
-				texture.m_RenderID = std::numeric_limits<Asset::RenderID>::max();
+				textureAsset->m_RenderID = std::numeric_limits<Asset::RenderID>::max();
 
 				// TODO: Remove it after its last usage so we dont create a new view with the same descriptor index while its still accessed on the gpu
-				m_TextureAllocMap.erase(texture.GetAssetID());
+				m_TextureAllocMap.erase(textureAsset->GetAssetID());
 			}
 		}
 

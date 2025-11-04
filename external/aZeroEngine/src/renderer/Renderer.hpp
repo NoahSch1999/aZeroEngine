@@ -136,12 +136,12 @@ namespace aZero
 			// Stalls the CPU until all GPU work is finished
 			void FlushGraphicsQueue() { m_GraphicsQueue.FlushImmediate(); }
 
-			void UpdateRenderState(Asset::Mesh& mesh);
-			void UpdateRenderState(Asset::Material& material);
-			void UpdateRenderState(Asset::Texture& texture);
-			void RemoveRenderState(Asset::Mesh& mesh);
-			void RemoveRenderState(Asset::Material& material);
-			void RemoveRenderState(Asset::Texture& texture);
+			void UpdateRenderState(Asset::AssetHandle<Asset::Mesh>& mesh);
+			void UpdateRenderState(Asset::AssetHandle<Asset::Material>& material);
+			void UpdateRenderState(Asset::AssetHandle<Asset::Texture>& texture);
+			void RemoveRenderState(Asset::AssetHandle<Asset::Mesh>& mesh);
+			void RemoveRenderState(Asset::AssetHandle<Asset::Material>& material);
+			void RemoveRenderState(Asset::AssetHandle<Asset::Texture>& texture);
 		};
 
 	}
