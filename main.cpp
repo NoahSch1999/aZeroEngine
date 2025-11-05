@@ -26,6 +26,16 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	{
 		// API Interfaces
 		aZero::Engine engine(3, aZero::Helper::GetProjectDirectory() + "/../../../content");
+
+		Pipeline::VertexShader vs;
+		vs.CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
+
+		Pipeline::PixelShader ps;
+		ps.CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+
+		Pipeline::ComputeShader cs;
+		cs.CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "TestShader.cs.hlsl");
+
 		std::shared_ptr<aZero::Window::RenderWindow> activeWindow = engine.CreateRenderWindow({ 1920, 1080 }, "aZero engine");
 		Rendering::RenderContext renderContext = engine.GetRenderContext();
 		Asset::AssetManager& assetManager = engine.GetAssetManager();
@@ -51,6 +61,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		myMaterial.GetAsset()->m_Data.AlbedoTexture = myTexture;
 		myMaterial.GetAsset()->m_Data.NormalMap = myTexture;
 		renderContext.UpdateRenderState(myMaterial);
+
 
 		{
 			ECS::Entity ent = scene.CreateEntity();

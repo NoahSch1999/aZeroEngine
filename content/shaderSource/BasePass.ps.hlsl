@@ -116,7 +116,7 @@ float3 CalcDirectionalLight(DirectionalLight Light, float3 Normal)
 }
 
 ConstantBuffer<PixelShaderConstants> PixelShaderConstantsBuffer : register(b0);
-ConstantBuffer<PerBatchConstants> PerBatchConstantsBuffer : register(b1);
+ConstantBuffer<PSPerBatchConstants> PerBatchConstantsBuffer : register(b1);
 
 StructuredBuffer<Material> MaterialBuffer : register(t1);
 
@@ -185,7 +185,7 @@ FragmentOutput main(FragmentInput Input)
     p.FalloffFactor = 1;
     p.Position = float3(0,0,1.8);
     
-    LightFactor = CalcPointLight(p, Input.WorldPosition, Normal);
+    //LightFactor = CalcPointLight(p, Input.WorldPosition, Normal);
     
     float3 Ambient = float3(0.1, 0.1, 0.1);
     Color *= Ambient + LightFactor; 

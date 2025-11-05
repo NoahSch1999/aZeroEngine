@@ -1,6 +1,8 @@
 #pragma once
-#include "Shader.hpp"
 #include "misc/NonCopyable.hpp"
+#include "pipeline/VertexShader.hpp"
+#include "pipeline/PixelShader.hpp"
+#include "pipeline/ComputeShader.hpp"
 
 namespace aZero
 {
@@ -9,7 +11,7 @@ namespace aZero
 		class RenderGraphPass;
 	}
 
-	namespace D3D12
+	namespace Pipeline
 	{
 		enum class PASS_TYPE { INVALID, GRAPHICS, COMPUTE };
 
@@ -47,9 +49,9 @@ namespace aZero
 			Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
 			Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 
-			std::unordered_map<std::string, Shader::ShaderResourceInfo> m_VSResourceMap;
-			std::unordered_map<std::string, Shader::ShaderResourceInfo> m_PSResourceMap;
-			std::unordered_map<std::string, Shader::ShaderResourceInfo> m_CSResourceMap;
+			std::unordered_map<std::string, Pipeline::Shader::ShaderResourceInfo> m_VSResourceMap;
+			std::unordered_map<std::string, Pipeline::Shader::ShaderResourceInfo> m_PSResourceMap;
+			std::unordered_map<std::string, Pipeline::Shader::ShaderResourceInfo> m_CSResourceMap;
 
 			D3D12_PRIMITIVE_TOPOLOGY_TYPE m_TopologyType;
 			PASS_TYPE m_PassType;
@@ -74,14 +76,8 @@ namespace aZero
 				return *this;
 			}
 
-			bool Init(ID3D12Device* Device, const Shader& VertexShader, const Shader& PixelShader, const std::vector<DXGI_FORMAT>& RtvFormats, DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE)
+			bool Init(ID3D12Device* Device, const Pipeline::VertexShader& VertexShader, const Pipeline::PixelShader& PixelShader, const std::vector<DXGI_FORMAT>& RtvFormats, DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE)
 			{
-				if (VertexShader.GetType() != SHADER_TYPE::VS && PixelShader.GetType() != SHADER_TYPE::PS)
-				{
-					DEBUG_PRINT("One or more input shader didn't form a valid graphics pipeline");
-					return false;
-				}
-
 				if (!VertexShader.m_CompiledShader || !PixelShader.m_CompiledShader)
 				{
 					DEBUG_PRINT("One or more shaders arent compiled");
@@ -94,7 +90,7 @@ namespace aZero
 				m_TopologyType = TopologyType;
 				m_VSResourceMap = VertexShader.m_ResourceNameToInformation;
 				m_PSResourceMap = PixelShader.m_ResourceNameToInformation;
-				m_NumRenderTargets = PixelShader.m_RenderTargetMasks.size();
+				m_NumRenderTargets = PixelShader.NumRenderTargets();
 				m_HasDepthStencilTarget = DepthStencilFormat != DXGI_FORMAT_UNKNOWN;
 
 				const size_t NumVSBinds = VertexShader.m_ResourceNameToInformation.size();
@@ -217,14 +213,8 @@ namespace aZero
 				return true;
 			}
 		
-			bool Init(ID3D12Device* Device, const D3D12::Shader& ComputeShader)
+			bool Init(ID3D12Device* Device, const Pipeline::ComputeShader& ComputeShader)
 			{
-				if (ComputeShader.GetType() != SHADER_TYPE::CS)
-				{
-					DEBUG_PRINT("Input shader didn't form a valid compute pipeline");
-					return false;
-				}
-
 				this->Reset();
 
 				m_PassType = PASS_TYPE::COMPUTE;
@@ -286,10 +276,10 @@ namespace aZero
 			D3D12_PRIMITIVE_TOPOLOGY_TYPE GetTopologyType() const { return m_TopologyType; }
 			PASS_TYPE GetPassType() const { return m_PassType; }
 
-			void SetShaderResource(ID3D12GraphicsCommandList* CmdList, const std::string& ShaderResourceName, void* Data, uint32_t SizeBytes, SHADER_TYPE Type)
+			void SetShaderResource(ID3D12GraphicsCommandList* CmdList, const std::string& ShaderResourceName, void* Data, uint32_t SizeBytes, Pipeline::SHADER_TYPE Type)
 			{
 				Shader::ShaderResourceInfo* Info;
-				if (Type == SHADER_TYPE::VS)
+				if (Type == Pipeline::SHADER_TYPE::VS)
 				{
 					if (m_VSResourceMap.count(ShaderResourceName))
 					{
@@ -301,7 +291,7 @@ namespace aZero
 						return;
 					}
 				}
-				else if (Type == SHADER_TYPE::PS)
+				else if (Type == Pipeline::SHADER_TYPE::PS)
 				{
 					if (m_PSResourceMap.count(ShaderResourceName))
 					{
@@ -313,7 +303,7 @@ namespace aZero
 						return;
 					}
 				}
-				else if (Type == SHADER_TYPE::CS)
+				else if (Type == Pipeline::SHADER_TYPE::CS)
 				{
 					if (m_CSResourceMap.count(ShaderResourceName))
 					{
@@ -331,7 +321,7 @@ namespace aZero
 					return;
 				}
 
-				if (Type == SHADER_TYPE::CS)
+				if (Type == Pipeline::SHADER_TYPE::CS)
 				{
 					if (Info->m_ResourceType == D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS)
 					{
@@ -342,7 +332,7 @@ namespace aZero
 						DEBUG_PRINT("Input parameter '" + ShaderResourceName + "' is expected to be a root constant, but isn't");
 					}
 				}
-				else if(Type != SHADER_TYPE::NONE)
+				else if(Type != Pipeline::SHADER_TYPE::NONE)
 				{
 					if (Info->m_ResourceType == D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS)
 					{
@@ -360,10 +350,10 @@ namespace aZero
 				
 			}
 
-			void SetShaderResource(ID3D12GraphicsCommandList* CmdList, const std::string& ShaderResourceName, D3D12_GPU_VIRTUAL_ADDRESS VirtualAddress, SHADER_TYPE Type)
+			void SetShaderResource(ID3D12GraphicsCommandList* CmdList, const std::string& ShaderResourceName, D3D12_GPU_VIRTUAL_ADDRESS VirtualAddress, Pipeline::SHADER_TYPE Type)
 			{
 				Shader::ShaderResourceInfo* Info;
-				if (Type == SHADER_TYPE::VS)
+				if (Type == Pipeline::SHADER_TYPE::VS)
 				{
 					if (m_VSResourceMap.count(ShaderResourceName))
 					{
@@ -375,7 +365,7 @@ namespace aZero
 						return;
 					}
 				}
-				else if (Type == SHADER_TYPE::PS)
+				else if (Type == Pipeline::SHADER_TYPE::PS)
 				{
 					if (m_PSResourceMap.count(ShaderResourceName))
 					{
@@ -387,7 +377,7 @@ namespace aZero
 						return;
 					}
 				}
-				else if (Type == SHADER_TYPE::CS)
+				else if (Type == Pipeline::SHADER_TYPE::CS)
 				{
 					if (m_CSResourceMap.count(ShaderResourceName))
 					{
@@ -405,7 +395,7 @@ namespace aZero
 					return;
 				}
 
-				if (Type == SHADER_TYPE::CS)
+				if (Type == Pipeline::SHADER_TYPE::CS)
 				{
 					switch (Info->m_ResourceType)
 					{
@@ -430,7 +420,7 @@ namespace aZero
 						}
 					}
 				}
-				else if(Type != SHADER_TYPE::NONE)
+				else if(Type != Pipeline::SHADER_TYPE::NONE)
 				{
 					switch (Info->m_ResourceType)
 					{

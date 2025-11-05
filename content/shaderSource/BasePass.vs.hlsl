@@ -34,7 +34,7 @@ struct VSPerBatchConstants
 };
 
 ConstantBuffer<CameraData> VertexPerPassData : register(b0);
-ConstantBuffer<PerBatchConstants> PerBatchConstantsBuffer : register(b1);
+ConstantBuffer<VSPerBatchConstants> PerBatchConstantsBuffer : register(b1);
 
 StructuredBuffer<float3> PositionBuffer : register(t0);
 StructuredBuffer<float2> UVBuffer : register(t1);
@@ -81,11 +81,6 @@ OutputData main(InputData Input)
 {
     const MeshEntry Mesh = MeshEntryBuffer.Load(PerBatchConstantsBuffer.MeshEntryIndex);
     const VertexData Vertex = GetVertexFromID(Mesh, Input.VertexID);
-    //VertexData Vertex;
-    //Vertex.Position = float3(0, 0, 0);
-    //Vertex.Normal = float3(1, 0, 0);
-    //Vertex.Tangent = float3(0, 1, 0);
-    //Vertex.UV = float2(1, 0);
     const float4x4 WorldMatrix = InstanceBuffer.Load(PerBatchConstantsBuffer.StartInstanceOffset + Input.InstanceID).WorldMatrix;
     
     OutputData Output;

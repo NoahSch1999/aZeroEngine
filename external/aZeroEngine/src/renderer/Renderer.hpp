@@ -8,6 +8,8 @@
 #include "renderer/PrimitiveBatch.hpp"
 #include "LinearAllocator.hpp"
 #include "assets/Asset.hpp"
+#include "pipeline/VertexShader.hpp"
+#include "pipeline/PixelShader.hpp"
 
 namespace aZero
 {
@@ -49,6 +51,9 @@ namespace aZero
 			D3D12::ResourceRecycler m_ResourceRecycler;
 			D3D12::CommandQueue m_GraphicsQueue;
 			D3D12::CommandContextAllocator m_CommandContextAllocator;
+
+			Pipeline::VertexShader m_BasePassVS;
+			Pipeline::PixelShader m_BasePassPS;
 
 			D3D12::DescriptorHeap m_ResourceHeap;
 			D3D12::DescriptorHeap m_SamplerHeap;

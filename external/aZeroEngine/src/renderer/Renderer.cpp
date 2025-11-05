@@ -185,19 +185,19 @@ namespace aZero
 					PixelPerPassData pixelShaderPassData;
 					pixelShaderPassData.samplerIndex = m_AnisotropicSampler.GetHeapIndex();
 
-					m_DefaultRenderPass.BindBuffer("PositionBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_PositionBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("UVBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_UVBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("NormalBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_NormalBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("TangentBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("IndexBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("MeshEntryBuffer", D3D12::SHADER_TYPE::VS, &m_MeshBuffers.m_MeshEntryBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("InstanceBuffer", D3D12::SHADER_TYPE::VS, &m_StaticMeshFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindBuffer("PositionBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_PositionBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("UVBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_UVBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("NormalBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_NormalBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("TangentBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("IndexBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("MeshEntryBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_MeshEntryBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("InstanceBuffer", Pipeline::SHADER_TYPE::VS, &m_StaticMeshFrameBuffers.at(m_FrameIndex));
 
-					m_DefaultRenderPass.BindBuffer("PointLightBuffer", D3D12::SHADER_TYPE::PS, &m_PointLightFrameBuffers.at(m_FrameIndex));
-					m_DefaultRenderPass.BindBuffer("SpotLightBuffer", D3D12::SHADER_TYPE::PS, &m_SpotLightFrameBuffers.at(m_FrameIndex));
-					m_DefaultRenderPass.BindBuffer("DirectionalLightBuffer", D3D12::SHADER_TYPE::PS, &m_DirectionalLightFrameBuffers.at(m_FrameIndex));
-					m_DefaultRenderPass.BindBuffer("MaterialBuffer", D3D12::SHADER_TYPE::PS, &m_MaterialBuffer.GetBuffer());
-					m_DefaultRenderPass.BindConstant("PixelShaderConstantsBuffer", D3D12::SHADER_TYPE::PS, &pixelShaderPassData, sizeof(pixelShaderPassData));
+					m_DefaultRenderPass.BindBuffer("PointLightBuffer", Pipeline::SHADER_TYPE::PS, &m_PointLightFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindBuffer("SpotLightBuffer", Pipeline::SHADER_TYPE::PS, &m_SpotLightFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindBuffer("DirectionalLightBuffer", Pipeline::SHADER_TYPE::PS, &m_DirectionalLightFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindBuffer("MaterialBuffer", Pipeline::SHADER_TYPE::PS, &m_MaterialBuffer.GetBuffer());
+					m_DefaultRenderPass.BindConstant("PixelShaderConstantsBuffer", Pipeline::SHADER_TYPE::PS, &pixelShaderPassData, sizeof(pixelShaderPassData));
 
 					for (const auto& [meshIndex, batchArrayMap] : batches)
 					{
@@ -251,8 +251,8 @@ namespace aZero
 							batchCommandList->RSSetViewports(1, &camera.m_Viewport);
 							batchCommandList->RSSetScissorRects(1, &camera.m_ScizzorRect);
 
-							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "VertexPerPassData", (void*)&vertexShaderPassData, sizeof(vertexShaderPassData), D3D12::SHADER_TYPE::VS);
-							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&vertexPerDrawData, sizeof(vertexPerDrawData), D3D12::SHADER_TYPE::VS);
+							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "VertexPerPassData", (void*)&vertexShaderPassData, sizeof(vertexShaderPassData), Pipeline::SHADER_TYPE::VS);
+							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&vertexPerDrawData, sizeof(vertexPerDrawData), Pipeline::SHADER_TYPE::VS);
 
 							uint32_t numVertices = meshHandle.NumVertices;
 							batchCommandList->DrawInstanced(numVertices, batchArray.InstanceData.size(), 0, 0);
@@ -323,20 +323,11 @@ namespace aZero
 
 		void Renderer::InitRenderPasses()
 		{
-			std::weak_ptr<D3D12::Shader> BasePassVS = m_diPipelineManager->LoadShader("BasePass.vs.hlsl");
-			if (BasePassVS.expired())
-			{
-				throw std::runtime_error("Failed to load base pass vertex shader.");
-			}
-		
-			std::weak_ptr<D3D12::Shader> BasePassPS = m_diPipelineManager->LoadShader("BasePass.ps.hlsl");
-			if (BasePassPS.expired())
-			{
-				throw std::runtime_error("Failed to load base pass pixel shader.");
-			}
+			m_BasePassVS.CompileFromFile(m_diPipelineManager->GetCompiler(), m_diPipelineManager->GetShaderFolderPath() + "BasePass.vs.hlsl");
+			m_BasePassPS.CompileFromFile(m_diPipelineManager->GetCompiler(), m_diPipelineManager->GetShaderFolderPath() + "BasePass.ps.hlsl");
 
-			D3D12::RenderPass Pass;
-			Pass.Init(m_diDevice, *BasePassVS.lock().get(), *BasePassPS.lock().get(), {DXGI_FORMAT_R8G8B8A8_UNORM_SRGB}, DXGI_FORMAT_D24_UNORM_S8_UINT);
+			Pipeline::RenderPass Pass;
+			Pass.Init(m_diDevice, m_BasePassVS, m_BasePassPS, {DXGI_FORMAT_R8G8B8A8_UNORM_SRGB}, DXGI_FORMAT_D24_UNORM_S8_UINT);
 			m_DefaultRenderPass = RenderGraphPass(std::move(Pass));
 		}
 
@@ -612,7 +603,7 @@ namespace aZero
 
 		//		std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> RTVHandles = { ColorView.GetDescriptorHandle() };
 
-		//		D3D12::RenderPass* Pass = nullptr;
+		//		Pipeline::RenderPass* Pass = nullptr;
 		//		const PrimitiveBatch::RenderLayer RenderLayer = Batch.GetLayer();
 		//		const D3D_PRIMITIVE_TOPOLOGY PrimitiveType = Batch.GetPrimitiveType();
 		//		if (RenderLayer == PrimitiveBatch::RenderLayer::DEPTH)
@@ -662,7 +653,7 @@ namespace aZero
 		//		VertexShaderConstants VSConstants;
 		//		VSConstants.ViewProjectionMatrix = Camera.ViewMatrix * Camera.ProjMatrix;
 
-		//		Pass->SetShaderResource(CmdList, "CameraDataBuffer", &VSConstants, sizeof(VertexShaderConstants), D3D12::SHADER_TYPE::VS);
+		//		Pass->SetShaderResource(CmdList, "CameraDataBuffer", &VSConstants, sizeof(VertexShaderConstants), Pipeline::SHADER_TYPE::VS);
 
 		//		D3D12_VERTEX_BUFFER_VIEW VBView;
 		//		VBView.BufferLocation = m_BatchVertexBuffer.GetBuffer().GetResource()->GetGPUVirtualAddress();

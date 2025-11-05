@@ -7,6 +7,7 @@
 #include "graphics_api/resource_type/LinearBuffer.hpp"
 #include "misc/SparseMappedVector.hpp"
 #include "misc/Yaml_Operator_Overloads.hpp"
+#include "misc/HelperFunctions.hpp"
 
 namespace aZero
 {

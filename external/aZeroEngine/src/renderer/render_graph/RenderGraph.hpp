@@ -20,19 +20,19 @@ namespace aZero
 			struct BufferBinding
 			{
 				std::string BindingName;
-				D3D12::SHADER_TYPE ShaderType;
+				Pipeline::SHADER_TYPE ShaderType;
 				D3D12::GPUBuffer* Buffer = nullptr;
 			};
 
 			struct RootConstant
 			{
 				std::string BindingName;
-				D3D12::SHADER_TYPE ShaderType;
+				Pipeline::SHADER_TYPE ShaderType;
 				std::vector<int32_t> Data;
 			};
 
-			D3D12::RenderPass m_Pass;
-			D3D12::PASS_TYPE m_Type;
+			Pipeline::RenderPass m_Pass;
+			Pipeline::PASS_TYPE m_Type;
 			GRAPH_PASS_TYPE m_GraphPassType;
 
 			std::vector<BufferBinding> m_BufferBindings;
@@ -47,8 +47,8 @@ namespace aZero
 		public:
 			RenderGraphPass() = default;
 
-			RenderGraphPass(D3D12::RenderPass&& Pass, GRAPH_PASS_TYPE GraphPassType = GRAPH_PASS_TYPE::Per_Object_Static)
-				:m_Pass(std::forward<D3D12::RenderPass>(Pass)), m_GraphPassType(GraphPassType)
+			RenderGraphPass(Pipeline::RenderPass&& Pass, GRAPH_PASS_TYPE GraphPassType = GRAPH_PASS_TYPE::Per_Object_Static)
+				:m_Pass(std::forward<Pipeline::RenderPass>(Pass)), m_GraphPassType(GraphPassType)
 			{
 				// Generate empty bindings based on pass reflection
 				for (auto& [Key, Value] : m_Pass.m_VSResourceMap)
@@ -57,14 +57,14 @@ namespace aZero
 					{
 						BufferBinding Binding;
 						Binding.BindingName = Key;
-						Binding.ShaderType = D3D12::SHADER_TYPE::VS;
+						Binding.ShaderType = Pipeline::SHADER_TYPE::VS;
 						m_BufferBindings.push_back(Binding);
 					}
 					else
 					{
 						RootConstant Constant;
 						Constant.BindingName = Key;
-						Constant.ShaderType = D3D12::SHADER_TYPE::VS;
+						Constant.ShaderType = Pipeline::SHADER_TYPE::VS;
 						for (int i = 0; i < Value.m_Num32BitConstants; i++)
 						{
 							Constant.Data.push_back(0);
@@ -79,14 +79,14 @@ namespace aZero
 					{
 						BufferBinding Binding;
 						Binding.BindingName = Key;
-						Binding.ShaderType = D3D12::SHADER_TYPE::PS;
+						Binding.ShaderType = Pipeline::SHADER_TYPE::PS;
 						m_BufferBindings.push_back(Binding);
 					}
 					else
 					{
 						RootConstant Constant;
 						Constant.BindingName = Key;
-						Constant.ShaderType = D3D12::SHADER_TYPE::PS;
+						Constant.ShaderType = Pipeline::SHADER_TYPE::PS;
 						for (int i = 0; i < Value.m_Num32BitConstants; i++)
 						{
 							Constant.Data.push_back(0);
@@ -101,14 +101,14 @@ namespace aZero
 					{
 						BufferBinding Binding;
 						Binding.BindingName = Key;
-						Binding.ShaderType = D3D12::SHADER_TYPE::CS;
+						Binding.ShaderType = Pipeline::SHADER_TYPE::CS;
 						m_BufferBindings.push_back(Binding);
 					}
 					else
 					{
 						RootConstant Constant;
 						Constant.BindingName = Key;
-						Constant.ShaderType = D3D12::SHADER_TYPE::CS;
+						Constant.ShaderType = Pipeline::SHADER_TYPE::CS;
 						for (int i = 0; i < Value.m_Num32BitConstants; i++)
 						{
 							Constant.Data.push_back(0);
@@ -122,7 +122,7 @@ namespace aZero
 				m_Type = m_Pass.GetPassType();
 			}
 
-			void BindBuffer(const std::string& ShaderName, D3D12::SHADER_TYPE Type, D3D12::GPUBuffer* Buffer)
+			void BindBuffer(const std::string& ShaderName, Pipeline::SHADER_TYPE Type, D3D12::GPUBuffer* Buffer)
 			{
 				if (!Buffer)
 				{
@@ -165,18 +165,18 @@ namespace aZero
 				}
 			}
 
-			void BindConstant(const std::string& ShaderName, D3D12::SHADER_TYPE Type, void* Data, uint32_t NumBytes)
+			void BindConstant(const std::string& ShaderName, Pipeline::SHADER_TYPE Type, void* Data, uint32_t NumBytes)
 			{
 				std::vector<RootConstant>* Constants = nullptr;
-				if (Type == D3D12::SHADER_TYPE::VS)
+				if (Type == Pipeline::SHADER_TYPE::VS)
 				{
 					Constants = &m_VSRootConstants;
 				}
-				else if (Type == D3D12::SHADER_TYPE::PS)
+				else if (Type == Pipeline::SHADER_TYPE::PS)
 				{
 					Constants = &m_PSRootConstants;
 				}
-				else if (Type == D3D12::SHADER_TYPE::CS)
+				else if (Type == Pipeline::SHADER_TYPE::CS)
 				{
 					Constants = &m_CSRootConstants;
 				}
@@ -203,7 +203,7 @@ namespace aZero
 
 				CmdList->SetPipelineState(m_Pass.GetPipelineState());
 
-				if (m_Type == D3D12::PASS_TYPE::GRAPHICS)
+				if (m_Type == Pipeline::PASS_TYPE::GRAPHICS)
 				{
 					CmdList->SetGraphicsRootSignature(m_Pass.GetRootSignature());
 					const D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = m_Pass.GetTopologyType();
@@ -295,7 +295,7 @@ namespace aZero
 					}
 				}
 
-				if (m_Type == D3D12::PASS_TYPE::GRAPHICS)
+				if (m_Type == Pipeline::PASS_TYPE::GRAPHICS)
 				{
 					if (m_GraphPassType == GRAPH_PASS_TYPE::Per_Object_Static)
 					{
@@ -304,7 +304,7 @@ namespace aZero
 							m_Pass.SetShaderResource(CmdList,
 								Constant.BindingName,
 								Constant.Data.data(), Constant.Data.size() * sizeof(uint32_t),
-								D3D12::SHADER_TYPE::VS);
+								Pipeline::SHADER_TYPE::VS);
 						}
 
 						for (auto& Constant : m_PSRootConstants)
@@ -312,7 +312,7 @@ namespace aZero
 							m_Pass.SetShaderResource(CmdList,
 								Constant.BindingName,
 								Constant.Data.data(), Constant.Data.size() * sizeof(uint32_t),
-								D3D12::SHADER_TYPE::PS);
+								Pipeline::SHADER_TYPE::PS);
 						}
 					}
 				}
@@ -325,11 +325,11 @@ namespace aZero
 						m_Pass.SetShaderResource(CmdList,
 							Constant.BindingName,
 							Constant.Data.data(), Constant.Data.size() * sizeof(uint32_t),
-							D3D12::SHADER_TYPE::CS);
+							Pipeline::SHADER_TYPE::CS);
 					}*/
 					/*if (m_CSRootConstants.size())
 					{
-						m_Pass.SetShaderResource(CmdList, "RootConstants", m_CSRootConstants.data(), m_CSRootConstants.size(), D3D12::SHADER_TYPE::CS);
+						m_Pass.SetShaderResource(CmdList, "RootConstants", m_CSRootConstants.data(), m_CSRootConstants.size(), Pipeline::SHADER_TYPE::CS);
 					}*/
 				}
 

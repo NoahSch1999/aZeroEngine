@@ -2,6 +2,7 @@
 #include <memory>
 #include "window/RenderWindow.hpp"
 #include "renderer/RenderContext.hpp"
+#include "pipeline/PipelineManager.hpp"
 
 namespace aZero
 {
@@ -20,9 +21,9 @@ namespace aZero
 
 		// API Interfaces
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
-		std::unique_ptr<Pipeline::PipelineManager> m_PipelineManager;
 		std::unique_ptr<Asset::AssetManager> m_AssetManager;
 		std::unique_ptr<Scene::SceneManager> m_SceneManager;
+		std::unique_ptr<Pipeline::PipelineManager> m_PipelineManager;
 		//
 
 	public:
@@ -43,6 +44,8 @@ namespace aZero
 		Asset::AssetManager& GetAssetManager() { return *m_AssetManager.get(); }
 		
 		Scene::SceneManager& GetSceneManager() { return *m_SceneManager.get(); }
+
+		Pipeline::PipelineManager& GetPipelineManager() { return *m_PipelineManager.get(); }
 
 		// TODO: Replace
 		const std::string& GetProjectDirectory() const { return m_ProjectDirectory; }

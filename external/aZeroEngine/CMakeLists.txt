@@ -12,13 +12,17 @@ add_library(aZeroEngine
     "src/graphics_api/Descriptor.cpp"
     "src/misc/HelperFunctions.cpp"
     "src/misc/STBIHack.cpp"
-    "src/renderer/render_graph/Shader.cpp"
+    
     "src/renderer/Renderer.cpp"
     "src/window/RenderWindow.cpp"
     "src/assets/Mesh.cpp" 
     "src/assets/Material.cpp" 
     "src/assets/Texture.cpp"
-    "src/engine/Engine.cpp")
+    "src/engine/Engine.cpp" 
+    "src/pipeline/Shader.cpp" 
+    "src/pipeline/VertexShader.cpp" 
+    "src/pipeline/PixelShader.cpp" 
+    "src/pipeline/ComputeShader.cpp")
 
 # PRE-PROCESSOR SETTINGS
 target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)

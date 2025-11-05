@@ -1,15 +1,18 @@
-#include "renderer/render_graph/RenderGraph.hpp"
+#include "pipeline/VertexShader.hpp"
+#include "pipeline/PixelShader.hpp"
+#include "pipeline/ComputeShader.hpp"
 
 namespace aZero
 {
 	namespace Pipeline
 	{
+		// TODO: Remove and simply provide the renderpass, rendergraph and shader-subclass interfaces?
 		class PipelineManager
 		{
 			ID3D12Device* m_Device;
 			CComPtr<IDxcCompiler3> m_Compiler;
 			std::string m_ShaderFolderPath;
-			std::unordered_map<std::string, std::shared_ptr<D3D12::Shader>> m_Shaders;
+			std::unordered_map<std::string, std::shared_ptr<Pipeline::VertexShader>> m_VertexShaders;
 
 		public:
 			PipelineManager() = default;
@@ -21,22 +24,25 @@ namespace aZero
 				DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_Compiler));
 			}
 
-			std::weak_ptr<D3D12::Shader> LoadShader(const std::string& fileName)
+			IDxcCompiler3& GetCompiler() { return *m_Compiler.p; }
+			const std::string& GetShaderFolderPath() const { return m_ShaderFolderPath; }
+
+			std::weak_ptr<Pipeline::VertexShader> LoadShader(const std::string& fileName)
 			{
-				std::shared_ptr<D3D12::Shader> shader;
-				if (m_Shaders.find(fileName) == m_Shaders.end())
+				std::shared_ptr<Pipeline::VertexShader> shader;
+				if (m_VertexShaders.find(fileName) == m_VertexShaders.end())
 				{
-					m_Shaders[fileName] = std::make_shared<D3D12::Shader>(D3D12::Shader());
-					shader = m_Shaders[fileName];
+					m_VertexShaders[fileName] = std::make_shared<Pipeline::VertexShader>(Pipeline::VertexShader());
+					shader = m_VertexShaders[fileName];
 				}
 				else
 				{
-					shader = m_Shaders.at(fileName);
+					shader = m_VertexShaders.at(fileName);
 				}
 
 				if (!shader->CompileFromFile(*m_Compiler.p, m_ShaderFolderPath + fileName))
 				{
-					return std::weak_ptr<D3D12::Shader>();
+					return std::weak_ptr<Pipeline::VertexShader>();
 				}
 				
 				return shader;
@@ -44,19 +50,19 @@ namespace aZero
 
 			void RemoveShader(const std::string& fileName)
 			{
-				if (m_Shaders.find(fileName) != m_Shaders.end())
+				if (m_VertexShaders.find(fileName) != m_VertexShaders.end())
 				{
-					m_Shaders.erase(fileName);
+					m_VertexShaders.erase(fileName);
 				}
 			}
 
-			std::weak_ptr<D3D12::Shader> GetShader(const std::string& fileName)
+			std::weak_ptr<Pipeline::VertexShader> GetShader(const std::string& fileName)
 			{
-				if (m_Shaders.find(fileName) != m_Shaders.end())
+				if (m_VertexShaders.find(fileName) != m_VertexShaders.end())
 				{
-					return m_Shaders.at(fileName);
+					return m_VertexShaders.at(fileName);
 				}
-				return std::weak_ptr<D3D12::Shader>();
+				return std::weak_ptr<Pipeline::VertexShader>();
 			}
 		};
 	}
