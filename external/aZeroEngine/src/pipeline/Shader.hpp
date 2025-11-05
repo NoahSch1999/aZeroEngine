@@ -17,7 +17,7 @@ namespace aZero
 		class Shader
 		{
 			friend Pipeline::RenderPass;
-			friend ScenePass;
+			friend Pipeline::ScenePass;
 		private:
 			CComPtr<IDxcBlob> m_CompiledShader;
 

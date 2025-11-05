@@ -13,7 +13,6 @@ struct VertexData
 struct MeshEntry
 {
     unsigned int VertexStartOffset;
-    unsigned int IndexStartOffset;
     unsigned int NumIndices;
 };
 
@@ -31,6 +30,8 @@ struct VSPerBatchConstants
 {
     unsigned int StartInstanceOffset;
     unsigned int MeshEntryIndex;
+    int pad1;
+    int pad2;
 };
 
 ConstantBuffer<CameraData> VertexPerPassData : register(b0);
@@ -57,7 +58,7 @@ VertexData GetVertexFromChannels(unsigned int Index)
 VertexData GetVertexFromID(
     in MeshEntry Mesh, unsigned int ID)
 {
-    unsigned int Index = IndexBuffer.Load(ID + Mesh.IndexStartOffset);
+    unsigned int Index = IndexBuffer.Load(ID);
     return GetVertexFromChannels(Index + Mesh.VertexStartOffset);
 }
 
@@ -79,22 +80,33 @@ struct OutputData
 
 OutputData main(InputData Input)
 {
+    float f = 1.0 / tan(1.047 * 0.5);
+    float zn = 0.1;
+    float zf = 1000;
+    float4x4 Projection =
+    {
+        f / (1080/1920), 0,  0,                        0,
+        0,          f,  0,                        0,
+        0,          0,  zf / (zf - zn),           1,
+        0,          0, (-zn * zf) / (zf - zn),    0
+    };
+
     const MeshEntry Mesh = MeshEntryBuffer.Load(PerBatchConstantsBuffer.MeshEntryIndex);
     const VertexData Vertex = GetVertexFromID(Mesh, Input.VertexID);
     const float4x4 WorldMatrix = InstanceBuffer.Load(PerBatchConstantsBuffer.StartInstanceOffset + Input.InstanceID).WorldMatrix;
-    
+    //const float4x4 WorldMatrix = {1, 0, 0, 0,0, 1, 0, 0,0, 0, 1, 0,0, 0, 100, 1};
+
     OutputData Output;
     Output.Position = mul(WorldMatrix, float4(Vertex.Position, 1.f));
     Output.WorldPosition = Output.Position.xyz;
     Output.Position = mul(VertexPerPassData.ViewProjectionMatrix, Output.Position);
+    //Output.Position = mul(Projection, Output.Position);
     
     Output.UV = Vertex.UV;
     
     const float3 Normal = mul(WorldMatrix, float4(Vertex.Normal, 0.f)).xyz;
     const float3 Tangent = mul(WorldMatrix, float4(Vertex.Tangent, 0.f)).xyz;
     const float3 BiTangent = cross(Normal, Tangent);
-    //const float3 BiTangent = cross(Tangent, Normal);
-    
     Output.Normal = Normal;
     Output.Tangent = Tangent;
     Output.BiTangent = BiTangent;

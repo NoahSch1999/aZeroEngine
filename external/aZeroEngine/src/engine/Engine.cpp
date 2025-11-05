@@ -12,10 +12,10 @@ namespace aZero
 			throw std::runtime_error("Engine() => Failed to create ID3D12Device");
 		}
 
-		//m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_PipelineManager.get());
+		m_PipelineManager = std::make_unique<Pipeline::PipelineManager>(m_Device.Get(), m_ProjectDirectory + SHADER_SOURCE_RELATIVE_PATH);
+		m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_PipelineManager.get());
 		m_AssetManager = std::make_unique<Asset::AssetManager>();
 		m_SceneManager = std::make_unique<Scene::SceneManager>();
-		m_PipelineManager = std::make_unique<Pipeline::PipelineManager>(m_Device.Get(), m_ProjectDirectory + SHADER_SOURCE_RELATIVE_PATH);
 	}
 
 	Engine::~Engine()

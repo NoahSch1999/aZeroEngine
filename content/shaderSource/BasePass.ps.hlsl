@@ -16,6 +16,9 @@ struct FragmentOutput
 struct PixelShaderConstants
 {
     int SamplerIndex;
+    int pad1;
+    int pad2;
+    int pad3;
 };
 
 struct PSPerBatchConstants
@@ -127,7 +130,7 @@ StructuredBuffer<SpotLight> SpotLightBuffer : register(t4);
 FragmentOutput main(FragmentInput Input)
 {
     FragmentOutput Output;
-    
+
     const Material Mat = MaterialBuffer.Load(PerBatchConstantsBuffer.MaterialEntryIndex);
     
     const SamplerState Sampler = SamplerDescriptorHeap[PixelShaderConstantsBuffer.SamplerIndex];

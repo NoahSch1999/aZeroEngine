@@ -18,6 +18,12 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&d3d12Debug))))
 		d3d12Debug->EnableDebugLayer();
 
+	CComPtr<ID3D12Debug> spDebugController0;
+	CComPtr<ID3D12Debug1> spDebugController1;
+	D3D12GetDebugInterface(IID_PPV_ARGS(&spDebugController0));
+	spDebugController0->QueryInterface(IID_PPV_ARGS(&spDebugController1));
+	spDebugController1->SetEnableGPUBasedValidation(true);
+
 	Microsoft::WRL::ComPtr<IDXGIDebug> idxgiDebug;
 	DXGIGetDebugInterface1(0, IID_PPV_ARGS(&idxgiDebug));
 #endif // DEBUG
@@ -48,7 +54,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 		// Creating a mesh
 		auto myMesh = assetManager.CreateMesh("mesh");
-		myMesh.GetAsset()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "cube.fbx");
+		myMesh.GetAsset()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "unitCube.fbx");
 		renderContext.UpdateRenderState(myMesh);
 
 		// Creating a texture
@@ -71,7 +77,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			scene.RenameEntity(ent2, "noah");
 			scene.RenameEntity(ent, "Entity_1");
 
-			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(2) /** DXM::Matrix::CreateRotationY(3.1415 / 2)*/ * DXM::Matrix::CreateTranslation(1337, 5, 42));
+			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(2) /** DXM::Matrix::CreateRotationY(3.1415 / 2)*/ * DXM::Matrix::CreateTranslation(0, 0, 42));
 
 			ECS::StaticMeshComponent CubeMeshComp;
 			CubeMeshComp.m_MeshReference = myMesh;

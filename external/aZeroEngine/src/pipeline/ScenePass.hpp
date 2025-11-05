@@ -136,7 +136,7 @@ namespace aZero
 				m_Bindings.DepthStencilTarget = binding;
 			}
 
-			void Compile(ID3D12Device* device, const PassDescription& description, std::weak_ptr<D3D12::Shader> vertexShader, std::optional<std::weak_ptr<D3D12::Shader>> pixelShader)
+			void Compile(ID3D12Device* device, const PassDescription& description, std::weak_ptr<Pipeline::VertexShader> vertexShader, std::optional<std::weak_ptr<Pipeline::PixelShader>> pixelShader)
 			{
 				this->Reset();
 
@@ -215,7 +215,7 @@ namespace aZero
 			// TODO: Clean up classes
 			struct BufferBinding
 			{
-				D3D12::Shader::ShaderResourceInfo BindingInfo;
+				Pipeline::Shader::ShaderResourceInfo BindingInfo;
 				std::weak_ptr<D3D12::GPUBuffer> Buffer;
 			};
 
@@ -226,7 +226,7 @@ namespace aZero
 					return std::malloc(numBytes);
 				}
 
-				D3D12::Shader::ShaderResourceInfo BindingInfo;
+				Pipeline::Shader::ShaderResourceInfo BindingInfo;
 
 				// Workaround to enable unique_ptr to delete allocated memory thats referenced as a void*
 				std::unique_ptr<void, decltype(&std::free)> Data;
@@ -349,8 +349,8 @@ namespace aZero
 			void Reset()
 			{
 				m_TopologyType = TOPOLOGY_TYPE::INVALID;
-				m_VertexShader = std::weak_ptr<D3D12::Shader>();
-				m_PixelShader = std::weak_ptr<D3D12::Shader>();
+				m_VertexShader = std::weak_ptr<Pipeline::VertexShader>();
+				m_PixelShader = std::weak_ptr<Pipeline::PixelShader>();
 				m_PipelineState = nullptr;
 				m_RootSignature = nullptr;
 				m_Bindings = Bindings();
@@ -484,7 +484,7 @@ namespace aZero
 				return true;
 			}
 
-			bool ValidateAndAsignPass(const PassDescription& description, std::weak_ptr<D3D12::Shader> vertexShader, std::optional<std::weak_ptr<D3D12::Shader>> pixelShader)
+			bool ValidateAndAsignPass(const PassDescription& description, std::weak_ptr<Pipeline::VertexShader> vertexShader, std::optional<std::weak_ptr<Pipeline::PixelShader>> pixelShader)
 			{
 				if (description.TopologyType == TOPOLOGY_TYPE::INVALID)
 				{
@@ -528,7 +528,7 @@ namespace aZero
 			bool CreateRootSignature(ID3D12Device* device)
 			{
 				std::vector<D3D12_ROOT_PARAMETER> allParams;
-				std::shared_ptr<D3D12::Shader> vertexShader = m_VertexShader.lock();
+				std::shared_ptr<Pipeline::VertexShader> vertexShader = m_VertexShader.lock();
 				for (const D3D12_ROOT_PARAMETER& Param : vertexShader->m_RootParameters)
 				{
 					allParams.emplace_back(Param);
@@ -536,7 +536,7 @@ namespace aZero
 
 				if (!m_PixelShader.expired())
 				{
-					std::shared_ptr<D3D12::Shader> pixelShader = m_VertexShader.lock();
+					std::shared_ptr<Pipeline::PixelShader> pixelShader = m_PixelShader.lock();
 					for (const D3D12_ROOT_PARAMETER& Param : pixelShader->m_RootParameters)
 					{
 						allParams.emplace_back(Param);
@@ -598,7 +598,7 @@ namespace aZero
 				D3D12_BLEND_DESC blendDesc = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 				pipelineStateDesc.BlendState = blendDesc;
 
-				std::shared_ptr<D3D12::Shader> vertexShader = m_VertexShader.lock();
+				std::shared_ptr<Pipeline::VertexShader> vertexShader = m_VertexShader.lock();
 				pipelineStateDesc.InputLayout.NumElements = vertexShader->m_InputElementDescs.size();
 				pipelineStateDesc.InputLayout.pInputElementDescs = vertexShader->m_InputElementDescs.data();
 
@@ -609,7 +609,7 @@ namespace aZero
 
 				if (!m_PixelShader.expired())
 				{
-					std::shared_ptr<D3D12::Shader> pixelShader = m_PixelShader.lock();
+					std::shared_ptr<Pipeline::PixelShader> pixelShader = m_PixelShader.lock();
 					pipelineStateDesc.NumRenderTargets = description.RenderTargets.size();
 					for (int i = 0; i < description.RenderTargets.size(); i++)
 					{
@@ -689,7 +689,7 @@ namespace aZero
 					}
 
 					const D3D12::GPUBuffer& buffer = *binding.second.Buffer.lock().get();
-					const D3D12::Shader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
+					const Pipeline::VertexShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 					switch (bindingInfo.m_ResourceType)
 					{
 					case D3D12_ROOT_PARAMETER_TYPE_SRV:
@@ -717,7 +717,7 @@ namespace aZero
 
 				for (const auto& binding : m_Bindings.VSRootConstants)
 				{
-					const D3D12::Shader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
+					const Pipeline::VertexShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 					if (bindingInfo.m_ResourceType == D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS)
 					{
 						cmdList->SetComputeRoot32BitConstants(bindingInfo.m_RootIndex, bindingInfo.m_Num32BitConstants, binding.second.Data.get(), 0);
@@ -741,7 +741,7 @@ namespace aZero
 						}
 
 						const D3D12::GPUBuffer& buffer = *binding.second.Buffer.lock().get();
-						const D3D12::Shader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
+						const Pipeline::PixelShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 						switch (bindingInfo.m_ResourceType)
 						{
 						case D3D12_ROOT_PARAMETER_TYPE_SRV:
@@ -769,7 +769,7 @@ namespace aZero
 
 					for (const auto& binding : m_Bindings.PSRootConstants)
 					{
-						const D3D12::Shader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
+						const Pipeline::PixelShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 						if (bindingInfo.m_ResourceType == D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS)
 						{
 							cmdList->SetComputeRoot32BitConstants(bindingInfo.m_RootIndex, bindingInfo.m_Num32BitConstants, binding.second.Data.get(), 0);
@@ -785,8 +785,8 @@ namespace aZero
 				//
 			}
 
-			std::weak_ptr<D3D12::Shader> m_VertexShader;
-			std::weak_ptr<D3D12::Shader> m_PixelShader;
+			std::weak_ptr<Pipeline::VertexShader> m_VertexShader;
+			std::weak_ptr<Pipeline::PixelShader> m_PixelShader;
 			Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
 			Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 			Bindings m_Bindings;

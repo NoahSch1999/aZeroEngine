@@ -8,6 +8,7 @@ namespace aZero
 		class VertexShader : public Shader
 		{
 			friend class RenderPass;
+			friend class ScenePass;
 		private:
 			std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputElementDescs;
 			std::vector<std::string> m_InputElementSemanticNames; // TODO: Try remove

@@ -10,6 +10,7 @@ namespace aZero
 		class PixelShader : public Shader
 		{
 			friend class RenderPass;
+			friend class ScenePass;
 		private:
 			enum NUM_RTV_CHANNELS { R = 1, RG = 2, RGB = 3, RGBA = 4 };
 

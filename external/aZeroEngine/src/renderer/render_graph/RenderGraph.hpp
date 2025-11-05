@@ -24,11 +24,16 @@ namespace aZero
 				D3D12::GPUBuffer* Buffer = nullptr;
 			};
 
+			struct ConstantEntry
+			{
+				std::array<std::byte, 4> c = {};
+			};
+
 			struct RootConstant
 			{
 				std::string BindingName;
 				Pipeline::SHADER_TYPE ShaderType;
-				std::vector<int32_t> Data;
+				std::vector<ConstantEntry> Data;
 			};
 
 			Pipeline::RenderPass m_Pass;
@@ -67,7 +72,7 @@ namespace aZero
 						Constant.ShaderType = Pipeline::SHADER_TYPE::VS;
 						for (int i = 0; i < Value.m_Num32BitConstants; i++)
 						{
-							Constant.Data.push_back(0);
+							Constant.Data.push_back(ConstantEntry());
 						}
 						m_VSRootConstants.push_back(Constant);
 					}
@@ -89,7 +94,7 @@ namespace aZero
 						Constant.ShaderType = Pipeline::SHADER_TYPE::PS;
 						for (int i = 0; i < Value.m_Num32BitConstants; i++)
 						{
-							Constant.Data.push_back(0);
+							Constant.Data.push_back(ConstantEntry());
 						}
 						m_PSRootConstants.push_back(Constant);
 					}
@@ -111,7 +116,7 @@ namespace aZero
 						Constant.ShaderType = Pipeline::SHADER_TYPE::CS;
 						for (int i = 0; i < Value.m_Num32BitConstants; i++)
 						{
-							Constant.Data.push_back(0);
+							Constant.Data.push_back(ConstantEntry());
 						}
 						m_CSRootConstants.push_back(Constant);
 					}
@@ -189,7 +194,8 @@ namespace aZero
 				{
 					if (RootConst.BindingName == ShaderName)
 					{
-						memcpy(RootConst.Data.data(), Data, std::min((uint32_t)RootConst.Data.size(), NumBytes));
+						uint32_t numBytesCopy = std::min((uint32_t)(RootConst.Data.size() * sizeof(ConstantEntry)), NumBytes);
+						memcpy(RootConst.Data.data(), Data, numBytesCopy);
 					}
 				}
 			}

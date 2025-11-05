@@ -43,14 +43,14 @@ namespace aZero
 
 			std::vector<D3D12::ResourceTransitionBundles> PreCopyBarriers;
 			PreCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, DstTexture });
-			PreCopyBarriers.push_back({ D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE, SrcTexture });
+			PreCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE, SrcTexture });
 			D3D12::TransitionResources(CmdList, PreCopyBarriers);
 
 			CmdList->CopyResource(DstTexture, SrcTexture);
 
 			std::vector<D3D12::ResourceTransitionBundles> PostCopyBarriers;
 			PostCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON, DstTexture });
-			PostCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, SrcTexture });
+			PostCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON, SrcTexture });
 			D3D12::TransitionResources(CmdList, PostCopyBarriers);
 
 			m_GraphicsQueue.ExecuteContext(CmdContext);
@@ -98,6 +98,11 @@ namespace aZero
 
 			ID3D12GraphicsCommandList* cmdList = prepRenderCommandContext.value().m_Context->GetCommandList();
 
+			std::vector<D3D12::ResourceTransitionBundles> PreRenderBarriers;
+			PreRenderBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET, RenderSurface.GetTexture().GetResource() });
+			PreRenderBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, DepthSurface.GetTexture().GetResource() });
+			D3D12::TransitionResources(cmdList, PreRenderBarriers);
+
 			if (ClearRenderSurface)
 			{
 				RenderSurface.RecordClear(cmdList);
@@ -138,11 +143,12 @@ namespace aZero
 				{
 					if (true/* TODO: Perform frustrum culling */)
 					{
+						auto& batch = batches[staticMeshEntity.m_MeshIndex][staticMeshEntity.m_MaterialIndex];
+						batch.NumVertices = staticMeshEntity.m_NumVertices;
+
 						Pipeline::ScenePass::StaticMeshInstanceData instanceData;
 						instanceData.Transform = staticMeshEntity.m_Transform;
-						auto batch = batches[staticMeshEntity.m_MeshIndex][staticMeshEntity.m_MaterialIndex];
-						batch.NumVertices = staticMeshEntity.m_NumVertices;
-						batch.InstanceData.emplace_back();
+						batch.InstanceData.emplace_back(instanceData);
 					}
 				}
 
@@ -177,6 +183,9 @@ namespace aZero
 					struct PixelPerPassData
 					{
 						uint32_t samplerIndex;
+						uint32_t x;
+						uint32_t y;
+						uint32_t z;
 					};
 
 					VertexPerPassData vertexShaderPassData;
@@ -189,79 +198,87 @@ namespace aZero
 					m_DefaultRenderPass.BindBuffer("UVBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_UVBuffer.GetBuffer());
 					m_DefaultRenderPass.BindBuffer("NormalBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_NormalBuffer.GetBuffer());
 					m_DefaultRenderPass.BindBuffer("TangentBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("IndexBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
+					m_DefaultRenderPass.BindBuffer("IndexBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_IndexBuffer.GetBuffer());
 					m_DefaultRenderPass.BindBuffer("MeshEntryBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_MeshEntryBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("InstanceBuffer", Pipeline::SHADER_TYPE::VS, &m_StaticMeshFrameBuffers.at(m_FrameIndex));
+					m_DefaultRenderPass.BindBuffer("InstanceBuffer", Pipeline::SHADER_TYPE::VS, &m_StaticMeshFrameBuffers.at(m_FrameIndex)); //
+					m_DefaultRenderPass.BindConstant("VertexPerPassData", Pipeline::SHADER_TYPE::VS, (void*)&vertexShaderPassData, sizeof(VertexPerPassData)); //
 
 					m_DefaultRenderPass.BindBuffer("PointLightBuffer", Pipeline::SHADER_TYPE::PS, &m_PointLightFrameBuffers.at(m_FrameIndex));
 					m_DefaultRenderPass.BindBuffer("SpotLightBuffer", Pipeline::SHADER_TYPE::PS, &m_SpotLightFrameBuffers.at(m_FrameIndex));
 					m_DefaultRenderPass.BindBuffer("DirectionalLightBuffer", Pipeline::SHADER_TYPE::PS, &m_DirectionalLightFrameBuffers.at(m_FrameIndex));
 					m_DefaultRenderPass.BindBuffer("MaterialBuffer", Pipeline::SHADER_TYPE::PS, &m_MaterialBuffer.GetBuffer());
-					m_DefaultRenderPass.BindConstant("PixelShaderConstantsBuffer", Pipeline::SHADER_TYPE::PS, &pixelShaderPassData, sizeof(pixelShaderPassData));
+					m_DefaultRenderPass.BindConstant("PixelShaderConstantsBuffer", Pipeline::SHADER_TYPE::PS, (void*)&pixelShaderPassData, sizeof(PixelPerPassData));
 
+
+					auto batchCommandContext = m_CommandContextAllocator.GetContext();
+					if (!batchCommandContext.has_value())
+						throw;
+
+					auto batchCommandList = batchCommandContext.value().m_Context->GetCommandList();
 					for (const auto& [meshIndex, batchArrayMap] : batches)
 					{
 						for (const auto& [materialIndex, batchArray] : batchArrayMap)
 						{
-							// TODO: Handle auto-resizing of the buffers if the allocator memory pool gets full
+							// Write a vector of DXM::Matrix that matches the vertexshader's InstanceData struct (a single float4x4)
 							LinearAllocator<>::Allocation batchAllocation = frameBatchAllocator.Append((void*)batchArray.InstanceData.data(), batchArray.InstanceData.size() * sizeof(decltype(batchArray.InstanceData)::value_type));
-							MeshHandle meshHandle;
-							meshHandle.NumVertices = batchArray.NumVertices;
-							meshHandle.StartIndex = meshIndex;
 
-							MaterialHandle materialHandle;
-							materialHandle.Index = materialIndex;
-
-							struct VertexPerDrawData
+							struct VSPerBatchConstants
 							{
-								uint32_t meshStartOffset;
 								uint32_t batchStartOffset;
+								uint32_t meshStartOffset;
+								uint32_t x;
+								uint32_t y;
 							};
+							VSPerBatchConstants vsPerBatchConstants;
+							vsPerBatchConstants.batchStartOffset = batchAllocation.Offset;
+							vsPerBatchConstants.meshStartOffset = meshIndex;
 
-							struct PixelPerDrawData
+							struct PSPerBatchConstants
 							{
 								uint32_t materialIndex;
 								uint32_t numDirectionalLights;
 								uint32_t numPointLights;
 								uint32_t numSpotLights;
 							};
-
-							VertexPerDrawData vertexPerDrawData;
-							vertexPerDrawData.meshStartOffset = meshHandle.StartIndex;
-							vertexPerDrawData.batchStartOffset = batchAllocation.Offset;
-
-							PixelPerDrawData pixelPerDrawData;
-							pixelPerDrawData.materialIndex = materialHandle.Index;
-							pixelPerDrawData.numPointLights = pointLights.size() * sizeof(decltype(pointLights)::value_type);
-							pixelPerDrawData.numSpotLights = spotLights.size() * sizeof(decltype(spotLights)::value_type);
-							pixelPerDrawData.numDirectionalLights = sceneProxy.m_DirectionalLights.GetData().size() * sizeof(decltype(sceneProxy.m_DirectionalLights.GetData())::value_type);
-
-							auto batchCommandContext = m_CommandContextAllocator.GetContext();
-							if (!batchCommandContext.has_value())
-								throw;
-
-							auto batchCommandList = batchCommandContext.value().m_Context->GetCommandList();
+							PSPerBatchConstants psPerBatchConstants;
+							psPerBatchConstants.materialIndex = materialIndex;
+							psPerBatchConstants.numPointLights = pointLights.size();
+							psPerBatchConstants.numSpotLights = spotLights.size();
+							psPerBatchConstants.numDirectionalLights = sceneProxy.m_DirectionalLights.GetData().size();
 
 							ID3D12DescriptorHeap* Heaps[2] = { m_ResourceHeap.GetDescriptorHeap(), m_SamplerHeap.GetDescriptorHeap() };
 							batchCommandList->SetDescriptorHeaps(2, Heaps);
 
+							/*
+								setpso
+								setrootsig
+								setprimtopology
+								set all constants and buffers
+							*/
 							if (!m_DefaultRenderPass.BeginPass(batchCommandList))
 								throw;
 
+							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&vsPerBatchConstants, sizeof(VSPerBatchConstants), Pipeline::SHADER_TYPE::VS);
+							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&psPerBatchConstants, sizeof(PSPerBatchConstants), Pipeline::SHADER_TYPE::PS);
+
 							batchCommandList->RSSetViewports(1, &camera.m_Viewport);
 							batchCommandList->RSSetScissorRects(1, &camera.m_ScizzorRect);
-
-							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "VertexPerPassData", (void*)&vertexShaderPassData, sizeof(vertexShaderPassData), Pipeline::SHADER_TYPE::VS);
-							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&vertexPerDrawData, sizeof(vertexPerDrawData), Pipeline::SHADER_TYPE::VS);
-
-							uint32_t numVertices = meshHandle.NumVertices;
-							batchCommandList->DrawInstanced(numVertices, batchArray.InstanceData.size(), 0, 0);
-
-							m_GraphicsQueue.ExecuteContext(*batchCommandContext.value().m_Context);
+							
+							batchCommandList->DrawInstanced(batchArray.NumVertices, batchArray.InstanceData.size(), 0, 0);
 						}
 					}
+
+					m_GraphicsQueue.ExecuteContext(*batchCommandContext.value().m_Context);
 				}
 			}
+		
+			ID3D12GraphicsCommandList* cmd = prepRenderCommandContext.value().m_Context->GetCommandList();
+			std::vector<D3D12::ResourceTransitionBundles> PostRenderBarriers;
+			PostRenderBarriers.push_back({ D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON, RenderSurface.GetTexture().GetResource() });
+			PostRenderBarriers.push_back({ D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COMMON, DepthSurface.GetTexture().GetResource() });
+			D3D12::TransitionResources(cmd, PostRenderBarriers);
+
+			m_GraphicsQueue.ExecuteContext(*prepRenderCommandContext.value().m_Context);
 		}
 
 		void Renderer::InitCommandRecording()
@@ -285,6 +302,8 @@ namespace aZero
 			for (int i = 0; i < m_BufferCount; i++)
 			{
 				m_StaticMeshFrameBuffers.emplace_back(D3D12::GPUBuffer(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
+				std::wstring debugName = L"InstanceBuffer" + std::to_wstring(i);
+				m_StaticMeshFrameBuffers.at(i).GetResource()->SetName(debugName.c_str());
 				
 				m_PointLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 
@@ -296,13 +315,32 @@ namespace aZero
 			// TODO: Change so these use 64bit ints
 			m_AssetStagingAllocator.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler);
 			m_MeshBuffers.m_PositionBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			std::wstring debugName = L"Pos";
+			m_MeshBuffers.m_PositionBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+
 			m_MeshBuffers.m_UVBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			debugName = L"UV";
+			m_MeshBuffers.m_UVBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+
 			m_MeshBuffers.m_NormalBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			debugName = L"Norm";
+			m_MeshBuffers.m_NormalBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+
 			m_MeshBuffers.m_TangentBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			debugName = L"Tan";
+			m_MeshBuffers.m_TangentBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+
 			m_MeshBuffers.m_IndexBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			debugName = L"Index";
+			m_MeshBuffers.m_IndexBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+
 			m_MeshBuffers.m_MeshEntryBuffer.Init(m_diDevice, sizeof(int32_t) * 10000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
-		
+			debugName = L"MeshEntry";
+			m_MeshBuffers.m_MeshEntryBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+
 			m_MaterialBuffer.Init(m_diDevice, sizeof(MaterialHandle) * 1000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			debugName = L"Material";
+			m_MaterialBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
 		}
 
 		void Renderer::InitSamplers()
@@ -353,6 +391,7 @@ namespace aZero
 			ID3D12GraphicsCommandList* cmdList = cmdContext.value().m_Context->GetCommandList();
 
 			m_AssetStagingAllocator.RecordAllocations(cmdList);
+			m_AssetStagingAllocator.Reset();
 
 			m_GraphicsQueue.ExecuteContext(*cmdContext.value().m_Context);
 		}
@@ -366,13 +405,13 @@ namespace aZero
 			m_MeshBuffers.m_PositionBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.Positions.data());
 			m_MeshBuffers.m_PositionAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
-			m_MeshBuffers.m_NormalBuffer.Allocate(allocHandle, allocSize);
-			m_MeshBuffers.m_NormalBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.Normals.data());
-			m_MeshBuffers.m_NormalAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
-
 			m_MeshBuffers.m_UVBuffer.Allocate(allocHandle, allocSize);
 			m_MeshBuffers.m_UVBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.UVs.data());
 			m_MeshBuffers.m_UVAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
+
+			m_MeshBuffers.m_NormalBuffer.Allocate(allocHandle, allocSize);
+			m_MeshBuffers.m_NormalBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.Normals.data());
+			m_MeshBuffers.m_NormalAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
 			m_MeshBuffers.m_TangentBuffer.Allocate(allocHandle, allocSize);
 			m_MeshBuffers.m_TangentBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.Tangents.data());
@@ -404,14 +443,15 @@ namespace aZero
 			{
 				this->AllocateFreelistMesh(meshAsset, cmdList);
 
-				DS::FreelistAllocator::AllocationHandle allocHandle;
 				MeshHandle meshHandle;
-				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[meshAsset.GetAssetID()].GetStartOffset() / sizeof(meshAsset.m_VertexData.Positions.at(0));
+				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[meshAsset.GetAssetID()].GetStartOffset() / sizeof(meshAsset.m_VertexData.Indices.at(0));
 				meshHandle.NumVertices = meshAsset.m_VertexData.Indices.size();
+
+				DS::FreelistAllocator::AllocationHandle allocHandle;
 				m_MeshBuffers.m_MeshEntryBuffer.Allocate(allocHandle, sizeof(MeshHandle));
+				meshAsset.m_RenderID = allocHandle.GetStartOffset() / sizeof(MeshHandle);
 				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, &meshHandle);
 				m_MeshBuffers.m_MeshEntryAllocMap[meshAsset.GetAssetID()] = std::move(allocHandle);
-				meshAsset.m_RenderID = allocHandle.GetStartOffset() / sizeof(MeshHandle);
 			}
 			else
 			{
@@ -424,7 +464,7 @@ namespace aZero
 
 				this->AllocateFreelistMesh(meshAsset, cmdList);
 				MeshHandle meshHandle;
-				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[id].GetStartOffset() / sizeof(meshAsset.m_VertexData.Positions.at(0));
+				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[id].GetStartOffset() / sizeof(meshAsset.m_VertexData.Indices.at(0));
 				meshHandle.NumVertices = meshAsset.m_VertexData.Indices.size();
 				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocator, m_MeshBuffers.m_MeshEntryAllocMap[id], &meshHandle);
 			}
