@@ -49,5 +49,7 @@ namespace aZero
 
 		// TODO: Replace
 		const std::string& GetProjectDirectory() const { return m_ProjectDirectory; }
+
+		ID3D12Device* GetDevice() const { return m_Device.Get(); }
 	};
 }

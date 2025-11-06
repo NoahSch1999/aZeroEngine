@@ -49,7 +49,7 @@ namespace aZero
 					Format = DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT;
 					Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 					ClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-					ClearValue.DepthStencil.Depth = 1.f;
+					ClearValue.DepthStencil.Depth = 0.f;
 					ClearValue.DepthStencil.Stencil = 0;
 				}
 

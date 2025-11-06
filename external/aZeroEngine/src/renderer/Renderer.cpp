@@ -136,6 +136,51 @@ namespace aZero
 			LinearAllocator frameDirectionalLightAllocator(m_DirectionalLightFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
 			std::vector<Scene::SceneProxy::DirectionalLight> directionalLights;
 
+			Pipeline::ScenePass::DepthStencilBinding dsvBind;
+			dsvBind.Descriptor = DepthSurface.GetView<D3D12::DepthStencilView>().GetDescriptorHandle();
+			dsvBind.Depth = 1;
+			dsvBind.ShouldClear = true;
+			scenePass->BindDepthStencilTarget(dsvBind);
+
+			Pipeline::ScenePass::RenderTargetBinding rtvBind;
+			rtvBind.Descriptor = RenderSurface.GetView<D3D12::RenderTargetView>().GetDescriptorHandle();
+			rtvBind.ShouldClear = true;
+			rtvBind.Color[0] = 0.f;
+			rtvBind.Color[1] = 0.f;
+			rtvBind.Color[2] = 0.f;
+			rtvBind.Color[3] = 0.f;
+			scenePass->BindRenderTarget("ColorTarget", rtvBind);
+
+			struct VertexPerPassData
+			{
+				DXM::Matrix ViewProjectionMatrix;
+			};
+
+			struct PixelPerPassData
+			{
+				uint32_t samplerIndex;
+				uint32_t x;
+				uint32_t y;
+				uint32_t z;
+			};
+
+			PixelPerPassData pixelShaderPassData;
+			pixelShaderPassData.samplerIndex = m_AnisotropicSampler.GetHeapIndex();
+
+			scenePass->BindVertexShaderBuffer("PositionBuffer", &m_MeshBuffers.m_PositionBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("UVBuffer", &m_MeshBuffers.m_UVBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("NormalBuffer", &m_MeshBuffers.m_NormalBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("TangentBuffer", &m_MeshBuffers.m_TangentBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("IndexBuffer", &m_MeshBuffers.m_IndexBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("MeshEntryBuffer", &m_MeshBuffers.m_MeshEntryBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("InstanceBuffer", &m_StaticMeshFrameBuffers.at(m_FrameIndex));
+
+			scenePass->BindPixelShaderBuffer("PointLightBuffer", &m_PointLightFrameBuffers.at(m_FrameIndex));
+			scenePass->BindPixelShaderBuffer("SpotLightBuffer", &m_SpotLightFrameBuffers.at(m_FrameIndex));
+			scenePass->BindPixelShaderBuffer("DirectionalLightBuffer", &m_DirectionalLightFrameBuffers.at(m_FrameIndex));
+			scenePass->BindPixelShaderBuffer("MaterialBuffer", &m_MaterialBuffer.GetBuffer());
+			scenePass->BindPixelShaderConstants("PixelShaderConstantsBuffer", (void*)&pixelShaderPassData);
+
 			const Scene::SceneProxy& sceneProxy = Scene.GetProxy();
 			for (const Scene::SceneProxy::Camera& camera : sceneProxy.m_Cameras.GetData())
 			{
@@ -170,106 +215,23 @@ namespace aZero
 
 				LinearAllocator<>::Allocation pointLightAllocation = framePointLightAllocator.Append((void*)pointLights.data(), pointLights.size() * sizeof(decltype(pointLights)::value_type));
 				LinearAllocator<>::Allocation spotLightAllocation = frameSpotLightAllocator.Append((void*)spotLights.data(), spotLights.size() * sizeof(decltype(spotLights)::value_type));
-				
+
 				// Fetching all directional lights from the scene since nothing gets culled from it
 				LinearAllocator<>::Allocation directionalLightAllocation = frameDirectionalLightAllocator.Append((void*)sceneProxy.m_DirectionalLights.GetData().data(), sceneProxy.m_DirectionalLights.GetData().size() * sizeof(decltype(sceneProxy.m_DirectionalLights.GetData())::value_type));
 
-				{
-					struct VertexPerPassData
-					{
-						DXM::Matrix ViewProjectionMatrix;
-					};
+				auto passCommandContext = m_CommandContextAllocator.GetContext();
+				if (!passCommandContext.has_value())
+					throw;
 
-					struct PixelPerPassData
-					{
-						uint32_t samplerIndex;
-						uint32_t x;
-						uint32_t y;
-						uint32_t z;
-					};
+				VertexPerPassData vertexShaderPassData;
+				vertexShaderPassData.ViewProjectionMatrix = camera.m_ViewProjectionMatrix;
+				scenePass->BindVertexShaderConstants("VertexPerPassData", (void*)&vertexShaderPassData);
 
-					VertexPerPassData vertexShaderPassData;
-					vertexShaderPassData.ViewProjectionMatrix = camera.m_ViewProjectionMatrix;
-
-					PixelPerPassData pixelShaderPassData;
-					pixelShaderPassData.samplerIndex = m_AnisotropicSampler.GetHeapIndex();
-
-					m_DefaultRenderPass.BindBuffer("PositionBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_PositionBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("UVBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_UVBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("NormalBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_NormalBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("TangentBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_TangentBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("IndexBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_IndexBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("MeshEntryBuffer", Pipeline::SHADER_TYPE::VS, &m_MeshBuffers.m_MeshEntryBuffer.GetBuffer());
-					m_DefaultRenderPass.BindBuffer("InstanceBuffer", Pipeline::SHADER_TYPE::VS, &m_StaticMeshFrameBuffers.at(m_FrameIndex)); //
-					m_DefaultRenderPass.BindConstant("VertexPerPassData", Pipeline::SHADER_TYPE::VS, (void*)&vertexShaderPassData, sizeof(VertexPerPassData)); //
-
-					m_DefaultRenderPass.BindBuffer("PointLightBuffer", Pipeline::SHADER_TYPE::PS, &m_PointLightFrameBuffers.at(m_FrameIndex));
-					m_DefaultRenderPass.BindBuffer("SpotLightBuffer", Pipeline::SHADER_TYPE::PS, &m_SpotLightFrameBuffers.at(m_FrameIndex));
-					m_DefaultRenderPass.BindBuffer("DirectionalLightBuffer", Pipeline::SHADER_TYPE::PS, &m_DirectionalLightFrameBuffers.at(m_FrameIndex));
-					m_DefaultRenderPass.BindBuffer("MaterialBuffer", Pipeline::SHADER_TYPE::PS, &m_MaterialBuffer.GetBuffer());
-					m_DefaultRenderPass.BindConstant("PixelShaderConstantsBuffer", Pipeline::SHADER_TYPE::PS, (void*)&pixelShaderPassData, sizeof(PixelPerPassData));
-
-
-					auto batchCommandContext = m_CommandContextAllocator.GetContext();
-					if (!batchCommandContext.has_value())
-						throw;
-
-					auto batchCommandList = batchCommandContext.value().m_Context->GetCommandList();
-					for (const auto& [meshIndex, batchArrayMap] : batches)
-					{
-						for (const auto& [materialIndex, batchArray] : batchArrayMap)
-						{
-							// Write a vector of DXM::Matrix that matches the vertexshader's InstanceData struct (a single float4x4)
-							LinearAllocator<>::Allocation batchAllocation = frameBatchAllocator.Append((void*)batchArray.InstanceData.data(), batchArray.InstanceData.size() * sizeof(decltype(batchArray.InstanceData)::value_type));
-
-							struct VSPerBatchConstants
-							{
-								uint32_t batchStartOffset;
-								uint32_t meshStartOffset;
-								uint32_t x;
-								uint32_t y;
-							};
-							VSPerBatchConstants vsPerBatchConstants;
-							vsPerBatchConstants.batchStartOffset = batchAllocation.Offset;
-							vsPerBatchConstants.meshStartOffset = meshIndex;
-
-							struct PSPerBatchConstants
-							{
-								uint32_t materialIndex;
-								uint32_t numDirectionalLights;
-								uint32_t numPointLights;
-								uint32_t numSpotLights;
-							};
-							PSPerBatchConstants psPerBatchConstants;
-							psPerBatchConstants.materialIndex = materialIndex;
-							psPerBatchConstants.numPointLights = pointLights.size();
-							psPerBatchConstants.numSpotLights = spotLights.size();
-							psPerBatchConstants.numDirectionalLights = sceneProxy.m_DirectionalLights.GetData().size();
-
-							ID3D12DescriptorHeap* Heaps[2] = { m_ResourceHeap.GetDescriptorHeap(), m_SamplerHeap.GetDescriptorHeap() };
-							batchCommandList->SetDescriptorHeaps(2, Heaps);
-
-							/*
-								setpso
-								setrootsig
-								setprimtopology
-								set all constants and buffers
-							*/
-							if (!m_DefaultRenderPass.BeginPass(batchCommandList))
-								throw;
-
-							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&vsPerBatchConstants, sizeof(VSPerBatchConstants), Pipeline::SHADER_TYPE::VS);
-							m_DefaultRenderPass.m_Pass.SetShaderResource(batchCommandList, "PerBatchConstantsBuffer", (void*)&psPerBatchConstants, sizeof(PSPerBatchConstants), Pipeline::SHADER_TYPE::PS);
-
-							batchCommandList->RSSetViewports(1, &camera.m_Viewport);
-							batchCommandList->RSSetScissorRects(1, &camera.m_ScizzorRect);
-							
-							batchCommandList->DrawInstanced(batchArray.NumVertices, batchArray.InstanceData.size(), 0, 0);
-						}
-					}
-
-					m_GraphicsQueue.ExecuteContext(*batchCommandContext.value().m_Context);
-				}
+				Pipeline::ScenePass::LightDrawData ld;
+				ld.NumDirectionalLights = sceneProxy.m_DirectionalLights.GetData().size();
+				ld.NumSpotLights = sceneProxy.m_SpotLights.GetData().size();
+				ld.NumPointLights = sceneProxy.m_PointLights.GetData().size();
+				scenePass->Execute(m_GraphicsQueue, passCommandContext.value(), m_ResourceHeap.GetDescriptorHeap(), m_SamplerHeap.GetDescriptorHeap(), camera, frameBatchAllocator, batches, ld);
 			}
 		
 			ID3D12GraphicsCommandList* cmd = prepRenderCommandContext.value().m_Context->GetCommandList();

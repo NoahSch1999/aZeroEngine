@@ -36,17 +36,17 @@ namespace aZero
 			// TODO: Replace with surface?
 			struct DepthStencilBinding
 			{
-				std::weak_ptr<D3D12::Descriptor> Descriptor;
+				D3D12_CPU_DESCRIPTOR_HANDLE Descriptor;
 				bool ShouldClear = true;
-				uint32_t Depth = 1;
+				uint32_t Depth = 0;
 				uint32_t Stencil = 0;
 			};
 
 			struct RenderTargetBinding
 			{
-				std::weak_ptr<D3D12::Descriptor> Descriptor;
+				D3D12_CPU_DESCRIPTOR_HANDLE Descriptor;
 				bool ShouldClear = true;
-				float Color[4];
+				float Color[4] = { 0,0,0,0 };
 			};
 			//
 
@@ -71,7 +71,7 @@ namespace aZero
 				DepthStencilTarget DepthStencil;
 			};
 
-			void BindVertexShaderBuffer(const std::string& name, std::weak_ptr<D3D12::GPUBuffer> buffer)
+			void BindVertexShaderBuffer(const std::string& name, D3D12::GPUBuffer* buffer)
 			{
 				if (auto it = m_Bindings.VSBuffers.find(name); it != m_Bindings.VSBuffers.end())
 				{
@@ -83,7 +83,7 @@ namespace aZero
 				}
 			}
 
-			void BindPixelShaderBuffer(const std::string& name, std::weak_ptr<D3D12::GPUBuffer> buffer)
+			void BindPixelShaderBuffer(const std::string& name, D3D12::GPUBuffer* buffer)
 			{
 				if (auto it = m_Bindings.PSBuffers.find(name); it != m_Bindings.PSBuffers.end())
 				{
@@ -99,7 +99,7 @@ namespace aZero
 			{
 				if (auto it = m_Bindings.VSRootConstants.find(name); it != m_Bindings.VSRootConstants.end())
 				{
-					memcpy(it->second.Data.get(), data, it->second.BindingInfo.m_Num32BitConstants);
+					memcpy(it->second.Data.get(), data, it->second.BindingInfo.m_Num32BitConstants * sizeof(int32_t));
 				}
 				else
 				{
@@ -111,7 +111,7 @@ namespace aZero
 			{
 				if (auto it = m_Bindings.PSRootConstants.find(name); it != m_Bindings.PSRootConstants.end())
 				{
-					memcpy(it->second.Data.get(), data, it->second.BindingInfo.m_Num32BitConstants);
+					memcpy(it->second.Data.get(), data, it->second.BindingInfo.m_Num32BitConstants * sizeof(int32_t));
 				}
 				else
 				{
@@ -185,16 +185,29 @@ namespace aZero
 					return false;
 				}
 
+				/*if (m_Bindings.DepthStencilTarget.has_value() && m_Bindings.DepthStencilTarget->Descriptor.expired())
+				{
+					DEBUG_PRINT("Depth stencil has expired.");
+					return false;
+				}*/
+
 				if (m_Bindings.DepthStencilTarget->ShouldClear)
 				{
-					cmdList->ClearDepthStencilView(m_Bindings.DepthStencilTarget->Descriptor.lock()->GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_Bindings.DepthStencilTarget->Depth, m_Bindings.DepthStencilTarget->Stencil, 0, nullptr);
+					//cmdList->ClearDepthStencilView(m_Bindings.DepthStencilTarget->Descriptor.lock()->GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_Bindings.DepthStencilTarget->Depth, m_Bindings.DepthStencilTarget->Stencil, 0, nullptr);
+					cmdList->ClearDepthStencilView(m_Bindings.DepthStencilTarget->Descriptor, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_Bindings.DepthStencilTarget->Depth, m_Bindings.DepthStencilTarget->Stencil, 0, nullptr);
 				}
 				
+				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
 				for (auto& [name, rtv] : m_Bindings.RenderTargets)
 				{
-					cmdList->ClearRenderTargetView(rtv.Descriptor.lock()->GetCPUHandle(), rtv.Color, 0, nullptr);
+					/*if (rtv.Descriptor.expired())
+					{
+						DEBUG_PRINT("Render target with name || " + name + " || has expired.");
+						return false;
+					}*/
+					rtvHandles.emplace_back(rtv.Descriptor);
+					cmdList->ClearRenderTargetView(rtvHandles.back(), rtv.Color, 0, nullptr);
 				}
-				//
 
 				// TODO: Make batches into a simple vector which can be iterated
 				// TODO: Multithread?
@@ -203,7 +216,7 @@ namespace aZero
 					for (const auto& [materialIndex, batchArray] : batchArrayMap)
 					{
 						LinearAllocator<>::Allocation batchAllocation = staticMeshAllocator.Append((void*)batchArray.InstanceData.data(), batchArray.InstanceData.size() * sizeof(decltype(batchArray.InstanceData)::value_type));
-						this->RenderBatch(cmdList, resourceHeap, samplerHeap, camera, batchAllocation.Offset, batchArray, lightDrawData);
+						this->RenderBatch(cmdList, resourceHeap, samplerHeap, rtvHandles, camera, batchAllocation.Offset, batchArray, lightDrawData);
 						graphicsQueue.ExecuteContext(*cmdContext.m_Context);
 					}
 				}
@@ -216,7 +229,7 @@ namespace aZero
 			struct BufferBinding
 			{
 				Pipeline::Shader::ShaderResourceInfo BindingInfo;
-				std::weak_ptr<D3D12::GPUBuffer> Buffer;
+				D3D12::GPUBuffer* Buffer;
 			};
 
 			struct RootConstantBinding
@@ -258,41 +271,23 @@ namespace aZero
 
 			// TODO: Make it into less input, maybe through "di"
 			bool RenderBatch(ID3D12GraphicsCommandList* cmdList,
-				ID3D12DescriptorHeap* resourceHeap, 
-				ID3D12DescriptorHeap* samplerHeap, 
+				ID3D12DescriptorHeap* resourceHeap,
+				ID3D12DescriptorHeap* samplerHeap,
+				std::span<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles,
 				const Scene::SceneProxy::Camera& camera, 
 				uint32_t staticMeshBatchOffset,
 				const StaticMeshBatchDrawData& staticMeshBatch, 
 				const LightDrawData& lightDrawData)
 			{
+				ID3D12DescriptorHeap* heaps[2] = { resourceHeap, samplerHeap };
+				cmdList->SetDescriptorHeaps(2, heaps);
 				cmdList->SetPipelineState(m_PipelineState.Get());
 				cmdList->SetGraphicsRootSignature(m_RootSignature.Get());
 				cmdList->IASetPrimitiveTopology(this->GetTopologyType1());
-				ID3D12DescriptorHeap* heaps[2] = { resourceHeap, samplerHeap };
-				cmdList->SetDescriptorHeaps(2, heaps);
-				
-				// We want to support not binding either a dsv or any rtvs since we might want depth-only passes etc...
-				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
-				for (auto& rtv : m_Bindings.RenderTargets)
-				{
-					if (rtv.second.Descriptor.expired())
-					{
-						DEBUG_PRINT("Render target with name || " + rtv.first + " || has expired.");
-						return false;
-					}
-					rtvHandles.emplace_back(rtv.second.Descriptor.lock()->GetCPUHandle());
-				}
-
-				if (m_Bindings.DepthStencilTarget.has_value() && m_Bindings.DepthStencilTarget->Descriptor.expired())
-				{
-					DEBUG_PRINT("Depth stencil has expired.");
-					return false;
-				}
-				//
 
 				if (m_Bindings.DepthStencilTarget.has_value())
 				{
-					D3D12_CPU_DESCRIPTOR_HANDLE tempHandle = m_Bindings.DepthStencilTarget->Descriptor.lock()->GetCPUHandle();
+					D3D12_CPU_DESCRIPTOR_HANDLE tempHandle = m_Bindings.DepthStencilTarget->Descriptor;
 					cmdList->OMSetRenderTargets(rtvHandles.size(), rtvHandles.data(), false, &tempHandle);
 				}
 				else
@@ -308,29 +303,31 @@ namespace aZero
 				//			Maybe D3D12_COMMAND_LIST_TYPE_BUNDLE can be used to avoid the cost of this->BindResources(cmdList)?
 				//			VertexPerDrawData, PixelPerDrawData and other mandatory ScenePass bindings should maybe be moved into a hardcoded vector? 
 				//				If so, how to initialize that? Regardless, they have to be set every frame since we're using triple-buffering.
-				struct VertexPerDrawData
+				struct VSPerBatchConstants
 				{
-					uint32_t meshIndex;
 					uint32_t batchOffset;
+					uint32_t meshIndex;
+					uint32_t x = 0;
+					uint32_t y = 0;
 				};
-				VertexPerDrawData vData;
+				VSPerBatchConstants vData;
 				vData.meshIndex = staticMeshBatch.MeshIndex;
 				vData.batchOffset = staticMeshBatchOffset;
-				this->BindVertexShaderConstants("VSPerBatchConstants", (void*)&vData);
+				this->BindVertexShaderConstants("PerBatchConstantsBuffer", (void*)&vData);
 
-				struct PixelPerDrawData
+				struct PSPerBatchConstants
 				{
 					uint32_t materialIndex;
 					uint32_t numDirectionalLights;
 					uint32_t numPointLights;
 					uint32_t numSpotLights;
 				};
-				PixelPerDrawData pData;
+				PSPerBatchConstants pData;
 				pData.materialIndex = staticMeshBatch.MaterialIndex;
 				pData.numPointLights = lightDrawData.NumPointLights;
 				pData.numSpotLights = lightDrawData.NumSpotLights;
 				pData.numDirectionalLights = lightDrawData.NumDirectionalLights;
-				this->BindPixelShaderConstants("PSPerBatchConstants", (void*)&pData);
+				this->BindPixelShaderConstants("PerBatchConstantsBuffer", (void*)&pData);
 
 				if (!this->BindResources(cmdList))
 				{
@@ -454,31 +451,31 @@ namespace aZero
 
 			bool ValidateBoundRenderSurfaces()
 			{
-				if (m_Bindings.DepthStencilTarget.has_value() && m_Bindings.DepthStencilTarget->Descriptor.expired())
-				{
-					// LOG
-					return false;
-				}
+				//if (m_Bindings.DepthStencilTarget.has_value() && m_Bindings.DepthStencilTarget->Descriptor.expired())
+				//{
+				//	// LOG
+				//	return false;
+				//}
 
-				if (m_Bindings.DepthStencilTarget->Descriptor.lock()->GetHeapIndex() == -1) // TODO: Change "-1" to a constexpr static var
-				{
-					// LOG
-					return false;
-				}
+				//if (m_Bindings.DepthStencilTarget->Descriptor.lock()->GetHeapIndex() == -1) // TODO: Change "-1" to a constexpr static var
+				//{
+				//	// LOG
+				//	return false;
+				//}
 
 				for (auto& [name, rtv] : m_Bindings.RenderTargets)
 				{
-					if (rtv.Descriptor.expired())
-					{
-						// LOG - Name and reason
-						return false;
-					}
+					//if (rtv.Descriptor.expired())
+					//{
+					//	// LOG - Name and reason
+					//	return false;
+					//}
 
-					if (rtv.Descriptor.lock()->GetHeapIndex() == -1) // TODO: Change "-1" to a constexpr static var
-					{
-						// LOG - Name and reason
-						return false;
-					}
+					//if (rtv.Descriptor.lock()->GetHeapIndex() == -1) // TODO: Change "-1" to a constexpr static var
+					//{
+					//	// LOG - Name and reason
+					//	return false;
+					//}
 				}
 
 				return true;
@@ -523,6 +520,7 @@ namespace aZero
 
 				m_VertexShader = vertexShader;
 				m_TopologyType = description.TopologyType;
+				return true;
 			}
 
 			bool CreateRootSignature(ID3D12Device* device)
@@ -536,7 +534,13 @@ namespace aZero
 
 				if (!m_PixelShader.expired())
 				{
+					const size_t numVSBinds = vertexShader->m_ResourceNameToInformation.size();
 					std::shared_ptr<Pipeline::PixelShader> pixelShader = m_PixelShader.lock();
+					for (auto& nameToIndex : pixelShader->m_ResourceNameToInformation)
+					{
+						nameToIndex.second.m_RootIndex += numVSBinds;
+					}
+
 					for (const D3D12_ROOT_PARAMETER& Param : pixelShader->m_RootParameters)
 					{
 						allParams.emplace_back(Param);
@@ -653,7 +657,7 @@ namespace aZero
 				const HRESULT res = device->CreateGraphicsPipelineState(&pipelineStateDesc, IID_PPV_ARGS(m_PipelineState.GetAddressOf()));
 				if (FAILED(res))
 				{
-					DEBUG_PRINT("Failed to create graphics pipelinestate");
+					DEBUG_PRINT("Failed to create graphics pipelinestate: " + std::to_string(res));
 					return false;
 				}
 
@@ -682,13 +686,13 @@ namespace aZero
 				// TODO: Make less copy-pasta
 				for (const auto& binding : m_Bindings.VSBuffers)
 				{
-					if (binding.second.Buffer.expired())
+					/*if (binding.second.Buffer.expired())
 					{
 						DEBUG_PRINT("Bound buffer with name " + binding.first + " that was bound to a vertex shader has expired.");
 						return false;
-					}
+					}*/
 
-					const D3D12::GPUBuffer& buffer = *binding.second.Buffer.lock().get();
+					const D3D12::GPUBuffer& buffer = *binding.second.Buffer;
 					const Pipeline::VertexShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 					switch (bindingInfo.m_ResourceType)
 					{
@@ -720,7 +724,7 @@ namespace aZero
 					const Pipeline::VertexShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 					if (bindingInfo.m_ResourceType == D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS)
 					{
-						cmdList->SetComputeRoot32BitConstants(bindingInfo.m_RootIndex, bindingInfo.m_Num32BitConstants, binding.second.Data.get(), 0);
+						cmdList->SetGraphicsRoot32BitConstants(bindingInfo.m_RootIndex, bindingInfo.m_Num32BitConstants, binding.second.Data.get(), 0);
 					}
 					// TODO: Look if this case even can happen
 					else
@@ -734,13 +738,13 @@ namespace aZero
 				{
 					for (const auto& binding : m_Bindings.PSBuffers)
 					{
-						if (binding.second.Buffer.expired())
+						/*if (binding.second.Buffer.expired())
 						{
 							DEBUG_PRINT("Bound buffer with name " + binding.first + " that was bound to a pixel shader has expired.");
 							return false;
-						}
+						}*/
 
-						const D3D12::GPUBuffer& buffer = *binding.second.Buffer.lock().get();
+						const D3D12::GPUBuffer& buffer = *binding.second.Buffer;
 						const Pipeline::PixelShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 						switch (bindingInfo.m_ResourceType)
 						{
@@ -772,7 +776,7 @@ namespace aZero
 						const Pipeline::PixelShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 						if (bindingInfo.m_ResourceType == D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS)
 						{
-							cmdList->SetComputeRoot32BitConstants(bindingInfo.m_RootIndex, bindingInfo.m_Num32BitConstants, binding.second.Data.get(), 0);
+							cmdList->SetGraphicsRoot32BitConstants(bindingInfo.m_RootIndex, bindingInfo.m_Num32BitConstants, binding.second.Data.get(), 0);
 						}
 						// TODO: Look if this case even can happen
 						else

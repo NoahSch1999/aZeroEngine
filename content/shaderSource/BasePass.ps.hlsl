@@ -23,7 +23,7 @@ struct PixelShaderConstants
 
 struct PSPerBatchConstants
 {
-    unsigned int MaterialEntryIndex;
+    unsigned int MaterialEntryIndex; // TODO: move lights to PixelShaderConstants
     unsigned int NumDirectionalLights;
     unsigned int NumPointLights;
     unsigned int NumSpotLights;

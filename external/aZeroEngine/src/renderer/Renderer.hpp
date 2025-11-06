@@ -121,6 +121,7 @@ namespace aZero
 			// =============================================
 
 		public:
+			Pipeline::ScenePass* scenePass;
 			Renderer() = default;
 
 			Renderer(ID3D12Device* device, uint32_t bufferCount, Pipeline::PipelineManager& diPipelineManager);

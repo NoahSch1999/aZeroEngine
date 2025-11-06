@@ -32,18 +32,30 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	{
 		// API Interfaces
 		aZero::Engine engine(3, aZero::Helper::GetProjectDirectory() + "/../../../content");
+		Rendering::RenderContext renderContext = engine.GetRenderContext();
 
-		Pipeline::VertexShader vs;
-		vs.CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
+		std::shared_ptr<Pipeline::VertexShader> vs = std::make_shared<Pipeline::VertexShader>(Pipeline::VertexShader());
+		vs->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
 
-		Pipeline::PixelShader ps;
-		ps.CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+		std::shared_ptr<Pipeline::PixelShader> ps = std::make_shared<Pipeline::PixelShader>(Pipeline::PixelShader());
+		ps->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+
+		Pipeline::ScenePass scenePass;
+		Pipeline::ScenePass::PassDescription scenePassDesc;
+		scenePassDesc.TopologyType = Pipeline::ScenePass::TOPOLOGY_TYPE::TRIANGLE;
+		scenePassDesc.DepthStencil.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		Pipeline::ScenePass::PassDescription::RenderTarget rtv;
+		rtv.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+		rtv.Name = "ColorTarget";
+		scenePassDesc.RenderTargets.push_back(rtv);
+		scenePass.Compile(engine.GetDevice(), scenePassDesc, vs, ps);
+
+		renderContext.GetScenePass() = &scenePass;
 
 		Pipeline::ComputeShader cs;
 		cs.CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "TestShader.cs.hlsl");
 
 		std::shared_ptr<aZero::Window::RenderWindow> activeWindow = engine.CreateRenderWindow({ 1920, 1080 }, "aZero engine");
-		Rendering::RenderContext renderContext = engine.GetRenderContext();
 		Asset::AssetManager& assetManager = engine.GetAssetManager();
 		Scene::SceneManager& sceneManager = engine.GetSceneManager();
 		//
@@ -100,7 +112,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 		Rendering::RenderSurface SceneColorSurface(
 			engine.CreateRenderSurface(activeWindow->GetClientDimensions(), 
-				Rendering::RenderSurface::Type::Color_Target, DXM::Vector4(0.2,0.2,0.2,0)));
+				Rendering::RenderSurface::Type::Color_Target, DXM::Vector4(0.f, 0.f, 0.f, 1.f)));
 		
 		Rendering::RenderSurface SceneDepthSurface(
 			engine.CreateRenderSurface(activeWindow->GetClientDimensions(), 

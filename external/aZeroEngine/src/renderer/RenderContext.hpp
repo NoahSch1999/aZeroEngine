@@ -115,6 +115,8 @@ namespace aZero
 				this->m_Renderer.UpdateRenderState(texture);
 			}
 
+			Pipeline::ScenePass*& GetScenePass() { return m_Renderer.scenePass; }
+
 		private:
 			Renderer& m_Renderer;
 		};

@@ -1,5 +1,6 @@
 #pragma once
 #include "ScenePass.hpp"
+#include "ComputePass.hpp"
 #include "scene/Scene.hpp"
 
 namespace aZero
@@ -76,9 +77,28 @@ namespace aZero
 					lightDrawData.NumDirectionalLights = sceneProxy.m_DirectionalLights.GetData().size();
 
 					// TODO: Make this an iteration over RenderPass-subclasses and do dynamic_cast and execute the correct function
-					for (auto& pass : m_ScenePasses)
+					for (std::weak_ptr<RenderPass_New> pass : m_Passes)
 					{
-						pass.Execute(cmdQueue, cmdContext, resourceHeap, samplerHeap, camera, batches, lightDrawData);
+						if (pass.expired())
+						{
+							DEBUG_PRINT("Pass invalid ptr.");
+							throw;
+						}
+
+						std::shared_ptr<RenderPass_New> passPtr = pass.lock();
+						ScenePass* scenePass = dynamic_cast<ScenePass*>(passPtr.get());
+						if (scenePass)
+						{
+							scenePass->Execute(cmdQueue, cmdContext, resourceHeap, samplerHeap, camera, batches, lightDrawData);
+							continue;
+						}
+
+						ComputePass* computePass = dynamic_cast<ComputePass*>(passPtr.get());
+						if (computePass)
+						{
+							computePass->Execute(cmdQueue, cmdContext, resourceHeap, samplerHeap);
+							continue;
+						}
 					}
 				}
 
@@ -86,7 +106,7 @@ namespace aZero
 			}
 		private:
 			// TODO: Make this into a list which can be ordered etc.
-			std::vector<ScenePass> m_ScenePasses;
+			std::vector<std::weak_ptr<RenderPass_New>> m_Passes;
 		}
 	}
 }

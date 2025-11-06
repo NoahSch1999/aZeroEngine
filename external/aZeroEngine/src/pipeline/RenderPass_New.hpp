@@ -6,9 +6,11 @@ namespace aZero
 	{
 		class RenderPass_New
 		{
-		public:
-
 		private:
+
+		public:
+			RenderPass_New() = default;
+			virtual ~RenderPass_New(){}
 		};
 	}
 }
