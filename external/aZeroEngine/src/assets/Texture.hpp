@@ -40,9 +40,10 @@ namespace aZero
 			{
 				std::vector<uint8_t> TexelData;
 				uint32_t Width, Height, NumChannels;
+				DXGI_FORMAT Format;
 			};
 
-			bool Load(const std::string& filePath);
+			bool Load(const std::string& filePath, DXGI_FORMAT format);
 
 			void RemoveTexelData()
 			{

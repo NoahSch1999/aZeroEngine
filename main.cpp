@@ -66,21 +66,28 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 		// Creating a mesh
 		auto myMesh = assetManager.CreateMesh("mesh");
-		myMesh.GetAsset()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "unitCube.fbx");
+		myMesh.GetAsset()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "cube.fbx");
 		renderContext.UpdateRenderState(myMesh);
 
 		// Creating a texture
 		auto myTexture = assetManager.CreateTexture("texture");
-		myTexture.GetAsset()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "freakycat.png");
+		myTexture.GetAsset()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "defaultTexture.jpg",
+			DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
 		renderContext.UpdateRenderState(myTexture);
+
+		auto myNormalMap = assetManager.CreateTexture("normal");
+		myNormalMap.GetAsset()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "testNormalMap.png",
+			DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM);
+		renderContext.UpdateRenderState(myNormalMap);
 
 		// Creating a material
 		auto myMaterial = assetManager.CreateMaterial("material");
 		myMaterial.GetAsset()->m_Data.AlbedoTexture = myTexture;
-		myMaterial.GetAsset()->m_Data.NormalMap = myTexture;
+		myMaterial.GetAsset()->m_Data.NormalMap = myNormalMap;
 		renderContext.UpdateRenderState(myMaterial);
 
 
+		PointLightData plData;
 		{
 			ECS::Entity ent = scene.CreateEntity();
 			ECS::Entity ent2 = scene.CreateEntity();
@@ -89,12 +96,20 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			scene.RenameEntity(ent2, "noah");
 			scene.RenameEntity(ent, "Entity_1");
 
-			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(2) /** DXM::Matrix::CreateRotationY(3.1415 / 2)*/ * DXM::Matrix::CreateTranslation(0, 0, 42));
+			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(2) /** DXM::Matrix::CreateRotationY(3.1415 / 2)*/ * DXM::Matrix::CreateTranslation(0, 0, 5));
 
 			ECS::StaticMeshComponent CubeMeshComp;
 			CubeMeshComp.m_MeshReference = myMesh;
 			CubeMeshComp.m_MaterialReference = myMaterial;
 			scene.GetComponentManager().AddComponent(ent2, CubeMeshComp);
+
+			ECS::PointLightComponent pl;
+			plData.Color = { 1,1,1 };
+			plData.FalloffFactor = 1;
+			plData.Intensity = 10;
+			plData.Position = { 0,0,0 };
+			pl.SetData(plData);
+			scene.GetComponentManager().AddComponent(ent2, pl);
 
 			ECS::CameraComponent cameraComp;
 			cameraComp.m_TopLeft = { 0,0 };
@@ -110,13 +125,17 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			//auto loadedScene = Scene::SceneSerializer::Deserialize("C:/Projects/PrograssetManagerming/aZeroEditor/idk.aZene");
 		}
 
-		Rendering::RenderSurface SceneColorSurface(
+		std::shared_ptr<Rendering::RenderSurface> SceneColorSurface(
 			engine.CreateRenderSurface(activeWindow->GetClientDimensions(), 
 				Rendering::RenderSurface::Type::Color_Target, DXM::Vector4(0.f, 0.f, 0.f, 1.f)));
 		
-		Rendering::RenderSurface SceneDepthSurface(
+		std::shared_ptr<Rendering::RenderSurface> SceneDepthSurface(
 			engine.CreateRenderSurface(activeWindow->GetClientDimensions(), 
-				Rendering::RenderSurface::Type::Depth_Target));
+				Rendering::RenderSurface::Type::Depth_Target, DXM::Vector4(1,0,0,0)));
+
+		scenePass.BindDepthStencilTarget(SceneDepthSurface);
+
+		scenePass.BindRenderTarget("ColorTarget", SceneColorSurface);
 
 		while (activeWindow->IsOpen())
 		{
@@ -132,27 +151,36 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			// Example of moving the camera
 			ECS::Entity camEnt = scene.GetEntity("noah").value();
 			ECS::CameraComponent& cam = *scene.GetComponentManager().GetComponent<ECS::CameraComponent>(camEnt);
+			ECS::PointLightComponent& plComp = *scene.GetComponentManager().GetComponent<ECS::PointLightComponent>(camEnt);
 			if (GetAsyncKeyState('W'))
 			{
 				cam.m_Position += DXM::Vector3(0, 0, 0.01f);
+				plData.Position = { cam.m_Position };
+				plComp.SetData(plData);
 				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('S'))
 			{
 				cam.m_Position += DXM::Vector3(0, 0, -0.03f);
+				plData.Position = { cam.m_Position };
+				plComp.SetData(plData);
 				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('D'))
 			{
 				cam.m_Position += DXM::Vector3(-0.01f, 0, 0);
+				plData.Position = { cam.m_Position };
+				plComp.SetData(plData);
 				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('A'))
 			{
 				cam.m_Position += DXM::Vector3(0.01f, 0, 0);
+				plData.Position = { cam.m_Position };
+				plComp.SetData(plData);
 				scene.UpdateRenderState(camEnt);
 			}
 			//
@@ -165,9 +193,9 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 			if (activeWindow->WaitOnSwapchain())
 			{
-				renderContext.Render(scene, SceneColorSurface, true, SceneDepthSurface, true);
+				renderContext.Render(scene, *SceneColorSurface.get(), true, *SceneDepthSurface.get(), true);
 
-				renderContext.CompleteRender(SceneColorSurface, activeWindow);
+				renderContext.CompleteRender(*SceneColorSurface.get(), activeWindow);
 
 				renderContext.EndFrame();
 

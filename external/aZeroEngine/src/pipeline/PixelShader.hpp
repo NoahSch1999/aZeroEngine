@@ -14,7 +14,7 @@ namespace aZero
 		private:
 			enum NUM_RTV_CHANNELS { R = 1, RG = 2, RGB = 3, RGBA = 4 };
 
-			static constexpr std::array<DXGI_FORMAT, 1> m_ValidFormatsRGBA = { DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB };
+			static constexpr std::array<DXGI_FORMAT, 3> m_ValidFormatsRGBA = { DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_SNORM };
 			static constexpr std::array<DXGI_FORMAT, 0> m_ValidFormatsRGB = { };
 			static constexpr std::array<DXGI_FORMAT, 2> m_ValidFormatsRG = { };
 			static constexpr std::array<DXGI_FORMAT, 3> m_ValidFormatsR = { DXGI_FORMAT::DXGI_FORMAT_R32_UINT, DXGI_FORMAT::DXGI_FORMAT_R32_SINT, DXGI_FORMAT::DXGI_FORMAT_R32_FLOAT };

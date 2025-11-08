@@ -41,11 +41,11 @@ namespace aZero
 			name,
 			dimensions,
 			&m_Renderer->m_ResourceRecycler,
-			m_Renderer->m_BufferCount
+			m_Renderer->m_BufferCount, DXGI_FORMAT_R8G8B8A8_UNORM
 		);
 	}
 
-	Rendering::RenderSurface Engine::CreateRenderSurface(
+	std::shared_ptr<Rendering::RenderSurface> Engine::CreateRenderSurface(
 		const DXM::Vector2& dimensions,
 		Rendering::RenderSurface::Type type,
 		std::optional<DXM::Vector4> clearColor
@@ -53,23 +53,23 @@ namespace aZero
 	{
 		if (type == Rendering::RenderSurface::Type::Color_Target)
 		{
-			return Rendering::RenderSurface(
+			return std::shared_ptr<Rendering::RenderSurface>(new Rendering::RenderSurface(
 				m_Device.Get(),
 				&m_Renderer->m_ResourceRecycler,
 				m_Renderer->m_RTVHeap.GetDescriptor(),
 				dimensions,
 				type,
 				clearColor
-			);
+			));
 		}
 
-		return Rendering::RenderSurface(
+		return std::shared_ptr<Rendering::RenderSurface>(new Rendering::RenderSurface(
 			m_Device.Get(),
 			&m_Renderer->m_ResourceRecycler,
 			m_Renderer->m_DSVHeap.GetDescriptor(),
 			dimensions,
 			type,
 			clearColor
-		);
+		));
 	}
 }

@@ -4,7 +4,6 @@
 #include <fstream>
 
 #include "ecs/aZeroECS.hpp"
-#include "graphics_api/resource_type/LinearBuffer.hpp"
 #include "misc/SparseMappedVector.hpp"
 #include "misc/Yaml_Operator_Overloads.hpp"
 #include "misc/HelperFunctions.hpp"
@@ -49,10 +48,10 @@ namespace aZero
 
 			struct PointLight
 			{
-				DXM::Vector3 m_Position;
 				DXM::Vector3 m_Color;
-				float m_FalloffFactor;
 				float m_Intensity;
+				DXM::Vector3 m_Position;
+				float m_FalloffFactor;
 			};
 
 			struct SpotLight

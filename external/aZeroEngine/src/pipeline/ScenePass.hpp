@@ -4,6 +4,7 @@
 #include "graphics_api/CommandQueue.hpp"
 #include <optional>
 #include "LinearAllocator.hpp"
+#include "renderer/RenderSurface.hpp"
 
 namespace aZero
 {
@@ -32,22 +33,6 @@ namespace aZero
 				uint32_t NumSpotLights;
 				uint32_t NumDirectionalLights;
 			};
-
-			// TODO: Replace with surface?
-			struct DepthStencilBinding
-			{
-				D3D12_CPU_DESCRIPTOR_HANDLE Descriptor;
-				bool ShouldClear = true;
-				uint32_t Depth = 0;
-				uint32_t Stencil = 0;
-			};
-
-			struct RenderTargetBinding
-			{
-				D3D12_CPU_DESCRIPTOR_HANDLE Descriptor;
-				bool ShouldClear = true;
-				float Color[4] = { 0,0,0,0 };
-			};
 			//
 
 			enum class TOPOLOGY_TYPE { INVALID = 0, POINT = 1, LINE = 2, TRIANGLE = 3 };
@@ -71,7 +56,7 @@ namespace aZero
 				DepthStencilTarget DepthStencil;
 			};
 
-			void BindVertexShaderBuffer(const std::string& name, D3D12::GPUBuffer* buffer)
+			void BindVertexShaderBuffer(const std::string& name, std::weak_ptr<D3D12::GPUBuffer> buffer)
 			{
 				if (auto it = m_Bindings.VSBuffers.find(name); it != m_Bindings.VSBuffers.end())
 				{
@@ -83,7 +68,7 @@ namespace aZero
 				}
 			}
 
-			void BindPixelShaderBuffer(const std::string& name, D3D12::GPUBuffer* buffer)
+			void BindPixelShaderBuffer(const std::string& name, std::weak_ptr<D3D12::GPUBuffer> buffer)
 			{
 				if (auto it = m_Bindings.PSBuffers.find(name); it != m_Bindings.PSBuffers.end())
 				{
@@ -119,11 +104,17 @@ namespace aZero
 				}
 			}
 
-			void BindRenderTarget(const std::string& name, const RenderTargetBinding& binding)
+			void BindRenderTarget(const std::string& name, std::weak_ptr<Rendering::RenderSurface> renderTargetSurface)
 			{
+				if (renderTargetSurface.expired() || renderTargetSurface.lock()->GetType() != Rendering::RenderSurface::Type::Color_Target)
+				{
+					DEBUG_PRINT("Render target surface expired or non-color target");
+					return;
+				}
+
 				if (auto it = m_Bindings.RenderTargets.find(name); it != m_Bindings.RenderTargets.end())
 				{
-					it->second = binding;
+					it->second = renderTargetSurface;
 				}
 				else
 				{
@@ -131,9 +122,15 @@ namespace aZero
 				}
 			}
 
-			void BindDepthStencilTarget(const DepthStencilBinding& binding)
+			void BindDepthStencilTarget(std::weak_ptr<Rendering::RenderSurface> renderDepthStencilSurface)
 			{
-				m_Bindings.DepthStencilTarget = binding;
+				if (renderDepthStencilSurface.expired() || renderDepthStencilSurface.lock()->GetType() != Rendering::RenderSurface::Type::Depth_Target)
+				{
+					DEBUG_PRINT("Render depth stencil surface expired or non-color target");
+					return;
+				}
+
+				m_Bindings.DepthStencilTarget = renderDepthStencilSurface;
 			}
 
 			void Compile(ID3D12Device* device, const PassDescription& description, std::weak_ptr<Pipeline::VertexShader> vertexShader, std::optional<std::weak_ptr<Pipeline::PixelShader>> pixelShader)
@@ -191,12 +188,9 @@ namespace aZero
 					return false;
 				}*/
 
-				if (m_Bindings.DepthStencilTarget->ShouldClear)
-				{
-					//cmdList->ClearDepthStencilView(m_Bindings.DepthStencilTarget->Descriptor.lock()->GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_Bindings.DepthStencilTarget->Depth, m_Bindings.DepthStencilTarget->Stencil, 0, nullptr);
-					cmdList->ClearDepthStencilView(m_Bindings.DepthStencilTarget->Descriptor, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_Bindings.DepthStencilTarget->Depth, m_Bindings.DepthStencilTarget->Stencil, 0, nullptr);
-				}
-				
+				std::vector<D3D12::ResourceTransitionBundles> transitionBarriers;
+				transitionBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, m_Bindings.DepthStencilTarget->lock()->GetTexture().GetResource() });
+
 				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
 				for (auto& [name, rtv] : m_Bindings.RenderTargets)
 				{
@@ -205,8 +199,27 @@ namespace aZero
 						DEBUG_PRINT("Render target with name || " + name + " || has expired.");
 						return false;
 					}*/
-					rtvHandles.emplace_back(rtv.Descriptor);
-					cmdList->ClearRenderTargetView(rtvHandles.back(), rtv.Color, 0, nullptr);
+
+					transitionBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET, rtv.lock()->GetTexture().GetResource() });
+
+					rtvHandles.emplace_back(rtv.lock()->GetView<D3D12::RenderTargetView>().GetDescriptorHandle());
+				}
+
+				D3D12::TransitionResources(cmdList, transitionBarriers);
+
+				for (auto& [name, rtv] : m_Bindings.RenderTargets)
+				{
+					/*if (rtv.Descriptor.expired())
+					{
+						DEBUG_PRINT("Render target with name || " + name + " || has expired.");
+						return false;
+					}*/
+					rtv.lock()->RecordClear(cmdList);
+				}
+
+				if (m_Bindings.DepthStencilTarget->lock()->ShouldClear())
+				{
+					m_Bindings.DepthStencilTarget->lock()->RecordClear(cmdList);
 				}
 
 				// TODO: Make batches into a simple vector which can be iterated
@@ -221,6 +234,21 @@ namespace aZero
 					}
 				}
 
+				transitionBarriers.clear();
+				transitionBarriers.push_back({ D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COMMON, m_Bindings.DepthStencilTarget->lock()->GetTexture().GetResource() });
+
+				for (auto& [name, rtv] : m_Bindings.RenderTargets)
+				{
+					/*if (rtv.Descriptor.expired())
+					{
+						DEBUG_PRINT("Render target with name || " + name + " || has expired.");
+						return false;
+					}*/
+					transitionBarriers.push_back({ D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON, rtv.lock()->GetTexture().GetResource()});
+				}
+				D3D12::TransitionResources(cmdList, transitionBarriers);
+				graphicsQueue.ExecuteContext(*cmdContext.m_Context);
+
 				return true;
 			}
 
@@ -229,7 +257,7 @@ namespace aZero
 			struct BufferBinding
 			{
 				Pipeline::Shader::ShaderResourceInfo BindingInfo;
-				D3D12::GPUBuffer* Buffer;
+				std::weak_ptr<D3D12::GPUBuffer> Buffer;
 			};
 
 			struct RootConstantBinding
@@ -256,8 +284,8 @@ namespace aZero
 			struct Bindings
 			{
 				// TODO: Replace with RenderSurface?
-				std::optional<DepthStencilBinding> DepthStencilTarget;
-				std::unordered_map<std::string, RenderTargetBinding> RenderTargets;
+				std::optional<std::weak_ptr<Rendering::RenderSurface>> DepthStencilTarget;
+				std::unordered_map<std::string, std::weak_ptr<Rendering::RenderSurface>> RenderTargets;
 				//
 
 				// TODO: Make less copy-pasta?
@@ -285,14 +313,21 @@ namespace aZero
 				cmdList->SetGraphicsRootSignature(m_RootSignature.Get());
 				cmdList->IASetPrimitiveTopology(this->GetTopologyType1());
 
-				if (m_Bindings.DepthStencilTarget.has_value())
+				if (m_Bindings.DepthStencilTarget.has_value() && !m_Bindings.DepthStencilTarget->expired())
 				{
-					D3D12_CPU_DESCRIPTOR_HANDLE tempHandle = m_Bindings.DepthStencilTarget->Descriptor;
-					cmdList->OMSetRenderTargets(rtvHandles.size(), rtvHandles.data(), false, &tempHandle);
+					if (m_Bindings.DepthStencilTarget.has_value())
+					{
+						D3D12_CPU_DESCRIPTOR_HANDLE tempHandle = m_Bindings.DepthStencilTarget->lock()->GetView<D3D12::DepthStencilView>().GetDescriptorHandle();
+						cmdList->OMSetRenderTargets(rtvHandles.size(), rtvHandles.data(), false, &tempHandle);
+					}
+					else
+					{
+						cmdList->OMSetRenderTargets(rtvHandles.size(), rtvHandles.data(), false, nullptr);
+					}
 				}
 				else
 				{
-					cmdList->OMSetRenderTargets(rtvHandles.size(), rtvHandles.data(), false, nullptr);
+					DEBUG_PRINT("Depth stencil expired.");
 				}
 
 				// TODO: For each of these the data is staged into a GPUBuffer that uses a LinearAllocator.
@@ -441,10 +476,10 @@ namespace aZero
 						return false;
 					}
 
-					m_Bindings.RenderTargets[rtv.Name] = RenderTargetBinding();
+					m_Bindings.RenderTargets[rtv.Name] = std::weak_ptr<Rendering::RenderSurface>();
 				}
 
-				m_Bindings.DepthStencilTarget = DepthStencilBinding();
+				m_Bindings.DepthStencilTarget = std::weak_ptr<Rendering::RenderSurface>();
 
 				return true;
 			}
@@ -686,29 +721,29 @@ namespace aZero
 				// TODO: Make less copy-pasta
 				for (const auto& binding : m_Bindings.VSBuffers)
 				{
-					/*if (binding.second.Buffer.expired())
+					if (binding.second.Buffer.expired())
 					{
 						DEBUG_PRINT("Bound buffer with name " + binding.first + " that was bound to a vertex shader has expired.");
 						return false;
-					}*/
+					}
 
-					const D3D12::GPUBuffer& buffer = *binding.second.Buffer;
+					std::shared_ptr<D3D12::GPUBuffer> buffer = binding.second.Buffer.lock();
 					const Pipeline::VertexShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 					switch (bindingInfo.m_ResourceType)
 					{
 					case D3D12_ROOT_PARAMETER_TYPE_SRV:
 					{
-						cmdList->SetGraphicsRootShaderResourceView(bindingInfo.m_RootIndex, buffer.GetResource()->GetGPUVirtualAddress());
+						cmdList->SetGraphicsRootShaderResourceView(bindingInfo.m_RootIndex, buffer->GetResource()->GetGPUVirtualAddress());
 						break;
 					}
 					case D3D12_ROOT_PARAMETER_TYPE_UAV:
 					{
-						cmdList->SetGraphicsRootUnorderedAccessView(bindingInfo.m_RootIndex, buffer.GetResource()->GetGPUVirtualAddress());
+						cmdList->SetGraphicsRootUnorderedAccessView(bindingInfo.m_RootIndex, buffer->GetResource()->GetGPUVirtualAddress());
 						break;
 					}
 					case D3D12_ROOT_PARAMETER_TYPE_CBV:
 					{
-						cmdList->SetGraphicsRootConstantBufferView(bindingInfo.m_RootIndex, buffer.GetResource()->GetGPUVirtualAddress());
+						cmdList->SetGraphicsRootConstantBufferView(bindingInfo.m_RootIndex, buffer->GetResource()->GetGPUVirtualAddress());
 						break;
 					}
 					default:
@@ -738,29 +773,29 @@ namespace aZero
 				{
 					for (const auto& binding : m_Bindings.PSBuffers)
 					{
-						/*if (binding.second.Buffer.expired())
+						if (binding.second.Buffer.expired())
 						{
 							DEBUG_PRINT("Bound buffer with name " + binding.first + " that was bound to a pixel shader has expired.");
 							return false;
-						}*/
+						}
 
-						const D3D12::GPUBuffer& buffer = *binding.second.Buffer;
+						std::shared_ptr<D3D12::GPUBuffer> buffer = binding.second.Buffer.lock();
 						const Pipeline::PixelShader::ShaderResourceInfo& bindingInfo = binding.second.BindingInfo;
 						switch (bindingInfo.m_ResourceType)
 						{
 						case D3D12_ROOT_PARAMETER_TYPE_SRV:
 						{
-							cmdList->SetGraphicsRootShaderResourceView(bindingInfo.m_RootIndex, buffer.GetResource()->GetGPUVirtualAddress());
+							cmdList->SetGraphicsRootShaderResourceView(bindingInfo.m_RootIndex, buffer->GetResource()->GetGPUVirtualAddress());
 							break;
 						}
 						case D3D12_ROOT_PARAMETER_TYPE_UAV:
 						{
-							cmdList->SetGraphicsRootUnorderedAccessView(bindingInfo.m_RootIndex, buffer.GetResource()->GetGPUVirtualAddress());
+							cmdList->SetGraphicsRootUnorderedAccessView(bindingInfo.m_RootIndex, buffer->GetResource()->GetGPUVirtualAddress());
 							break;
 						}
 						case D3D12_ROOT_PARAMETER_TYPE_CBV:
 						{
-							cmdList->SetGraphicsRootConstantBufferView(bindingInfo.m_RootIndex, buffer.GetResource()->GetGPUVirtualAddress());
+							cmdList->SetGraphicsRootConstantBufferView(bindingInfo.m_RootIndex, buffer->GetResource()->GetGPUVirtualAddress());
 							break;
 						}
 						default:

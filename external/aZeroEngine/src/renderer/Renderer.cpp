@@ -98,58 +98,21 @@ namespace aZero
 
 			ID3D12GraphicsCommandList* cmdList = prepRenderCommandContext.value().m_Context->GetCommandList();
 
-			std::vector<D3D12::ResourceTransitionBundles> PreRenderBarriers;
-			PreRenderBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET, RenderSurface.GetTexture().GetResource() });
-			PreRenderBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, DepthSurface.GetTexture().GetResource() });
-			D3D12::TransitionResources(cmdList, PreRenderBarriers);
-
-			if (ClearRenderSurface)
-			{
-				RenderSurface.RecordClear(cmdList);
-			}
-
-			if (ClearDepthSurface)
-			{
-				DepthSurface.RecordClear(cmdList);
-			}
-			
-			m_GraphicsQueue.ExecuteContext(*prepRenderCommandContext.value().m_Context);
-
-			auto& rtv = RenderSurface.GetView<D3D12::RenderTargetView>();
-			auto& dsv = DepthSurface.GetView<D3D12::DepthStencilView>();
-			m_DefaultRenderPass.BindRenderTarget(0, &rtv);
-			m_DefaultRenderPass.BindDepthStencil(&dsv);
-
 			// TODO: Try to reuse the allocated memory for the batches in-between frames
 			// TODO: Remove "frameBufferSize" once the buffers auto-expand once they are full
 			const uint64_t frameBufferSize = 10000;
-			LinearAllocator frameBatchAllocator(m_StaticMeshFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
+			LinearAllocator frameBatchAllocator(m_StaticMeshFrameBuffers.at(m_FrameIndex)->GetCPUAccessibleMemory(), frameBufferSize);
 
 			std::unordered_map<uint32_t, std::unordered_map<uint32_t, Pipeline::ScenePass::StaticMeshBatchDrawData>> batches;
 
-			LinearAllocator framePointLightAllocator(m_PointLightFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
+			LinearAllocator framePointLightAllocator(m_PointLightFrameBuffers.at(m_FrameIndex)->GetCPUAccessibleMemory(), frameBufferSize);
 			std::vector<Scene::SceneProxy::PointLight> pointLights;
 			
-			LinearAllocator frameSpotLightAllocator(m_SpotLightFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
+			LinearAllocator frameSpotLightAllocator(m_SpotLightFrameBuffers.at(m_FrameIndex)->GetCPUAccessibleMemory(), frameBufferSize);
 			std::vector<Scene::SceneProxy::SpotLight> spotLights;
 
-			LinearAllocator frameDirectionalLightAllocator(m_DirectionalLightFrameBuffers.at(m_FrameIndex).GetCPUAccessibleMemory(), frameBufferSize);
+			LinearAllocator frameDirectionalLightAllocator(m_DirectionalLightFrameBuffers.at(m_FrameIndex)->GetCPUAccessibleMemory(), frameBufferSize);
 			std::vector<Scene::SceneProxy::DirectionalLight> directionalLights;
-
-			Pipeline::ScenePass::DepthStencilBinding dsvBind;
-			dsvBind.Descriptor = DepthSurface.GetView<D3D12::DepthStencilView>().GetDescriptorHandle();
-			dsvBind.Depth = 1;
-			dsvBind.ShouldClear = true;
-			scenePass->BindDepthStencilTarget(dsvBind);
-
-			Pipeline::ScenePass::RenderTargetBinding rtvBind;
-			rtvBind.Descriptor = RenderSurface.GetView<D3D12::RenderTargetView>().GetDescriptorHandle();
-			rtvBind.ShouldClear = true;
-			rtvBind.Color[0] = 0.f;
-			rtvBind.Color[1] = 0.f;
-			rtvBind.Color[2] = 0.f;
-			rtvBind.Color[3] = 0.f;
-			scenePass->BindRenderTarget("ColorTarget", rtvBind);
 
 			struct VertexPerPassData
 			{
@@ -167,22 +130,22 @@ namespace aZero
 			PixelPerPassData pixelShaderPassData;
 			pixelShaderPassData.samplerIndex = m_AnisotropicSampler.GetHeapIndex();
 
-			scenePass->BindVertexShaderBuffer("PositionBuffer", &m_MeshBuffers.m_PositionBuffer.GetBuffer());
-			scenePass->BindVertexShaderBuffer("UVBuffer", &m_MeshBuffers.m_UVBuffer.GetBuffer());
-			scenePass->BindVertexShaderBuffer("NormalBuffer", &m_MeshBuffers.m_NormalBuffer.GetBuffer());
-			scenePass->BindVertexShaderBuffer("TangentBuffer", &m_MeshBuffers.m_TangentBuffer.GetBuffer());
-			scenePass->BindVertexShaderBuffer("IndexBuffer", &m_MeshBuffers.m_IndexBuffer.GetBuffer());
-			scenePass->BindVertexShaderBuffer("MeshEntryBuffer", &m_MeshBuffers.m_MeshEntryBuffer.GetBuffer());
-			scenePass->BindVertexShaderBuffer("InstanceBuffer", &m_StaticMeshFrameBuffers.at(m_FrameIndex));
+			scenePass->BindVertexShaderBuffer("PositionBuffer", m_MeshBuffers.m_PositionBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("UVBuffer", m_MeshBuffers.m_UVBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("NormalBuffer", m_MeshBuffers.m_NormalBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("TangentBuffer", m_MeshBuffers.m_TangentBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("IndexBuffer", m_MeshBuffers.m_IndexBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("MeshEntryBuffer", m_MeshBuffers.m_MeshEntryBuffer.GetBuffer());
+			scenePass->BindVertexShaderBuffer("InstanceBuffer", m_StaticMeshFrameBuffers.at(m_FrameIndex));
 
-			scenePass->BindPixelShaderBuffer("PointLightBuffer", &m_PointLightFrameBuffers.at(m_FrameIndex));
-			scenePass->BindPixelShaderBuffer("SpotLightBuffer", &m_SpotLightFrameBuffers.at(m_FrameIndex));
-			scenePass->BindPixelShaderBuffer("DirectionalLightBuffer", &m_DirectionalLightFrameBuffers.at(m_FrameIndex));
-			scenePass->BindPixelShaderBuffer("MaterialBuffer", &m_MaterialBuffer.GetBuffer());
+			scenePass->BindPixelShaderBuffer("PointLightBuffer", m_PointLightFrameBuffers.at(m_FrameIndex));
+			scenePass->BindPixelShaderBuffer("SpotLightBuffer", m_SpotLightFrameBuffers.at(m_FrameIndex));
+			scenePass->BindPixelShaderBuffer("DirectionalLightBuffer", m_DirectionalLightFrameBuffers.at(m_FrameIndex));
+			scenePass->BindPixelShaderBuffer("MaterialBuffer", m_MaterialBuffer.GetBuffer());
 			scenePass->BindPixelShaderConstants("PixelShaderConstantsBuffer", (void*)&pixelShaderPassData);
 
 			const Scene::SceneProxy& sceneProxy = Scene.GetProxy();
-			for (const Scene::SceneProxy::Camera& camera : sceneProxy.m_Cameras.GetData())
+			for (const Scene::SceneProxy::Camera& camera : sceneProxy.m_Cameras.GetData()) // TODO: Move camera into graph/pass so we dont clear rtv for each camera
 			{
 				for (const Scene::SceneProxy::StaticMesh& staticMeshEntity : sceneProxy.m_StaticMeshes.GetData())
 				{
@@ -233,12 +196,6 @@ namespace aZero
 				ld.NumPointLights = sceneProxy.m_PointLights.GetData().size();
 				scenePass->Execute(m_GraphicsQueue, passCommandContext.value(), m_ResourceHeap.GetDescriptorHeap(), m_SamplerHeap.GetDescriptorHeap(), camera, frameBatchAllocator, batches, ld);
 			}
-		
-			ID3D12GraphicsCommandList* cmd = prepRenderCommandContext.value().m_Context->GetCommandList();
-			std::vector<D3D12::ResourceTransitionBundles> PostRenderBarriers;
-			PostRenderBarriers.push_back({ D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON, RenderSurface.GetTexture().GetResource() });
-			PostRenderBarriers.push_back({ D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COMMON, DepthSurface.GetTexture().GetResource() });
-			D3D12::TransitionResources(cmd, PostRenderBarriers);
 
 			m_GraphicsQueue.ExecuteContext(*prepRenderCommandContext.value().m_Context);
 		}
@@ -263,46 +220,46 @@ namespace aZero
 			const uint64_t frameBufferSize = 10000;
 			for (int i = 0; i < m_BufferCount; i++)
 			{
-				m_StaticMeshFrameBuffers.emplace_back(D3D12::GPUBuffer(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
+				m_StaticMeshFrameBuffers.emplace_back(std::make_shared<D3D12::GPUBuffer>(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 				std::wstring debugName = L"InstanceBuffer" + std::to_wstring(i);
-				m_StaticMeshFrameBuffers.at(i).GetResource()->SetName(debugName.c_str());
+				m_StaticMeshFrameBuffers.at(i)->GetResource()->SetName(debugName.c_str());
 				
-				m_PointLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
+				m_PointLightFrameBuffers.emplace_back(std::make_shared<D3D12::GPUBuffer>(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 
-				m_SpotLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
+				m_SpotLightFrameBuffers.emplace_back(std::make_shared<D3D12::GPUBuffer>(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 
-				m_DirectionalLightFrameBuffers.emplace_back(D3D12::GPUBuffer(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
+				m_DirectionalLightFrameBuffers.emplace_back(std::make_shared<D3D12::GPUBuffer>(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 			}
 
 			// TODO: Change so these use 64bit ints
 			m_AssetStagingAllocator.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler);
 			m_MeshBuffers.m_PositionBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			std::wstring debugName = L"Pos";
-			m_MeshBuffers.m_PositionBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+			m_MeshBuffers.m_PositionBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
 			m_MeshBuffers.m_UVBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"UV";
-			m_MeshBuffers.m_UVBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+			m_MeshBuffers.m_UVBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
 			m_MeshBuffers.m_NormalBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"Norm";
-			m_MeshBuffers.m_NormalBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+			m_MeshBuffers.m_NormalBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
 			m_MeshBuffers.m_TangentBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"Tan";
-			m_MeshBuffers.m_TangentBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+			m_MeshBuffers.m_TangentBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
 			m_MeshBuffers.m_IndexBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"Index";
-			m_MeshBuffers.m_IndexBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+			m_MeshBuffers.m_IndexBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
 			m_MeshBuffers.m_MeshEntryBuffer.Init(m_diDevice, sizeof(int32_t) * 10000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"MeshEntry";
-			m_MeshBuffers.m_MeshEntryBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+			m_MeshBuffers.m_MeshEntryBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
 			m_MaterialBuffer.Init(m_diDevice, sizeof(MaterialHandle) * 1000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"Material";
-			m_MaterialBuffer.GetBuffer().GetResource()->SetName(debugName.c_str());
+			m_MaterialBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 		}
 
 		void Renderer::InitSamplers()
@@ -447,6 +404,7 @@ namespace aZero
 
 			struct MaterialData
 			{
+				DXM::Vector3 Color = DXM::Vector3::Zero;
 				int32_t AlbedoIndex;
 				int32_t NormalIndex;
 			};
@@ -498,14 +456,14 @@ namespace aZero
 			TextureRenderAsset assetData;
 			assetData.m_Resource = D3D12::GPUTexture(m_diDevice,
 				DXM::Vector3(textureAsset->m_Data.Width, textureAsset->m_Data.Height, 1),
-				DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+				textureAsset->m_Data.Format,
 				D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS,
 				m_ResourceRecycler,
 				1);
 
 			// TODO: Be sure the old texture isnt accessed when/after the same descriptor index is reallocated
 				// We need to use the same descriptor index since we need to keep the renderID valid
-			assetData.m_Srv.Init(m_diDevice, m_ResourceHeap.GetDescriptor(), assetData.m_Resource, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+			assetData.m_Srv.Init(m_diDevice, m_ResourceHeap.GetDescriptor(), assetData.m_Resource, textureAsset->m_Data.Format);
 
 			if (textureAsset->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
 			{

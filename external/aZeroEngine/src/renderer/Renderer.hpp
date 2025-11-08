@@ -68,10 +68,10 @@ namespace aZero
 			D3D12::Descriptor m_AnisotropicSampler;
 
 			// TODO: Create shader resource views for them and access them bindlessly in the shaders
-			std::vector<D3D12::GPUBuffer> m_StaticMeshFrameBuffers;
-			std::vector<D3D12::GPUBuffer> m_PointLightFrameBuffers;
-			std::vector<D3D12::GPUBuffer> m_SpotLightFrameBuffers;
-			std::vector<D3D12::GPUBuffer> m_DirectionalLightFrameBuffers;
+			std::vector<std::shared_ptr<D3D12::GPUBuffer>> m_StaticMeshFrameBuffers;
+			std::vector<std::shared_ptr<D3D12::GPUBuffer>> m_PointLightFrameBuffers;
+			std::vector<std::shared_ptr<D3D12::GPUBuffer>> m_SpotLightFrameBuffers;
+			std::vector<std::shared_ptr<D3D12::GPUBuffer>> m_DirectionalLightFrameBuffers;
 
 			D3D12::LinearFrameAllocator m_AssetStagingAllocator;
 

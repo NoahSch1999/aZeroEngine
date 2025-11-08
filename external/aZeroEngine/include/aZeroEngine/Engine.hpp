@@ -34,7 +34,7 @@ namespace aZero
 		// TODO: Remove the windowing part of the API and let the user copy the backbuffer to their own swapchain
 		std::shared_ptr<Window::RenderWindow> CreateRenderWindow(DXM::Vector2 dimensions, const std::string& name);
 
-		Rendering::RenderSurface CreateRenderSurface(
+		std::shared_ptr<Rendering::RenderSurface> CreateRenderSurface(
 			const DXM::Vector2& dimensions,
 			Rendering::RenderSurface::Type type,
 			std::optional<DXM::Vector4> clearColor = std::optional<DXM::Vector4>{});

@@ -75,7 +75,8 @@ struct OutputData
     float2 UV : UV;
     float3 Normal : NORMAL;
     float3 Tangent : TANGENT;
-    float3 BiTangent : BITANGENT;
+    float3 Bitangent : BITANGENT;
+    float3x3 TBN : TBN;
 };
 
 OutputData main(InputData Input)
@@ -104,13 +105,17 @@ OutputData main(InputData Input)
     
     Output.UV = Vertex.UV;
     
-    const float3 Normal = mul(WorldMatrix, float4(Vertex.Normal, 0.f)).xyz;
-    const float3 Tangent = mul(WorldMatrix, float4(Vertex.Tangent, 0.f)).xyz;
-    const float3 BiTangent = cross(Normal, Tangent);
+    float3 Normal = normalize(mul(WorldMatrix, float4(Vertex.Normal, 0.f))).xyz;
+    float3 Tangent = normalize(mul(WorldMatrix, float4(Vertex.Tangent, 0.f))).xyz;
+    
+    //Tangent = Tangent - Normal * dot(Normal, Tangent);
+    //Tangent = normalize(Tangent);
+    
+    const float3 BiTangent = normalize(cross(Tangent, Normal));
     Output.Normal = Normal;
+    Output.TBN = float3x3(Tangent, BiTangent, Normal);
     Output.Tangent = Tangent;
-    Output.BiTangent = BiTangent;
-    //Output.TBN = float3x3(Tangent, BiTangent, Normal);
+    Output.Bitangent = BiTangent;
     
     return Output;
 }
