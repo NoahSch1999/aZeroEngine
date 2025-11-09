@@ -14,15 +14,17 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	AllocConsole();
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
 
+	// CPU-side validation layer
 	Microsoft::WRL::ComPtr<ID3D12Debug> d3d12Debug;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&d3d12Debug))))
 		d3d12Debug->EnableDebugLayer();
 
-	CComPtr<ID3D12Debug> spDebugController0;
-	CComPtr<ID3D12Debug1> spDebugController1;
-	D3D12GetDebugInterface(IID_PPV_ARGS(&spDebugController0));
-	spDebugController0->QueryInterface(IID_PPV_ARGS(&spDebugController1));
-	spDebugController1->SetEnableGPUBasedValidation(true);
+	// GPU-side validation layer
+	CComPtr<ID3D12Debug> dbContr0;
+	CComPtr<ID3D12Debug1> dbContr1;
+	D3D12GetDebugInterface(IID_PPV_ARGS(&dbContr0));
+	dbContr0->QueryInterface(IID_PPV_ARGS(&dbContr1));
+	dbContr1->SetEnableGPUBasedValidation(true);
 
 	Microsoft::WRL::ComPtr<IDXGIDebug> idxgiDebug;
 	DXGIGetDebugInterface1(0, IID_PPV_ARGS(&idxgiDebug));

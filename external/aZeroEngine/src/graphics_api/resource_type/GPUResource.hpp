@@ -78,6 +78,40 @@ namespace aZero
 				m_ResourceRecycler = &ResourceRecycler;
 			}
 
+			void Init(
+				ID3D12Device* Device,
+				D3D12_HEAP_TYPE HeapType,
+				const D3D12_RESOURCE_DESC& Desc,
+				D3D12::ResourceRecycler& ResourceRecycler,
+				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{}
+			)
+			{
+				this->Reset();
+
+				D3D12_HEAP_PROPERTIES HeapProperties;
+				ZeroMemory(&HeapProperties, sizeof(D3D12_HEAP_PROPERTIES));
+				HeapProperties.Type = HeapType;
+
+				const D3D12_CLEAR_VALUE* ClearValue = OptClearValue.has_value() ? &OptClearValue.value() : nullptr;
+
+				const HRESULT Res = Device->CreateCommittedResource(
+					&HeapProperties,
+					D3D12_HEAP_FLAG_NONE,
+					&Desc,
+					D3D12_RESOURCE_STATE_COMMON,
+					ClearValue,
+					IID_PPV_ARGS(m_Resource.GetAddressOf()));
+
+				if (FAILED(Res))
+				{
+					throw std::invalid_argument("GPUResource::Init() => Failed to create commited resource");
+				}
+
+				this->Map(HeapType);
+
+				m_ResourceRecycler = &ResourceRecycler;
+			}
+
 			GPUResource(Microsoft::WRL::ComPtr<ID3D12Resource> InResource, D3D12::ResourceRecycler& ResourceRecycler)
 			{
 				this->Init(InResource, ResourceRecycler);
@@ -263,6 +297,15 @@ namespace aZero
 		private:
 			std::optional<D3D12_CLEAR_VALUE> m_ClearValue;
 
+			struct ResourceStates
+			{
+				D3D12_BARRIER_SYNC Sync;
+				D3D12_BARRIER_ACCESS Access;
+				D3D12_BARRIER_LAYOUT Layout;
+			};
+
+			ResourceStates m_CurrentResourceState;
+
 			void MoveOp(GPUTexture&& Other)
 			{
 				m_ClearValue = Other.m_ClearValue;
@@ -271,6 +314,32 @@ namespace aZero
 			}
 
 		public:
+			D3D12_TEXTURE_BARRIER CreateTransition(D3D12_BARRIER_SYNC newSync, D3D12_BARRIER_ACCESS newAccess, D3D12_BARRIER_LAYOUT newLayout)
+			{
+				D3D12_TEXTURE_BARRIER barrier;
+				barrier.SyncBefore = m_CurrentResourceState.Sync;
+				barrier.SyncAfter = newSync;
+				barrier.AccessBefore = m_CurrentResourceState.Access;
+				barrier.AccessAfter = newAccess;
+				barrier.LayoutBefore = m_CurrentResourceState.Layout;
+				barrier.LayoutAfter = newLayout;
+				barrier.pResource = m_Resource.Get();
+				barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
+				// TODO: ????
+				barrier.Subresources.FirstArraySlice = 0;
+				barrier.Subresources.FirstPlane = 0;
+				barrier.Subresources.IndexOrFirstMipLevel = 0;
+				barrier.Subresources.NumArraySlices = 1;
+				barrier.Subresources.NumMipLevels = 1;
+				barrier.Subresources.NumPlanes = 1;
+
+				m_CurrentResourceState.Sync = newSync;
+				m_CurrentResourceState.Access = newAccess;
+				m_CurrentResourceState.Layout = newLayout;
+
+				return barrier;
+			}
+
 			GPUTexture() = default;
 
 			GPUTexture(GPUTexture&& Other) noexcept
@@ -299,6 +368,66 @@ namespace aZero
 			)
 			{
 				this->Init(Device, Dimensions, Format, Flags, ResourceRecycler, MipLevels, InitialState, OptClearValue);
+			}
+
+			GPUTexture(
+				ID3D12Device* Device,
+				const DXM::Vector3& Dimensions,
+				DXGI_FORMAT Format,
+				D3D12_RESOURCE_FLAGS Flags,
+				D3D12::ResourceRecycler& ResourceRecycler,
+				uint32_t MipLevels,
+				std::optional<D3D12_CLEAR_VALUE> OptClearValue
+			)
+			{
+				this->Init(Device, Dimensions, Format, Flags, ResourceRecycler, MipLevels, OptClearValue);
+			}
+
+			void Init(
+				ID3D12Device* Device,
+				const DXM::Vector3& Dimensions,
+				DXGI_FORMAT Format,
+				D3D12_RESOURCE_FLAGS Flags,
+				D3D12::ResourceRecycler& ResourceRecycler,
+				uint32_t MipLevels,
+				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{}
+			)
+			{
+				this->Reset();
+
+				m_ClearValue = OptClearValue;
+
+				D3D12_RESOURCE_DESC Desc;
+				ZeroMemory(&Desc, sizeof(D3D12_RESOURCE_DESC));
+
+				if (Dimensions.y > 0)
+				{
+					if (Dimensions.z > 1)
+					{
+						Desc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+					}
+					else
+					{
+						Desc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+					}
+				}
+				else
+				{
+					Desc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE1D;
+				}
+
+				Desc.Format = Format;
+				Desc.Alignment = 0;
+				Desc.Width = static_cast<UINT64>(Dimensions.x);
+				Desc.Height = static_cast<UINT>(Dimensions.y);
+				Desc.DepthOrArraySize = static_cast<UINT16>(Dimensions.z);
+				Desc.MipLevels = MipLevels;
+				Desc.SampleDesc.Count = 1;
+				Desc.SampleDesc.Quality = 0;
+				Desc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
+				Desc.Flags = Flags;
+
+				GPUResource::Init(Device, D3D12_HEAP_TYPE_DEFAULT, Desc, ResourceRecycler, m_ClearValue);
 			}
 
 			void Init(

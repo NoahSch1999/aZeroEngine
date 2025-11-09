@@ -188,7 +188,12 @@ namespace aZero
 					return false;
 				}*/
 
+
 				std::vector<D3D12::ResourceTransitionBundles> transitionBarriers;
+				for (auto& [descriptorIndex, texture] : m_Bindings.TextureBindings)
+				{
+					transitionBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, m_Bindings.DepthStencilTarget->lock()->GetTexture().GetResource() });
+				}
 				transitionBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, m_Bindings.DepthStencilTarget->lock()->GetTexture().GetResource() });
 
 				std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
@@ -295,6 +300,14 @@ namespace aZero
 				std::unordered_map<std::string, BufferBinding> PSBuffers;
 				std::unordered_map<std::string, RootConstantBinding> PSRootConstants;
 				//
+
+				struct TextureBinding
+				{
+					std::weak_ptr<D3D12::GPUTexture> Texture;
+					D3D12_RESOURCE_STATES InOutState;
+					D3D12_RESOURCE_STATES AccessState;
+				};
+				std::unordered_map<uint32_t, TextureBinding> TextureBindings;
 			};
 
 			// TODO: Make it into less input, maybe through "di"
