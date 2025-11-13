@@ -11,7 +11,7 @@ namespace aZero
 		class ComponentArray
 		{
 		private:
-			aZero::SparseSet<EntityID, ComponentType> m_ComponentArray;
+			aZero::DS::SparseSet<EntityID, ComponentType> m_ComponentArray;
 			int m_AdditionalElementsWhenResize = 1;
 
 		public:

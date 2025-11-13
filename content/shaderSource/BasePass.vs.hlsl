@@ -93,7 +93,12 @@ OutputData main(InputData Input)
     Output.UV = Vertex.UV;
     
     const float3 Normal = normalize(mul(WorldMatrix, float4(Vertex.Normal, 0.f))).xyz;
-    const float3 Tangent = normalize(mul(WorldMatrix, float4(Vertex.Tangent, 0.f))).xyz;
+    float3 Tangent = normalize(mul(WorldMatrix, float4(Vertex.Tangent, 0.f))).xyz;
+
+    // Re-ortogonalize the tangent since they might not be ortogonal anymore after transform and precision changes. 
+    // n * dot(n, t) creates a vector which when you subtract from the tangent creates the new ortogonalized tangent. So its like the "error" vector.
+    Tangent = Tangent - Normal * dot(Normal, Tangent);
+    Tangent = normalize(Tangent);
     
     const float3 BiTangent = normalize(cross(Tangent, Normal));
     Output.Normal = Normal;
