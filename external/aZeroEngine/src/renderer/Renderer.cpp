@@ -66,7 +66,7 @@ namespace aZero
 
 				this->UploadStagedAssets();
 
-				m_AssetStagingAllocator.Reset();
+				m_AssetStagingAllocators.at(m_FrameIndex).Reset();
 			}
 
 			m_FrameCount++;
@@ -231,29 +231,36 @@ namespace aZero
 				m_DirectionalLightFrameBuffers.emplace_back(std::make_shared<D3D12::GPUBuffer>(m_diDevice, D3D12_HEAP_TYPE_UPLOAD, frameBufferSize, m_ResourceRecycler));
 			}
 
+			// TODO: Make the buffers resize if too small
+			uint32_t allocatorSize = sizeof(Asset::Mesh::VertexData) * 1000000;
+
 			// TODO: Change so these use 64bit ints
-			m_AssetStagingAllocator.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler);
-			m_MeshBuffers.m_PositionBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			for (int i = 0; i < m_BufferCount; i++)
+			{
+				m_AssetStagingAllocators.emplace_back(m_diDevice, allocatorSize, m_ResourceRecycler);
+			}
+
+			m_MeshBuffers.m_PositionBuffer.Init(m_diDevice, allocatorSize, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			std::wstring debugName = L"Pos";
 			m_MeshBuffers.m_PositionBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
-			m_MeshBuffers.m_UVBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_UVBuffer.Init(m_diDevice, allocatorSize, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"UV";
 			m_MeshBuffers.m_UVBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
-			m_MeshBuffers.m_NormalBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_NormalBuffer.Init(m_diDevice, allocatorSize, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"Norm";
 			m_MeshBuffers.m_NormalBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
-			m_MeshBuffers.m_TangentBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_TangentBuffer.Init(m_diDevice, allocatorSize, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"Tan";
 			m_MeshBuffers.m_TangentBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
-			m_MeshBuffers.m_IndexBuffer.Init(m_diDevice, sizeof(int32_t) * 100000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_IndexBuffer.Init(m_diDevice, allocatorSize, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"Index";
 			m_MeshBuffers.m_IndexBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
-			m_MeshBuffers.m_MeshEntryBuffer.Init(m_diDevice, sizeof(int32_t) * 10000, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
+			m_MeshBuffers.m_MeshEntryBuffer.Init(m_diDevice, allocatorSize, m_ResourceRecycler, D3D12_HEAP_TYPE_DEFAULT);
 			debugName = L"MeshEntry";
 			m_MeshBuffers.m_MeshEntryBuffer.GetBuffer().lock()->GetResource()->SetName(debugName.c_str());
 
@@ -309,35 +316,35 @@ namespace aZero
 
 			ID3D12GraphicsCommandList* cmdList = cmdContext.value().m_Context->GetCommandList();
 
-			m_AssetStagingAllocator.RecordAllocations(cmdList);
-			m_AssetStagingAllocator.Reset();
+			m_AssetStagingAllocators.at(m_FrameIndex).RecordAllocations(cmdList);
+			m_AssetStagingAllocators.at(m_FrameIndex).Reset();
 
 			m_GraphicsQueue.ExecuteContext(*cmdContext.value().m_Context);
 		}
 
 		void Renderer::AllocateFreelistMesh(Asset::Mesh& mesh, ID3D12GraphicsCommandList* cmdList)
 		{
-			int allocSize = mesh.m_VertexData.Positions.size() * sizeof(mesh.m_VertexData.Positions.at(0)); // TODO: Indices might be larger...
+			uint32_t allocSize = mesh.m_VertexData.Positions.size() * sizeof(mesh.m_VertexData.Positions.at(0)); // TODO: Indices might be larger...
 			DS::FreelistAllocator::AllocationHandle allocHandle;
 
 			m_MeshBuffers.m_PositionBuffer.Allocate(allocHandle, allocSize);
-			m_MeshBuffers.m_PositionBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.Positions.data());
+			m_MeshBuffers.m_PositionBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.Positions.data());
 			m_MeshBuffers.m_PositionAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
 			m_MeshBuffers.m_UVBuffer.Allocate(allocHandle, allocSize);
-			m_MeshBuffers.m_UVBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.UVs.data());
+			m_MeshBuffers.m_UVBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.UVs.data());
 			m_MeshBuffers.m_UVAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
 			m_MeshBuffers.m_NormalBuffer.Allocate(allocHandle, allocSize);
-			m_MeshBuffers.m_NormalBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.Normals.data());
+			m_MeshBuffers.m_NormalBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.Normals.data());
 			m_MeshBuffers.m_NormalAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
 			m_MeshBuffers.m_TangentBuffer.Allocate(allocHandle, allocSize);
-			m_MeshBuffers.m_TangentBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.Tangents.data());
+			m_MeshBuffers.m_TangentBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.Tangents.data());
 			m_MeshBuffers.m_TangentAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
 			m_MeshBuffers.m_IndexBuffer.Allocate(allocHandle, allocSize);
-			m_MeshBuffers.m_IndexBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, mesh.m_VertexData.Indices.data());
+			m_MeshBuffers.m_IndexBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.Indices.data());
 			m_MeshBuffers.m_IndexAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 		}
 
@@ -369,7 +376,7 @@ namespace aZero
 				DS::FreelistAllocator::AllocationHandle allocHandle;
 				m_MeshBuffers.m_MeshEntryBuffer.Allocate(allocHandle, sizeof(MeshHandle));
 				meshAsset.m_RenderID = allocHandle.GetStartOffset() / sizeof(MeshHandle);
-				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocator, allocHandle, &meshHandle);
+				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, &meshHandle);
 				m_MeshBuffers.m_MeshEntryAllocMap[meshAsset.GetAssetID()] = std::move(allocHandle);
 			}
 			else
@@ -385,7 +392,7 @@ namespace aZero
 				MeshHandle meshHandle;
 				meshHandle.StartIndex = m_MeshBuffers.m_IndexAllocMap[id].GetStartOffset() / sizeof(meshAsset.m_VertexData.Indices.at(0));
 				meshHandle.NumVertices = meshAsset.m_VertexData.Indices.size();
-				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocator, m_MeshBuffers.m_MeshEntryAllocMap[id], &meshHandle);
+				m_MeshBuffers.m_MeshEntryBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), m_MeshBuffers.m_MeshEntryAllocMap[id], &meshHandle);
 			}
 		}
 
@@ -435,7 +442,7 @@ namespace aZero
 				m_MaterialAllocMap[materialAsset->GetAssetID()] = std::move(allocHandle);
 			}
 				
-			m_MaterialBuffer.Write(nullptr, m_AssetStagingAllocator, m_MaterialAllocMap[materialAsset->GetAssetID()], &materialData);
+			m_MaterialBuffer.Write(nullptr, m_AssetStagingAllocators.at(m_FrameIndex), m_MaterialAllocMap[materialAsset->GetAssetID()], &materialData);
 		}
 
 		void Renderer::UpdateRenderState(Asset::AssetHandle<Asset::Texture>& texture)
@@ -443,14 +450,17 @@ namespace aZero
 			if (!texture.IsValid())
 			{
 				DEBUG_PRINT("Invalid texture handle.");
+				return;
 			}
 
 			Asset::Texture* textureAsset = texture.GetAsset();
 
 			if (textureAsset->m_Data.TexelData.size() 
-				== textureAsset->m_Data.Height * textureAsset->m_Data.Width * textureAsset->m_Data.NumChannels)
+				!= textureAsset->m_Data.Height * textureAsset->m_Data.Width * textureAsset->m_Data.NumChannels)
 			{
+				// TODO: How to handle textures where the format doesnt match the channel count
 				DEBUG_PRINT("Texel data size doesn't match the Texture dimensions and channel count.");
+				//return;
 			}
 
 			TextureRenderAsset assetData;

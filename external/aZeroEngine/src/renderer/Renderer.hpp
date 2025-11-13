@@ -73,7 +73,7 @@ namespace aZero
 			std::vector<std::shared_ptr<D3D12::GPUBuffer>> m_SpotLightFrameBuffers;
 			std::vector<std::shared_ptr<D3D12::GPUBuffer>> m_DirectionalLightFrameBuffers;
 
-			D3D12::LinearFrameAllocator m_AssetStagingAllocator;
+			std::vector<D3D12::LinearFrameAllocator> m_AssetStagingAllocators;
 
 			// TODO: Make this way less copy-pasta and nicer
 			// =============================================

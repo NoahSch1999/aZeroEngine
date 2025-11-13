@@ -155,11 +155,8 @@ FragmentOutput main(FragmentInput Input)
         NormalMapTexture = ResourceDescriptorHeap[Mat.NormalMapIndex];
         Normal = NormalMapTexture.Sample(Sampler, Input.UV).xyz;
         Normal = normalize(Normal * 2.f - 1.f);
-        //Normal = Normal * 0.5 + 0.5;
         float3x3 TBN = float3x3(normalize(Input.Tangent), normalize(Input.Bitangent), normalize(Input.Normal));
         Normal = normalize(mul(Normal, Input.TBN));
-        //Normal = normalize(mul(Input.TBN, Normal));
-        //Normal = normalize(mul(Normal, Input.TBN));
     }
     else
     {
@@ -184,18 +181,16 @@ FragmentOutput main(FragmentInput Input)
     }
 
     PointLight p;
-    p.Color = float3(1,1,1);
+    p.Color = float3(0,1,1);
     p.Intensity = 10;
     p.FalloffFactor = 1;
-    p.Position = float3(2,0,4.8);
+    p.Position = float3(-2,0,5);
     
-    LightFactor += CalcPointLight(p, Input.WorldPosition, Normal);
+    //LightFactor += CalcPointLight(p, Input.WorldPosition, Normal);
     
     float3 Ambient = float3(0.1, 0.1, 0.1);
     Color *= Ambient + LightFactor; 
     
-    //Normal = (Normal * 0.5f) + 0.5f;
-    //Output.FragmentColor = float4(Normal, 1.f);
     Output.FragmentColor = float4(Color, 1.f);
     return Output;
 }

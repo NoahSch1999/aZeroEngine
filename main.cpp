@@ -68,17 +68,17 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 		// Creating a mesh
 		auto myMesh = assetManager.CreateMesh("mesh");
-		myMesh.GetAsset()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "cube.fbx");
+		myMesh.GetAsset()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "goblin.fbx");
 		renderContext.UpdateRenderState(myMesh);
 
 		// Creating a texture
 		auto myTexture = assetManager.CreateTexture("texture");
-		myTexture.GetAsset()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "defaultTexture.jpg",
+		myTexture.GetAsset()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinAlbedo.png",
 			DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
 		renderContext.UpdateRenderState(myTexture);
 
 		auto myNormalMap = assetManager.CreateTexture("normal");
-		myNormalMap.GetAsset()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "testNormalMap.png",
+		myNormalMap.GetAsset()->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinNormal.png",
 			DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM);
 		renderContext.UpdateRenderState(myNormalMap);
 
@@ -98,7 +98,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			scene.RenameEntity(ent2, "noah");
 			scene.RenameEntity(ent, "Entity_1");
 
-			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(2) /** DXM::Matrix::CreateRotationY(3.1415 / 2)*/ * DXM::Matrix::CreateTranslation(0, 0, 5));
+			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(0.5) * DXM::Matrix::CreateRotationY(3.1415) * DXM::Matrix::CreateTranslation(0, -1, 5));
 
 			ECS::StaticMeshComponent CubeMeshComp;
 			CubeMeshComp.m_MeshReference = myMesh;
@@ -106,7 +106,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			scene.GetComponentManager().AddComponent(ent2, CubeMeshComp);
 
 			ECS::PointLightComponent pl;
-			plData.Color = { 1,1,1 };
+			plData.Color = { 1,0,0 };
 			plData.FalloffFactor = 1;
 			plData.Intensity = 10;
 			plData.Position = { 0,0,0 };
