@@ -11,7 +11,7 @@ namespace aZero
 	{
 		class CommandListAllocator;
 
-		class CommandList
+		class CommandList : public NonCopyable
 		{
 			friend class CommandListAllocator;
 		private:
@@ -19,9 +19,8 @@ namespace aZero
 			ID3D12GraphicsCommandList* m_CommandList = nullptr;
 			bool m_IsRecording;
 
-			CommandList(ID3D12GraphicsCommandList* commandList, CommandListAllocator& allocator)
-				:m_Allocator(&allocator), m_CommandList(commandList), m_IsRecording(true) {
-			}
+			CommandList(ID3D12GraphicsCommandList* commandList, CommandListAllocator& allocator, D3D12_COMMAND_LIST_TYPE type)
+				:m_Allocator(&allocator), m_CommandList(commandList), m_IsRecording(true) {}
 
 			void Move(CommandList& other)
 			{
@@ -76,7 +75,13 @@ namespace aZero
 				return *this;
 			}
 
+			D3D12_COMMAND_LIST_TYPE GetType() const 
+			{ 
+				return m_CommandList->GetType();
+			}
+
 			ID3D12GraphicsCommandList* Get() const { return m_CommandList; }
+			bool IsInitiated() const { return m_Allocator != nullptr; }
 		};
 
 		class CommandListAllocator : public NonCopyable
@@ -119,16 +124,16 @@ namespace aZero
 
 			void Init(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type)
 			{
-				m_Type = type;
-
-
-				const HRESULT commandAllocRes = device->CreateCommandAllocator(type, IID_PPV_ARGS(m_Allocator.GetAddressOf()));
-				if (FAILED(commandAllocRes))
+				if (!m_Allocator)
 				{
-					throw std::invalid_argument("CommandContext::Init() => Failed to create command allcator");
-				}
+					const HRESULT commandAllocRes = device->CreateCommandAllocator(type, IID_PPV_ARGS(m_Allocator.GetAddressOf()));
+					if (FAILED(commandAllocRes))
+					{
+						throw std::invalid_argument("CommandContext::Init() => Failed to create command allcator");
+					}
 
-				m_IsRecording = true;
+					m_Type = type;
+				}
 			}
 
 			void FreeCommandBuffer()
@@ -154,15 +159,22 @@ namespace aZero
 				{
 					commandList = m_FreeCommandLists.top();
 					m_FreeCommandLists.pop();
-					return CommandList(commandList, *this);
+					return CommandList(commandList, *this, m_Type);
 				}
 
-				const HRESULT commandListRes = device->CreateCommandList(0, type, m_Allocator.Get(), nullptr, IID_PPV_ARGS(m_CommandList.GetAddressOf()));
+				ID3D12Device* device;
+				const HRESULT getDeviceRes = m_Allocator->GetDevice(IID_PPV_ARGS(&device));
+				if (FAILED(getDeviceRes))
+				{
+					throw std::invalid_argument("Failed to get command allocator device");
+				}
+
+				const HRESULT commandListRes = device->CreateCommandList(0, m_Type, m_Allocator.Get(), nullptr, IID_PPV_ARGS(m_CommandList.GetAddressOf()));
 				if (FAILED(commandListRes))
 				{
 					throw std::invalid_argument("CommandContext::Init() => Failed to create command list");
 				}
-				return CommandList(commandList, *this); // Thank you copy elision :)
+				return CommandList(commandList, *this, m_Type); // Thank you copy elision :)
 			}
 
 			void RecycleCommandList(CommandList& commandList)
@@ -172,9 +184,12 @@ namespace aZero
 					m_FreeCommandLists.push(commandList.m_CommandList);
 					commandList.m_Allocator = nullptr;
 					commandList.m_CommandList = nullptr;
-					commandList.m_IsRecording = false;
 				}
 			}
+
+			D3D12_COMMAND_LIST_TYPE GetType() const { return m_Type; }
+			ID3D12CommandAllocator* const Get() const { return m_Allocator.Get(); }
+			bool IsInitiated() const { return m_Allocator != nullptr; }
 		};
 
 		class CommandQueue : public NonCopyable
@@ -182,6 +197,7 @@ namespace aZero
 		private:
 			Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_Queue = nullptr;
 			Microsoft::WRL::ComPtr<ID3D12Fence> m_Fence = nullptr;
+			D3D12_COMMAND_LIST_TYPE m_Type;
 
 			// NOTE - Issue if these are going above the valid range of UINT64. Should this be handled?
 			uint64_t m_NextFenceValue;
@@ -193,14 +209,14 @@ namespace aZero
 				other.m_Queue = nullptr;
 				m_Fence = std::move(other.m_Fence);
 				other.m_Fence = nullptr;
+				m_Type = other.m_Type;
 				m_NextFenceValue = other.m_NextFenceValue;
 				m_LatestFenceValue = other.m_LatestFenceValue;
 			}
 
 		public:
 			CommandQueue()
-				:m_NextFenceValue(0), m_LatestFenceValue(0) {
-			}
+				:m_NextFenceValue(0), m_LatestFenceValue(0) {}
 
 			CommandQueue(CommandQueue&& other) noexcept
 			{
@@ -223,26 +239,31 @@ namespace aZero
 
 			void Init(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type)
 			{
-				D3D12_COMMAND_QUEUE_DESC desc;
-				desc.Type = type;
-				desc.NodeMask = 0;
-				desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-				desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-
-				const HRESULT commandQueueRes = device->CreateCommandQueue(&desc, IID_PPV_ARGS(m_Queue.GetAddressOf()));
-				if (FAILED(commandQueueRes))
+				if (!m_Queue)
 				{
-					throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue");
-				}
+					D3D12_COMMAND_QUEUE_DESC desc;
+					desc.Type = type;
+					desc.NodeMask = 0;
+					desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+					desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 
-				const HRESULT fenceRes = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_Fence.GetAddressOf()));
-				if (FAILED(fenceRes))
-				{
-					throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue fence");
+					const HRESULT commandQueueRes = device->CreateCommandQueue(&desc, IID_PPV_ARGS(m_Queue.GetAddressOf()));
+					if (FAILED(commandQueueRes))
+					{
+						throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue");
+					}
+
+					const HRESULT fenceRes = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_Fence.GetAddressOf()));
+					if (FAILED(fenceRes))
+					{
+						throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue fence");
+					}
+
+					m_Type = type;
 				}
 			}
 
-			uint64_t ForceSignal()
+			uint64_t Signal()
 			{
 				m_Queue->Signal(m_Fence.Get(), m_NextFenceValue);
 				m_LatestFenceValue = m_NextFenceValue;
@@ -250,9 +271,9 @@ namespace aZero
 				return m_LatestFenceValue;
 			}
 
-			void FlushCommands()
+			void Flush()
 			{
-				uint64_t CurrentFenceValue = m_Fence->GetCompletedValue();
+				const uint64_t CurrentFenceValue = m_Fence->GetCompletedValue();
 
 				if (m_LatestFenceValue <= CurrentFenceValue)
 				{
@@ -262,10 +283,10 @@ namespace aZero
 				m_Fence->SetEventOnCompletion(m_LatestFenceValue, nullptr);
 			}
 
-			void FlushImmediate()
+			void SignalAndFlush()
 			{
-				this->ForceSignal();
-				this->FlushCommands();
+				this->Signal();
+				this->Flush();
 			}
 
 			uint64_t ExecuteContext(CommandList& commandList)
@@ -283,16 +304,24 @@ namespace aZero
 
 				for (CommandList* commandList : commandLists)
 				{
+					commandList->StopRecording();
 					lists.push_back(commandList->Get());
 				}
 
 				m_Queue->ExecuteCommandLists(lists.size(), lists.data());
 
-				return this->ForceSignal();
+				for (CommandList* commandList : commandLists)
+				{
+					commandList->StartRecording();
+				}
+
+				return this->Signal();
 			}
 
 			ID3D12CommandQueue* const Get() const { return m_Queue.Get(); }
-			uint64_t GetLatestFenceValue() const { return m_LatestFenceValue; }
+			uint64_t GetLatestSignal() const { return m_LatestFenceValue; }
+			D3D12_COMMAND_LIST_TYPE GetType() const { return m_Type; }
+			bool IsInitiated() const { return m_Queue != nullptr; }
 		};
 	}
 }
