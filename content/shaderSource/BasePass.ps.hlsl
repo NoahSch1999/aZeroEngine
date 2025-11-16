@@ -190,7 +190,8 @@ FragmentOutput main(FragmentInput Input)
     
     float3 Ambient = float3(0.1, 0.1, 0.1);
     Color *= Ambient + LightFactor; 
-    
+
+    //Normal = Normal * 0.5 + 0.5;ssasas
     Output.FragmentColor = float4(Color, 1.f);
     return Output;
 }

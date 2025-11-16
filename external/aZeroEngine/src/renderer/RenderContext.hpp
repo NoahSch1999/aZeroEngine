@@ -51,11 +51,6 @@ namespace aZero
 				m_Renderer.FlushGraphicsQueue();
 			}
 
-			void HotreloadRenderPipeline()
-			{
-				m_Renderer.HotreloadRenderPasses();
-			}
-
 			/**
 			* @brief Updates GPU render state for a given mesh asset.
 			*

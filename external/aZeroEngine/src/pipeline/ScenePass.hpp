@@ -56,6 +56,8 @@ namespace aZero
 				DepthStencilTarget DepthStencil;
 			};
 
+			bool IsCompiled() { return m_PipelineState != nullptr; }
+
 			void BindVertexShaderBuffer(const std::string& name, std::weak_ptr<D3D12::GPUBuffer> buffer)
 			{
 				if (auto it = m_Bindings.VSBuffers.find(name); it != m_Bindings.VSBuffers.end())
@@ -133,27 +135,33 @@ namespace aZero
 				m_Bindings.DepthStencilTarget = renderDepthStencilSurface;
 			}
 
-			void Compile(ID3D12Device* device, const PassDescription& description, std::weak_ptr<Pipeline::VertexShader> vertexShader, std::optional<std::weak_ptr<Pipeline::PixelShader>> pixelShader)
+			// TODO: Make so the pass isn't changed if compilation fails
+			bool Compile(ID3D12Device* device, const PassDescription& description, std::weak_ptr<Pipeline::VertexShader> vertexShader, std::optional<std::weak_ptr<Pipeline::PixelShader>> pixelShader)
 			{
 				this->Reset();
 
 				if (!this->ValidateAndAsignPass(description, vertexShader, pixelShader))
 				{
 					this->Reset();
-					throw std::runtime_error("Validation of ScenePass failed.");
+					DEBUG_PRINT("Validation of ScenePass failed.");
+					return false;
 				}
 
 				if (!this->CompilePassPipeline(device, description))
 				{
 					this->Reset();
-					throw std::runtime_error("Failed to compile ScenePass.");
+					DEBUG_PRINT("Failed to compile ScenePass.");
+					return false;
 				}
 
 				if (!this->GenerateBindings(description))
 				{
 					this->Reset();
-					throw std::runtime_error("Failed to generate bindings for ScenePass.");
+					DEBUG_PRINT("Failed to generate bindings for ScenePass.");
+					return false;
 				}
+
+				return true;
 			}
 
 			/*
@@ -663,6 +671,13 @@ namespace aZero
 				{
 					std::shared_ptr<Pipeline::PixelShader> pixelShader = m_PixelShader.lock();
 					pipelineStateDesc.NumRenderTargets = description.RenderTargets.size();
+
+					if (pixelShader->m_RenderTargetMasks.size() != description.RenderTargets.size())
+					{
+						DEBUG_PRINT("Pixel shaders number of render targets doesn't match the descriptions.");
+						return false;
+					}
+
 					for (int i = 0; i < description.RenderTargets.size(); i++)
 					{
 						const UINT RtvNumComponents = D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetNumComponentsInFormat(description.RenderTargets.at(i).Format);
@@ -839,8 +854,8 @@ namespace aZero
 
 			std::weak_ptr<Pipeline::VertexShader> m_VertexShader;
 			std::weak_ptr<Pipeline::PixelShader> m_PixelShader;
-			Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
-			Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
+			Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState = nullptr;
+			Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature = nullptr;
 			Bindings m_Bindings;
 			TOPOLOGY_TYPE m_TopologyType;
 		};

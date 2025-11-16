@@ -38,8 +38,6 @@ namespace aZero
 		private:
 			void AllocateFreelistMesh(Asset::Mesh& mesh, ID3D12GraphicsCommandList* cmdList);
 			void InitCommandRecording();
-			void InitRenderPasses();
-			void HotreloadRenderPasses();
 			void InitFrameResources();
 			void InitDescriptorHeaps();
 			void InitSamplers();

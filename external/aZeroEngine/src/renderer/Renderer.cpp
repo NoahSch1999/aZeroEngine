@@ -19,7 +19,6 @@ namespace aZero
 			this->InitDescriptorHeaps();
 			this->InitFrameResources();
 			this->InitSamplers();
-			this->InitRenderPasses();
 		}
 
 		void Renderer::BeginFrame()
@@ -89,6 +88,11 @@ namespace aZero
 						UpdateRenderState data to the gpu
 						perform draw call to render surfaces
 			*/
+
+			if (!scenePass->IsCompiled())
+			{
+				return;
+			}
 
 			this->UploadStagedAssets();
 
@@ -285,29 +289,6 @@ namespace aZero
 			m_diDevice->CreateSampler(&SamplerDesc, m_AnisotropicSampler.GetCPUHandle());
 		}
 
-		void Renderer::InitRenderPasses()
-		{
-			m_BasePassVS.CompileFromFile(m_diPipelineManager->GetCompiler(), m_diPipelineManager->GetShaderFolderPath() + "BasePass.vs.hlsl");
-			m_BasePassPS.CompileFromFile(m_diPipelineManager->GetCompiler(), m_diPipelineManager->GetShaderFolderPath() + "BasePass.ps.hlsl");
-
-			Pipeline::RenderPass Pass;
-			Pass.Init(m_diDevice, m_BasePassVS, m_BasePassPS, {DXGI_FORMAT_R8G8B8A8_UNORM_SRGB}, DXGI_FORMAT_D24_UNORM_S8_UINT);
-			m_DefaultRenderPass = RenderGraphPass(std::move(Pass));
-		}
-
-		void Renderer::HotreloadRenderPasses()
-		{
-			try
-			{
-				this->FlushGraphicsQueue();
-				this->InitRenderPasses();
-			}
-			catch(const std::exception& e)
-			{
-				DEBUG_PRINT("Failed to hotreload the render pass");
-			}
-		}
-
 		void Renderer::UploadStagedAssets()
 		{
 			auto cmdContext = m_CommandContextAllocator.GetContext();
@@ -324,25 +305,29 @@ namespace aZero
 
 		void Renderer::AllocateFreelistMesh(Asset::Mesh& mesh, ID3D12GraphicsCommandList* cmdList)
 		{
-			uint32_t allocSize = mesh.m_VertexData.Positions.size() * sizeof(mesh.m_VertexData.Positions.at(0)); // TODO: Indices might be larger...
 			DS::FreelistAllocator::AllocationHandle allocHandle;
 
+			uint32_t allocSize = mesh.m_VertexData.Positions.size() * sizeof(mesh.m_VertexData.Positions.at(0)); // TODO: Indices might be larger...
 			m_MeshBuffers.m_PositionBuffer.Allocate(allocHandle, allocSize);
 			m_MeshBuffers.m_PositionBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.Positions.data());
 			m_MeshBuffers.m_PositionAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
+			allocSize = mesh.m_VertexData.UVs.size() * sizeof(mesh.m_VertexData.UVs.at(0)); // TODO: Indices might be larger...
 			m_MeshBuffers.m_UVBuffer.Allocate(allocHandle, allocSize);
-			m_MeshBuffers.m_UVBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.UVs.data());
+ 			m_MeshBuffers.m_UVBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.UVs.data());
 			m_MeshBuffers.m_UVAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
+			allocSize = mesh.m_VertexData.Normals.size() * sizeof(mesh.m_VertexData.Normals.at(0)); // TODO: Indices might be larger...
 			m_MeshBuffers.m_NormalBuffer.Allocate(allocHandle, allocSize);
 			m_MeshBuffers.m_NormalBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.Normals.data());
 			m_MeshBuffers.m_NormalAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
+			allocSize = mesh.m_VertexData.Tangents.size() * sizeof(mesh.m_VertexData.Tangents.at(0)); // TODO: Indices might be larger...
 			m_MeshBuffers.m_TangentBuffer.Allocate(allocHandle, allocSize);
 			m_MeshBuffers.m_TangentBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.Tangents.data());
 			m_MeshBuffers.m_TangentAllocMap[mesh.GetAssetID()] = std::move(allocHandle);
 
+			allocSize = mesh.m_VertexData.Indices.size() * sizeof(mesh.m_VertexData.Indices.at(0)); // TODO: Indices might be larger...
 			m_MeshBuffers.m_IndexBuffer.Allocate(allocHandle, allocSize);
 			m_MeshBuffers.m_IndexBuffer.Write(cmdList, m_AssetStagingAllocators.at(m_FrameIndex), allocHandle, mesh.m_VertexData.Indices.data());
 			m_MeshBuffers.m_IndexAllocMap[mesh.GetAssetID()] = std::move(allocHandle);

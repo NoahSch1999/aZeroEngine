@@ -34,6 +34,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	{
 		// API Interfaces
 		aZero::Engine engine(3, aZero::Helper::GetProjectDirectory() + "/../../../content");
+		std::shared_ptr<aZero::Window::RenderWindow> activeWindow = engine.CreateRenderWindow({ 1920, 1080 }, "aZero engine");
 		Rendering::RenderContext renderContext = engine.GetRenderContext();
 
 		std::shared_ptr<Pipeline::VertexShader> vs = std::make_shared<Pipeline::VertexShader>(Pipeline::VertexShader());
@@ -42,22 +43,36 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		std::shared_ptr<Pipeline::PixelShader> ps = std::make_shared<Pipeline::PixelShader>(Pipeline::PixelShader());
 		ps->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
 
-		Pipeline::ScenePass scenePass;
-		Pipeline::ScenePass::PassDescription scenePassDesc;
-		scenePassDesc.TopologyType = Pipeline::ScenePass::TOPOLOGY_TYPE::TRIANGLE;
-		scenePassDesc.DepthStencil.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-		Pipeline::ScenePass::PassDescription::RenderTarget rtv;
-		rtv.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-		rtv.Name = "ColorTarget";
-		scenePassDesc.RenderTargets.push_back(rtv);
-		scenePass.Compile(engine.GetDevice(), scenePassDesc, vs, ps);
+		std::shared_ptr<Rendering::RenderSurface> SceneColorSurface(
+			engine.CreateRenderSurface(activeWindow->GetClientDimensions(),
+				Rendering::RenderSurface::Type::Color_Target, DXM::Vector4(0.f, 0.f, 0.f, 1.f)));
 
-		renderContext.GetScenePass() = &scenePass;
+		std::shared_ptr<Rendering::RenderSurface> SceneDepthSurface(
+			engine.CreateRenderSurface(activeWindow->GetClientDimensions(),
+				Rendering::RenderSurface::Type::Depth_Target, DXM::Vector4(1, 0, 0, 0)));
+
+
+		Pipeline::ScenePass scenePass;
+		{
+			Pipeline::ScenePass::PassDescription scenePassDesc;
+			scenePassDesc.TopologyType = Pipeline::ScenePass::TOPOLOGY_TYPE::TRIANGLE;
+			scenePassDesc.DepthStencil.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+			Pipeline::ScenePass::PassDescription::RenderTarget rtv;
+			rtv.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+			rtv.Name = "ColorTarget";
+			scenePassDesc.RenderTargets.push_back(rtv);
+			scenePass.Compile(engine.GetDevice(), scenePassDesc, vs, ps);
+
+			renderContext.GetScenePass() = &scenePass;
+
+			scenePass.BindDepthStencilTarget(SceneDepthSurface);
+
+			scenePass.BindRenderTarget("ColorTarget", SceneColorSurface);
+		}
 
 		Pipeline::ComputeShader cs;
 		cs.CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "TestShader.cs.hlsl");
 
-		std::shared_ptr<aZero::Window::RenderWindow> activeWindow = engine.CreateRenderWindow({ 1920, 1080 }, "aZero engine");
 		Asset::AssetManager& assetManager = engine.GetAssetManager();
 		Scene::SceneManager& sceneManager = engine.GetSceneManager();
 		//
@@ -98,7 +113,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			scene.RenameEntity(ent2, "noah");
 			scene.RenameEntity(ent, "Entity_1");
 
-			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(0.5) * DXM::Matrix::CreateRotationY(3.1415) * DXM::Matrix::CreateTranslation(0, -1, 5));
+			scene.GetComponentManager().GetComponent<ECS::TransformComponent>(ent2)->SetTransform(DXM::Matrix::CreateScale(0.5) * DXM::Matrix::CreateRotationY(3.1415) * DXM::Matrix::CreateTranslation(0, -1.5, 5));
 
 			ECS::StaticMeshComponent CubeMeshComp;
 			CubeMeshComp.m_MeshReference = myMesh;
@@ -106,9 +121,9 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			scene.GetComponentManager().AddComponent(ent2, CubeMeshComp);
 
 			ECS::PointLightComponent pl;
-			plData.Color = { 1,0,0 };
+			plData.Color = { 1,1,1 };
 			plData.FalloffFactor = 1;
-			plData.Intensity = 10;
+			plData.Intensity = 1;
 			plData.Position = { 0,0,0 };
 			pl.SetData(plData);
 			scene.GetComponentManager().AddComponent(ent2, pl);
@@ -127,18 +142,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			//auto loadedScene = Scene::SceneSerializer::Deserialize("C:/Projects/PrograssetManagerming/aZeroEditor/idk.aZene");
 		}
 
-		std::shared_ptr<Rendering::RenderSurface> SceneColorSurface(
-			engine.CreateRenderSurface(activeWindow->GetClientDimensions(), 
-				Rendering::RenderSurface::Type::Color_Target, DXM::Vector4(0.f, 0.f, 0.f, 1.f)));
-		
-		std::shared_ptr<Rendering::RenderSurface> SceneDepthSurface(
-			engine.CreateRenderSurface(activeWindow->GetClientDimensions(), 
-				Rendering::RenderSurface::Type::Depth_Target, DXM::Vector4(1,0,0,0)));
-
-		scenePass.BindDepthStencilTarget(SceneDepthSurface);
-
-		scenePass.BindRenderTarget("ColorTarget", SceneColorSurface);
-
+		float rot = 0.f;
 		while (activeWindow->IsOpen())
 		{
 			activeWindow->HandleMessages();
@@ -159,7 +163,6 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 				cam.m_Position += DXM::Vector3(0, 0, 0.01f);
 				plData.Position = { cam.m_Position };
 				plComp.SetData(plData);
-				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('S'))
@@ -167,7 +170,6 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 				cam.m_Position += DXM::Vector3(0, 0, -0.03f);
 				plData.Position = { cam.m_Position };
 				plComp.SetData(plData);
-				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('D'))
@@ -175,7 +177,6 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 				cam.m_Position += DXM::Vector3(-0.01f, 0, 0);
 				plData.Position = { cam.m_Position };
 				plComp.SetData(plData);
-				scene.UpdateRenderState(camEnt);
 			}
 
 			if (GetAsyncKeyState('A'))
@@ -183,14 +184,60 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 				cam.m_Position += DXM::Vector3(0.01f, 0, 0);
 				plData.Position = { cam.m_Position };
 				plComp.SetData(plData);
-				scene.UpdateRenderState(camEnt);
 			}
 			//
+
+			if (GetAsyncKeyState(VK_OEM_PLUS) || GetAsyncKeyState(VK_ADD))
+			{
+				plData.Intensity += 0.01;
+				plComp.SetData(plData);
+			}
+			else if (GetAsyncKeyState(VK_OEM_MINUS) || GetAsyncKeyState(VK_SUBTRACT))
+			{
+				plData.Intensity -= 0.01;
+				plComp.SetData(plData);
+			}
+
+			if (GetAsyncKeyState('1'))
+			{
+				if (!myMaterial.GetAsset()->m_Data.NormalMap.IsValid())
+				{
+					myMaterial.GetAsset()->m_Data.NormalMap = myNormalMap;
+					renderContext.UpdateRenderState(myMaterial);
+				}
+			}
+			else if (GetAsyncKeyState('2'))
+			{
+				myMaterial.GetAsset()->m_Data.NormalMap = Asset::AssetHandle<Asset::Texture>();
+				renderContext.UpdateRenderState(myMaterial);
+			}
+
+			ECS::TransformComponent& tf = *scene.GetComponentManager().GetComponent<ECS::TransformComponent>(camEnt);
+			tf.SetTransform(DXM::Matrix::CreateScale(0.5) * DXM::Matrix::CreateRotationY(3.1415 + rot) * DXM::Matrix::CreateTranslation(0, -1.3, 5));
+			scene.UpdateRenderState(camEnt);
+
+			//rot += 0.001f;
 
 			// Example of render pipeline hotreloading
 			if (GetAsyncKeyState(VK_SPACE))
 			{
-				renderContext.HotreloadRenderPipeline();
+				vs->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
+				ps->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+
+				Pipeline::ScenePass::PassDescription scenePassDesc;
+				scenePassDesc.TopologyType = Pipeline::ScenePass::TOPOLOGY_TYPE::TRIANGLE;
+				scenePassDesc.DepthStencil.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+				Pipeline::ScenePass::PassDescription::RenderTarget rtv;
+				rtv.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+				rtv.Name = "ColorTarget";
+				scenePassDesc.RenderTargets.push_back(rtv);
+				
+				if (scenePass.Compile(engine.GetDevice(), scenePassDesc, vs, ps))
+				{
+					renderContext.GetScenePass() = &scenePass;
+					scenePass.BindDepthStencilTarget(SceneDepthSurface);
+					scenePass.BindRenderTarget("ColorTarget", SceneColorSurface);
+				}
 			}
 
 			if (activeWindow->WaitOnSwapchain())
