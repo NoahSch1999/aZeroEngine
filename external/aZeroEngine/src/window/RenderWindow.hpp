@@ -24,7 +24,7 @@ namespace aZero
 
 	namespace Window
 	{
-		// TODO: Remove this from the API and let the user copy the final rendered frame to their own texture that they want to present
+		// todo Remove this from the API and let the user copy the final rendered frame to their own texture that they want to present
 		class RenderWindow : public NonCopyable
 		{
 			friend Engine;

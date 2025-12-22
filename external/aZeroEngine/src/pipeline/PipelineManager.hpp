@@ -6,7 +6,7 @@ namespace aZero
 {
 	namespace Pipeline
 	{
-		// TODO: Remove and simply provide the renderpass, rendergraph and shader-subclass interfaces?
+		// todo Remove and simply provide the renderpass, rendergraph and shader-subclass interfaces?
 		class PipelineManager
 		{
 			ID3D12Device* m_Device;

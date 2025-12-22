@@ -17,22 +17,6 @@ namespace aZero
 
 		public:
 			EntityManager() = default;
-			~EntityManager() = default;
-
-			EntityManager(EntityManager&& Other) noexcept
-			{
-				m_CurrentMax = Other.m_CurrentMax;
-				m_FreeEntityIDs = std::move(Other.m_FreeEntityIDs);
-			}
-			EntityManager& operator=(EntityManager&& Other) noexcept
-			{
-				if (this != &Other)
-				{
-					m_CurrentMax = Other.m_CurrentMax;
-					m_FreeEntityIDs = std::move(Other.m_FreeEntityIDs);
-				}
-				return *this;
-			}
 
 			/** Creates a new Entity object with a unique ID.
 			@return Entity

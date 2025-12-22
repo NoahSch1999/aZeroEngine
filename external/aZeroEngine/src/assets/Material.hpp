@@ -52,5 +52,29 @@ namespace aZero
 
 			Data m_Data;
 		};
+
+		class NewMaterial : public AssetBase
+		{
+		private:
+			friend class NewAssetAllocator<NewMaterial>;
+
+			NewMaterial() = default;
+			NewMaterial(AssetID assetID, const std::string& name)
+				:AssetBase(assetID, name){}
+
+		public:
+
+			struct Data
+			{
+				std::string AlbedoTextureName;
+				std::string NormalMapName;
+				NewTexture* AlbedoTexture = nullptr;
+				NewTexture* NormalMap = nullptr;
+			};
+
+			bool Load(const std::string& filePath);
+
+			Data m_Data;
+		};
 	}
 }

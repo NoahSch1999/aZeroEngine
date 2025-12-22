@@ -325,7 +325,7 @@ namespace aZero
 				barrier.LayoutAfter = newLayout;
 				barrier.pResource = m_Resource.Get();
 				barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
-				// TODO: ????
+				// todo ????
 				barrier.Subresources.FirstArraySlice = 0;
 				barrier.Subresources.FirstPlane = 0;
 				barrier.Subresources.IndexOrFirstMipLevel = 0;

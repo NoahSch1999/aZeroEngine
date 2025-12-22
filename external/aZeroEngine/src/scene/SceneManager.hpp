@@ -19,7 +19,7 @@ namespace aZero
 			{
 				if (m_NextSceneID == std::numeric_limits<SceneID>::max())
 				{
-					// TODO: Figure out exactly how to handle this case
+					// todo Figure out exactly how to handle this case
 						// Maybe just throw exception since it's probably not gonna happen? Otherwise return an empty weak_ptr?
 					throw std::runtime_error("Max scenes created during runtime.");
 				}

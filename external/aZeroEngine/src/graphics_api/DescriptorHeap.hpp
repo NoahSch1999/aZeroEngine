@@ -7,7 +7,7 @@ namespace aZero
 {
 	namespace D3D12
 	{
-		// TODO: Implement the option to resize it
+		// todo Implement the option to resize it
 		class DescriptorHeap : public NonCopyable
 		{
 		private:

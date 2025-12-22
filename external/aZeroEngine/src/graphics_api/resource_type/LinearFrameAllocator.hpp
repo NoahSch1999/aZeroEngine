@@ -22,7 +22,7 @@ namespace aZero
 			D3D12::GPUBuffer m_StagingBuffer;
 			uint32_t m_CurrentAllocOffset = 0;
 
-			// TODO: Implement a more sophisticated approach since raw-pointers are a bit SUS
+			// todo Implement a more sophisticated approach since raw-pointers are a bit SUS
 			std::unordered_map<D3D12::GPUBuffer*, std::vector<Allocation>> m_Allocations;
 
 			uint32_t GetNextAllocOffset(uint32_t NumBytes)

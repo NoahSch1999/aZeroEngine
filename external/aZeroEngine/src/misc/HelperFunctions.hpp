@@ -6,7 +6,7 @@ namespace aZero
 {
 	namespace Helper
 	{
-		// TODO: These functions aren't nice. Re-think if and how they are needed and refactor...
+		// todo These functions aren't nice. Re-think if and how they are needed and refactor...
 		std::string GetProjectDirectory();
 #if USE_DEBUG
 		std::string GetDebugProjectDirectory();

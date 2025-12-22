@@ -5,6 +5,8 @@ project (aZeroEditor VERSION 1.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_compile_definitions(aZeroEditor NOMINMAX)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/external/aZeroEngine)

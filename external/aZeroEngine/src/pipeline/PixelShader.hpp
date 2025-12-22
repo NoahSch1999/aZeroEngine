@@ -7,10 +7,12 @@ namespace aZero
 {
 	namespace Pipeline
 	{
-		class PixelShader : public Shader
+		class PixelShader final : public Shader
 		{
 			friend class RenderPass;
 			friend class ScenePass;
+			friend class NewRenderPass;
+			friend class VertexShaderPass;
 		private:
 			enum NUM_RTV_CHANNELS { R = 1, RG = 2, RGB = 3, RGBA = 4 };
 

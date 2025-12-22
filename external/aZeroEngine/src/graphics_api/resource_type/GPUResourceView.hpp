@@ -127,12 +127,12 @@ namespace aZero
 				}
 				else if (ResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D)
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 				}
 				else
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 				}
 
@@ -233,12 +233,12 @@ namespace aZero
 				}
 				else if (ResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D)
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 				}
 				else
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 				}
 
@@ -308,12 +308,12 @@ namespace aZero
 				}
 				else if (ResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D)
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 				}
 				else
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 				}
 
@@ -386,12 +386,12 @@ namespace aZero
 				}
 				else if (ResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D)
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 				}
 				else
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 				}
 

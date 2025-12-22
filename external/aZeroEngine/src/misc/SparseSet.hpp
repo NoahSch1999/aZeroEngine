@@ -73,34 +73,6 @@ namespace aZero
 				m_CurrentLast = 0;
 			}
 
-			SparseSet(const SparseSet& Other)
-			{
-				m_ID_To_Element = Other.m_ID_To_Element;
-				m_Element_To_ID = Other.m_Element_To_ID;
-				m_Elements = Other.m_Elements;
-			}
-
-			SparseSet& operator=(const SparseSet& Other)
-			{
-				m_ID_To_Element = Other.m_ID_To_Element;
-				m_Element_To_ID = Other.m_Element_To_ID;
-				m_Elements = Other.m_Elements;
-			}
-
-			SparseSet(SparseSet&& Other) noexcept
-			{
-				m_ID_To_Element = std::move(Other.m_ID_To_Element);
-				m_Element_To_ID = std::move(Other.m_Element_To_ID);
-				m_Elements = std::move(Other.m_Elements);
-			}
-
-			SparseSet& operator=(SparseSet&& Other) noexcept
-			{
-				m_ID_To_Element = std::move(Other.m_ID_To_Element);
-				m_Element_To_ID = std::move(Other.m_Element_To_ID);
-				m_Elements = std::move(Other.m_Elements);
-			}
-
 			/// <summary>
 			/// Adds an entry for the ID if it doesn't already exist.
 			/// Copies the element.
@@ -305,6 +277,8 @@ namespace aZero
 			{
 				return m_Elements.capacity();
 			}
+
+			IDType GetElementIndex(IDType ID) const { return m_ID_To_Element.at(ID); }
 		};
 	}
 }

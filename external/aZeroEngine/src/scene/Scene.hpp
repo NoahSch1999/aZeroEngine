@@ -124,6 +124,7 @@ namespace aZero
 				constexpr uint32_t MaxEntities = 1000;
 				m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(MaxEntities);
 				m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(MaxEntities);
+				m_ComponentManager.GetComponentArray<ECS::NewStaticMeshComponent>().Init(MaxEntities);
 				m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(MaxEntities);
 				m_ComponentManager.GetComponentArray<ECS::PointLightComponent>().Init(MaxEntities);
 				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(MaxEntities);
@@ -175,6 +176,138 @@ namespace aZero
 				}
 			}
 
+			void NewUpdateRenderState(ECS::Entity entity)
+			{
+				ECS::EntityID id = entity.GetID();
+				if (ECS::TransformComponent* tf = m_ComponentManager.GetComponent<ECS::TransformComponent>(entity))
+				{
+					ECS::NewStaticMeshComponent* mesh = m_ComponentManager.GetComponent<ECS::NewStaticMeshComponent>(entity);
+
+					Asset::NewMesh* meshRef = mesh->m_MeshReference;
+					Asset::NewMaterial* materialRef = mesh->m_MaterialReference;
+
+					if (meshRef && materialRef
+						&& meshRef->GetRenderID() != std::numeric_limits<Asset::RenderID>::max()
+						&& materialRef->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+					{
+						if (meshRef->GetRenderID() != std::numeric_limits<Asset::RenderID>::max()
+							&& materialRef->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+						{
+							const DXM::Matrix tfMatrix = tf->GetTransform();
+
+							SceneProxy::StaticMesh meshProxy;
+							meshProxy.m_NumVertices = meshRef->m_VertexData.Indices.size();
+							meshProxy.m_Transform = tfMatrix;
+
+							const float XAxisScale = tfMatrix.m[0][0];
+							const float YAxisScale = tfMatrix.m[1][1];
+							const float ZAxisScale = tfMatrix.m[2][2];
+							const float MaxScaleAxis = std::max(abs(XAxisScale), std::max(abs(YAxisScale), abs(ZAxisScale)));
+							meshProxy.m_BoundingSphere = DirectX::BoundingSphere(
+								{ tfMatrix.Translation().x, tfMatrix.Translation().y, tfMatrix.Translation().z },
+								meshRef->m_BoundingSphereRadius * MaxScaleAxis
+							);
+							meshProxy.m_MeshIndex = meshRef->GetRenderID();
+							meshProxy.m_MaterialIndex = materialRef->GetRenderID();
+
+							// todo Maybe have a separate set of meshes for all of them with transparency enabled (similar to how skeletal meshes etc might work)?
+							// I think the component should control the transparency setting
+							//		This is because it's gonna be a problem if the material changes but the mesh is in the array of non-transparent meshes...
+							//			How do we structure it????
+
+							m_Proxy.m_StaticMeshes.AddOrUpdate(id, std::move(meshProxy));
+						}
+						else
+						{
+							m_Proxy.m_StaticMeshes.Remove(id);
+						}
+					}
+					else
+					{
+						m_Proxy.m_StaticMeshes.Remove(id);
+					}
+
+					if (ECS::CameraComponent* camera = m_ComponentManager.GetComponent<ECS::CameraComponent>(entity))
+					{
+						if (camera->m_IsActive)
+						{
+							SceneProxy::Camera cameraProxy;
+							cameraProxy.m_Frustrum = DirectX::BoundingFrustum(camera->GetProjectionMatrix(), true);
+							cameraProxy.m_ViewProjectionMatrix = camera->GetViewMatrix() * camera->GetProjectionMatrix();
+							cameraProxy.m_Viewport = camera->GetViewport();
+							cameraProxy.m_ScizzorRect = camera->GetScizzorRect();
+							m_Proxy.m_Cameras.AddOrUpdate(id, std::move(cameraProxy));
+						}
+						else
+						{
+							m_Proxy.m_Cameras.Remove(id);
+						}
+					}
+					else
+					{
+						m_Proxy.m_Cameras.Remove(id);
+					}
+
+					if (ECS::DirectionalLightComponent* dl = m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(entity))
+					{
+						SceneProxy::DirectionalLight dlProxy;
+						dlProxy.m_Direction = dl->GetData().Direction;
+						dlProxy.m_Color = dl->GetData().Color;
+						dlProxy.m_Intensity = dl->GetData().Intensity;
+						m_Proxy.m_DirectionalLights.AddOrUpdate(id, std::move(dlProxy));
+					}
+					else
+					{
+						m_Proxy.m_DirectionalLights.Remove(id);
+					}
+
+					if (ECS::PointLightComponent* pl = m_ComponentManager.GetComponent<ECS::PointLightComponent>(entity))
+					{
+						SceneProxy::PointLight plProxy;
+						plProxy.m_Position = pl->GetData().Position;
+						plProxy.m_Color = pl->GetData().Color;
+						plProxy.m_Intensity = pl->GetData().Intensity;
+						plProxy.m_FalloffFactor = pl->GetData().FalloffFactor;
+						m_Proxy.m_PointLights.AddOrUpdate(id, std::move(plProxy));
+					}
+					else
+					{
+						m_Proxy.m_PointLights.Remove(id);
+					}
+
+					if (ECS::SpotLightComponent* sl = m_ComponentManager.GetComponent<ECS::SpotLightComponent>(entity))
+					{
+						SceneProxy::SpotLight slProxy;
+						slProxy.m_Direction = sl->GetData().Direction;
+						slProxy.m_Color = sl->GetData().Color;
+						slProxy.m_Intensity = sl->GetData().Intensity;
+						slProxy.m_ConeRadius = sl->GetData().CutoffAngle;
+						slProxy.m_Position = sl->GetData().Position;
+						slProxy.m_Range = sl->GetData().Range;
+						m_Proxy.m_SpotLights.AddOrUpdate(id, std::move(slProxy));
+					}
+					else
+					{
+						m_Proxy.m_SpotLights.Remove(id);
+					}
+				}
+				else
+				{
+					m_Proxy.m_StaticMeshes.Remove(id);
+					m_Proxy.m_Cameras.Remove(id);
+					m_Proxy.m_DirectionalLights.Remove(id);
+					m_Proxy.m_PointLights.Remove(id);
+					m_Proxy.m_SpotLights.Remove(id);
+				}
+			}
+
+			std::optional<ECS::Entity> GetEntity(const std::string& Tag)
+			{
+				return m_Entities.count(Tag) == 1 ? m_Entities.at(Tag) : std::optional<ECS::Entity>{};
+			}
+
+			ECS::ComponentManagerDecl& GetComponentManager() { return m_ComponentManager; }
+
 			void UpdateRenderState(ECS::Entity entity)
 			{
 				ECS::EntityID id = entity.GetID();
@@ -212,7 +345,7 @@ namespace aZero
 							meshProxy.m_MeshIndex = meshAsset->GetRenderID();
 							meshProxy.m_MaterialIndex = materialAsset->GetRenderID();
 
-							// TODO: Maybe have a separate set of meshes for all of them with transparency enabled (similar to how skeletal meshes etc might work)?
+							// todo Maybe have a separate set of meshes for all of them with transparency enabled (similar to how skeletal meshes etc might work)?
 							// I think the component should control the transparency setting
 							//		This is because it's gonna be a problem if the material changes but the mesh is in the array of non-transparent meshes...
 							//			How do we structure it????
@@ -303,12 +436,6 @@ namespace aZero
 				}
 			}
 
-			std::optional<ECS::Entity> GetEntity(const std::string& Tag) 
-			{
-				return m_Entities.count(Tag) == 1 ? m_Entities.at(Tag) : std::optional<ECS::Entity>{};
-			}
-
-			ECS::ComponentManagerDecl& GetComponentManager() { return m_ComponentManager; }
 		};
 
 
@@ -335,7 +462,7 @@ namespace aZero
 					{
 						out << YAML::Key << "StaticMeshComponent";
 						out << YAML::BeginMap;
-						out << YAML::Key << "StaticMeshInfo" << YAML::Value << "TODO: Add mesh and material information";
+						out << YAML::Key << "StaticMeshInfo" << YAML::Value << "todo Add mesh and material information";
 						out << YAML::EndMap;
 					}
 
@@ -343,7 +470,7 @@ namespace aZero
 					{
 						out << YAML::Key << "CameraComponent";
 						out << YAML::BeginMap;
-						out << YAML::Key << "Info" << YAML::Value << "TODO: Add info";
+						out << YAML::Key << "Info" << YAML::Value << "todo Add info";
 						out << YAML::EndMap;
 					}
 
@@ -351,7 +478,7 @@ namespace aZero
 					{
 						out << YAML::Key << "DirectionalLightComponent";
 						out << YAML::BeginMap;
-						out << YAML::Key << "Info" << YAML::Value << "TODO: Add info";
+						out << YAML::Key << "Info" << YAML::Value << "todo Add info";
 						out << YAML::EndMap;
 					}
 
@@ -359,7 +486,7 @@ namespace aZero
 					{
 						out << YAML::Key << "PointLightComponent";
 						out << YAML::BeginMap;
-						out << YAML::Key << "Info" << YAML::Value << "TODO: Add info";
+						out << YAML::Key << "Info" << YAML::Value << "todo Add info";
 						out << YAML::EndMap;
 					}
 
@@ -367,7 +494,7 @@ namespace aZero
 					{
 						out << YAML::Key << "SpotLightComponent";
 						out << YAML::BeginMap;
-						out << YAML::Key << "Info" << YAML::Value << "TODO: Add info";
+						out << YAML::Key << "Info" << YAML::Value << "todo Add info";
 						out << YAML::EndMap;
 					}
 				}
@@ -406,14 +533,14 @@ namespace aZero
 				return true;
 			}
 
-			static std::optional<Scene> Deserialize(const std::string& Path)
-			{
-				Scene newScene;
-				// Serialize...
+			//static std::optional<Scene> Deserialize(const std::string& Path)
+			//{
+			//	Scene newScene;
+			//	// Serialize...
 
-				//
-				return newScene;
-			}
+			//	//
+			//	return newScene;
+			//}
 		};
 	}
 }

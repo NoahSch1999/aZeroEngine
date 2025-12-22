@@ -22,6 +22,8 @@ namespace aZero
 		template<typename T>
 		class AssetAllocator;
 
+		template<typename T>
+		class NewAssetAllocator;
 		/** 
 		* @brief Unique identifier for an asset within the asset system.
 		* 

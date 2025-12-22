@@ -15,5 +15,14 @@ namespace aZero
 
 			StaticMeshComponent() = default;
 		};
+
+		class NewStaticMeshComponent
+		{
+		public:
+			Asset::NewMesh* m_MeshReference = nullptr;
+			Asset::NewMaterial* m_MaterialReference = nullptr;
+
+			NewStaticMeshComponent() = default;
+		};
 	}
 }

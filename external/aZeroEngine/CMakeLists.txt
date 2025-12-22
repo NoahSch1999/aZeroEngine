@@ -7,6 +7,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include(FetchContent)
 
+file(GLOB ENGINE_HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/**/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.hpp"
+)
+
 add_library(aZeroEngine
     "src/graphics_api/resource_type/GPUResource.cpp"
     "src/graphics_api/Descriptor.cpp"
@@ -22,7 +29,18 @@ add_library(aZeroEngine
     "src/pipeline/Shader.cpp" 
     "src/pipeline/VertexShader.cpp" 
     "src/pipeline/PixelShader.cpp" 
-    "src/pipeline/ComputeShader.cpp")
+    "src/pipeline/ComputeShader.cpp" 
+    "src/graphics_api/Wrappers/CommandWrapping.cpp" 
+    "src/graphics_api/Wrappers/DescriptorWrapping.cpp" 
+    "src/graphics_api/Wrappers/ResourceWrapping.cpp" 
+    "src/pipeline/MeshShader.cpp" 
+    "src/pipeline/renderpass/ComputeShaderPass.cpp" 
+    "src/pipeline/renderpass/VertexShaderPass.cpp"
+    "src/pipeline/renderpass/MeshShaderPass.cpp"
+    "src/pipeline/renderpass/NewRenderPass.cpp"  
+    "src/pipeline/renderpass/MultiShaderPass.cpp")
+
+target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 
 # PRE-PROCESSOR SETTINGS
 target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
@@ -97,12 +115,12 @@ FetchContent_MakeAvailable(aZero-Sparse-Set)
 #
 
 # aZero Linear Allocator
-FetchContent_Declare(
-    aZero-Linear-Allocator
-    GIT_REPOSITORY https://github.com/NoahSch1999/aZero-LinearAllocator.git
-    GIT_TAG        "master"
-)
-FetchContent_MakeAvailable(aZero-Linear-Allocator)
+#FetchContent_Declare(
+ #   aZero-Linear-Allocator
+  #  GIT_REPOSITORY https://github.com/NoahSch1999/aZero-LinearAllocator.git
+  #  GIT_TAG        "master"
+#)
+#FetchContent_MakeAvailable(aZero-Linear-Allocator)
 #
 
 target_include_directories(aZeroEngine

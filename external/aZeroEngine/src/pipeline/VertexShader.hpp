@@ -9,9 +9,11 @@ namespace aZero
 		{
 			friend class RenderPass;
 			friend class ScenePass;
+			friend class NewRenderPass;
+			friend class VertexShaderPass;
 		private:
 			std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputElementDescs;
-			std::vector<std::string> m_InputElementSemanticNames; // TODO: Try remove
+			std::vector<std::string> m_InputElementSemanticNames; // todo Try remove
 			static constexpr const char* m_TargetSM = "vs_6_6";
 			static constexpr const char* m_ShaderExtension = ".vs.hlsl";
 

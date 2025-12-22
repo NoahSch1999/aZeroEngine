@@ -3,8 +3,10 @@
 #include "assets/Asset.hpp"
 #include "graphics_api/CommandQueue.hpp"
 #include <optional>
-#include "LinearAllocator.hpp"
+#include "misc/LinearAllocator.hpp"
 #include "renderer/RenderSurface.hpp"
+#include "MeshShader.hpp"
+#include <span>
 
 namespace aZero
 {
@@ -37,7 +39,7 @@ namespace aZero
 
 			enum class TOPOLOGY_TYPE { INVALID = 0, POINT = 1, LINE = 2, TRIANGLE = 3 };
 
-			// TODO: Maybe throw away once initialized?
+			// todo Maybe throw away once initialized?
 			struct PassDescription
 			{
 				struct RenderTarget
@@ -135,7 +137,6 @@ namespace aZero
 				m_Bindings.DepthStencilTarget = renderDepthStencilSurface;
 			}
 
-			// TODO: Make so the pass isn't changed if compilation fails
 			bool Compile(ID3D12Device* device, const PassDescription& description, std::weak_ptr<Pipeline::VertexShader> vertexShader, std::optional<std::weak_ptr<Pipeline::PixelShader>> pixelShader)
 			{
 				this->Reset();
@@ -172,7 +173,6 @@ namespace aZero
 				The RenderGraph takes them as inputs and forward relevant data to relevant RenderPass's.
 				The RenderPass performs command recording and execution.
 			*/
-			// TODO: Change how the cmdList and graphicsQueue are used to make the rendering more efficient
 			bool Execute(D3D12::CommandQueue& graphicsQueue, 
 				D3D12::CommandContextAllocator::CommandContextHandle& cmdContext,
 				ID3D12DescriptorHeap* resourceHeap,
@@ -184,7 +184,7 @@ namespace aZero
 			{
 				ID3D12GraphicsCommandList* cmdList = cmdContext.m_Context->GetCommandList();
 
-				// TODO: We dont wanna skip rendering if valid dsv/rtv but the one not used is expired etc
+				// todo We dont wanna skip rendering if valid dsv/rtv but the one not used is expired etc
 				if (!this->ValidateBoundRenderSurfaces())
 				{
 					return false;
@@ -235,8 +235,8 @@ namespace aZero
 					m_Bindings.DepthStencilTarget->lock()->RecordClear(cmdList);
 				}
 
-				// TODO: Make batches into a simple vector which can be iterated
-				// TODO: Multithread?
+				// todo Make batches into a simple vector which can be iterated
+				// todo Multithread?
 				for (const auto& [meshIndex, batchArrayMap] : batches)
 				{
 					for (const auto& [materialIndex, batchArray] : batchArrayMap)
@@ -266,7 +266,7 @@ namespace aZero
 			}
 
 		private:
-			// TODO: Clean up classes
+			// todo Clean up classes
 			struct BufferBinding
 			{
 				Pipeline::Shader::ShaderResourceInfo BindingInfo;
@@ -296,12 +296,12 @@ namespace aZero
 
 			struct Bindings
 			{
-				// TODO: Replace with RenderSurface?
+				// todo Replace with RenderSurface?
 				std::optional<std::weak_ptr<Rendering::RenderSurface>> DepthStencilTarget;
 				std::unordered_map<std::string, std::weak_ptr<Rendering::RenderSurface>> RenderTargets;
 				//
 
-				// TODO: Make less copy-pasta?
+				// todo Make less copy-pasta?
 				std::unordered_map<std::string, BufferBinding> VSBuffers;
 				std::unordered_map<std::string, RootConstantBinding> VSRootConstants;
 
@@ -318,7 +318,7 @@ namespace aZero
 				std::unordered_map<uint32_t, TextureBinding> TextureBindings;
 			};
 
-			// TODO: Make it into less input, maybe through "di"
+			// todo Make it into less input, maybe through "di"
 			bool RenderBatch(ID3D12GraphicsCommandList* cmdList,
 				ID3D12DescriptorHeap* resourceHeap,
 				ID3D12DescriptorHeap* samplerHeap,
@@ -351,11 +351,11 @@ namespace aZero
 					DEBUG_PRINT("Depth stencil expired.");
 				}
 
-				// TODO: For each of these the data is staged into a GPUBuffer that uses a LinearAllocator.
+				// todo For each of these the data is staged into a GPUBuffer that uses a LinearAllocator.
 				//			The RenderGraph owns the GPUBuffer and binds the current frame's GPUBuffer before calling ScenePass::Execute().
 				//				This is because we need to triple-buffer them.
 
-				// TODO: Remove the need to bind these via the map for each batch
+				// todo Remove the need to bind these via the map for each batch
 				//			Maybe D3D12_COMMAND_LIST_TYPE_BUNDLE can be used to avoid the cost of this->BindResources(cmdList)?
 				//			VertexPerDrawData, PixelPerDrawData and other mandatory ScenePass bindings should maybe be moved into a hardcoded vector? 
 				//				If so, how to initialize that? Regardless, they have to be set every frame since we're using triple-buffering.
@@ -513,7 +513,7 @@ namespace aZero
 				//	return false;
 				//}
 
-				//if (m_Bindings.DepthStencilTarget->Descriptor.lock()->GetHeapIndex() == -1) // TODO: Change "-1" to a constexpr static var
+				//if (m_Bindings.DepthStencilTarget->Descriptor.lock()->GetHeapIndex() == -1) // todo Change "-1" to a constexpr static var
 				//{
 				//	// LOG
 				//	return false;
@@ -527,7 +527,7 @@ namespace aZero
 					//	return false;
 					//}
 
-					//if (rtv.Descriptor.lock()->GetHeapIndex() == -1) // TODO: Change "-1" to a constexpr static var
+					//if (rtv.Descriptor.lock()->GetHeapIndex() == -1) // todo Change "-1" to a constexpr static var
 					//{
 					//	// LOG - Name and reason
 					//	return false;
@@ -581,6 +581,7 @@ namespace aZero
 
 			bool CreateRootSignature(ID3D12Device* device)
 			{
+				// todo Dont change the shaders, but instead store local "maps"
 				std::vector<D3D12_ROOT_PARAMETER> allParams;
 				std::shared_ptr<Pipeline::VertexShader> vertexShader = m_VertexShader.lock();
 				for (const D3D12_ROOT_PARAMETER& Param : vertexShader->m_RootParameters)
@@ -603,7 +604,7 @@ namespace aZero
 					}
 				}
 
-				// TODO: Fill in?
+				// todo Fill in?
 				std::vector<D3D12_STATIC_SAMPLER_DESC> StaticSamplers;
 				//
 
@@ -642,19 +643,19 @@ namespace aZero
 				pipelineStateDesc.pRootSignature = m_RootSignature.Get();
 				pipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-				// TODO: Make this a setting
+				// todo Make this a setting
 				DXGI_SAMPLE_DESC sampleDesc{};
 				sampleDesc.Count = 1;
 				sampleDesc.Quality = 0;
 				pipelineStateDesc.SampleDesc = sampleDesc;
 
-				// TODO: Make this a setting
+				// todo Make this a setting
 				D3D12_RASTERIZER_DESC rasterDesc{};
 				rasterDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 				rasterDesc.FrontCounterClockwise = true;
 				pipelineStateDesc.RasterizerState = rasterDesc;
 
-				// TODO: Make this a setting
+				// todo Make this a setting
 				D3D12_BLEND_DESC blendDesc = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 				pipelineStateDesc.BlendState = blendDesc;
 
@@ -664,7 +665,7 @@ namespace aZero
 
 				pipelineStateDesc.PrimitiveTopologyType = this->GetTopologyType2();
 
-				// TODO: Make this a setting
+				// todo Make this a setting
 				pipelineStateDesc.SampleMask = std::numeric_limits<uint32_t>::max();
 
 				if (!m_PixelShader.expired())
@@ -746,7 +747,7 @@ namespace aZero
 
 			bool BindResources(ID3D12GraphicsCommandList* cmdList)
 			{
-				// TODO: Make less copy-pasta
+				// todo Make less copy-pasta
 				for (const auto& binding : m_Bindings.VSBuffers)
 				{
 					if (binding.second.Buffer.expired())
@@ -789,7 +790,7 @@ namespace aZero
 					{
 						cmdList->SetGraphicsRoot32BitConstants(bindingInfo.m_RootIndex, bindingInfo.m_Num32BitConstants, binding.second.Data.get(), 0);
 					}
-					// TODO: Look if this case even can happen
+					// todo Look if this case even can happen
 					else
 					{
 						DEBUG_PRINT("Bound root constant " + binding.first + " that was bound to a vertex shader is expected to be a root constant, but isn't");
@@ -841,7 +842,7 @@ namespace aZero
 						{
 							cmdList->SetGraphicsRoot32BitConstants(bindingInfo.m_RootIndex, bindingInfo.m_Num32BitConstants, binding.second.Data.get(), 0);
 						}
-						// TODO: Look if this case even can happen
+						// todo Look if this case even can happen
 						else
 						{
 							DEBUG_PRINT("Bound root constant " + binding.first + " that was bound to a pixel shader is expected to be a root constant, but isn't");
@@ -849,6 +850,7 @@ namespace aZero
 						}
 					}
 				}
+				return true;
 				//
 			}
 

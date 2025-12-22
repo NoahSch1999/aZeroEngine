@@ -10,7 +10,7 @@ namespace aZero
 		class RenderGraph
 		{
 		public:
-			// TODO: The renderer forwards these arguments (using the current frame buffer for triple-buffered resources)
+			// todo The renderer forwards these arguments (using the current frame buffer for triple-buffered resources)
 			bool Execute(D3D12::CommandQueue& cmdQueue, 
 			D3D12::CommandContextAllocator::CommandContextHandle& cmdContext, 
 			ID3D12DescriptorHeap* resourceHeap,
@@ -39,7 +39,7 @@ namespace aZero
 				{
 					for (const Scene::SceneProxy::StaticMesh& staticMeshEntity : sceneProxy.m_StaticMeshes.GetData())
 					{
-						if (true/* TODO: Perform frustrum culling */)
+						if (true/* todo Perform frustrum culling */)
 						{
 							Pipeline::ScenePass::StaticMeshInstanceData instanceData;
 							instanceData.Transform = staticMeshEntity.m_Transform;
@@ -51,7 +51,7 @@ namespace aZero
 
 					for (const Scene::SceneProxy::PointLight& pointLight : sceneProxy.m_PointLights.GetData())
 					{
-						if (true/* TODO: Perform frustrum culling */)
+						if (true/* todo Perform frustrum culling */)
 						{
 							pointLights.emplace_back(pointLight);
 						}
@@ -59,7 +59,7 @@ namespace aZero
 
 					for (const Scene::SceneProxy::SpotLight& spotLight : sceneProxy.m_SpotLights.GetData())
 					{
-						if (true/* TODO: Perform frustrum culling */)
+						if (true/* todo Perform frustrum culling */)
 						{
 							spotLights.emplace_back(spotLight);
 						}
@@ -76,7 +76,7 @@ namespace aZero
 					lightDrawData.NumSpotLights = spotLights.size();
 					lightDrawData.NumDirectionalLights = sceneProxy.m_DirectionalLights.GetData().size();
 
-					// TODO: Make this an iteration over RenderPass-subclasses and do dynamic_cast and execute the correct function
+					// todo Make this an iteration over RenderPass-subclasses and do dynamic_cast and execute the correct function
 					for (std::weak_ptr<RenderPass_New> pass : m_Passes)
 					{
 						if (pass.expired())
@@ -105,7 +105,7 @@ namespace aZero
 				
 			}
 		private:
-			// TODO: Make this into a list which can be ordered etc.
+			// todo Make this into a list which can be ordered etc.
 			std::vector<std::weak_ptr<RenderPass_New>> m_Passes;
 		}
 	}

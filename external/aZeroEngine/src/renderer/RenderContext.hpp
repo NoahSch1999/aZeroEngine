@@ -45,7 +45,7 @@ namespace aZero
 				m_Renderer.EndFrame();
 			}
 
-			// TODO: This is OK for now, but needs to change once there's multiple command queues.
+			// todo This is OK for now, but needs to change once there's multiple command queues.
 			void FlushRenderingCommands()
 			{
 				m_Renderer.FlushGraphicsQueue();
@@ -66,6 +66,21 @@ namespace aZero
 			void UpdateRenderState(Asset::AssetHandle<Asset::Mesh>& mesh)
 			{
 				this->m_Renderer.UpdateRenderState(mesh);
+			}
+
+			void NewUpdateRenderState(Asset::NewMesh* mesh)
+			{
+				this->m_Renderer.NewUpdateRenderState(mesh);
+			}
+
+			void NewUpdateRenderState(Asset::NewMaterial* material)
+			{
+				this->m_Renderer.NewUpdateRenderState(material);
+			}
+
+			void NewUpdateRenderState(Asset::NewTexture* texture)
+			{
+				this->m_Renderer.NewUpdateRenderState(texture);
 			}
 
 			/**

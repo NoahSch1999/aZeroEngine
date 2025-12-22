@@ -21,7 +21,7 @@ namespace aZero
 			std::variant<D3D12::RenderTargetView, D3D12::DepthStencilView> m_View;
 			bool m_ShouldClear = true;
 
-			// TODO: Rework so any type can be used etc. maybe ditch a dedicated RenderSurface class entirely and instead let the user handle the resource and rtvs themselves
+			// todo Rework so any type can be used etc. maybe ditch a dedicated RenderSurface class entirely and instead let the user handle the resource and rtvs themselves
 			RenderSurface(ID3D12Device* Device,
 				D3D12::ResourceRecycler* ResourceRecycler,
 				D3D12::Descriptor&& Descriptor,

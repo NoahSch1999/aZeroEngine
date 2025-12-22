@@ -16,9 +16,9 @@ Entities:
       Rotation: [-0, 0, 0]
       Scale: [2, 2, 2]
     StaticMeshComponent:
-      StaticMeshInfo: "TODO: Add mesh and material information"
+      StaticMeshInfo: "todo Add mesh and material information"
     CameraComponent:
-      Info: "TODO: Add info"
+      Info: "todo Add info"
   - Name: Entity_1
     TransformComponent:
       Translation: [0, 0, 0]

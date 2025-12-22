@@ -28,7 +28,6 @@ namespace aZero
 			std::tuple<ComponentArray<Args>...>& GetComponentTuple() { return m_ComponentArrays; }
 
 			ComponentManager() = default;
-			~ComponentManager() = default;
 
 			template<typename ComponentType>
 			ComponentType* GetComponent(const ECS::Entity& Entity)

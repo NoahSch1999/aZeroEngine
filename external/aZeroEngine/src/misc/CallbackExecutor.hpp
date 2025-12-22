@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <functional>
+#include <mutex>
 
 namespace aZero
 {
@@ -8,17 +9,19 @@ namespace aZero
 	{
 	private:
 		std::vector<std::function<void()>> m_Callbacks;
-
+		std::mutex m_Lock;
 	public:
-		CallbackPlayer() = default;
+		CallbackExecutor() = default;
 
 		void Append(std::function<void()>&& callback)
 		{
-			m_Callbacks.emplace_back(callback);
+			std::unique_lock<std::mutex> lock(m_Lock);
+			m_Callbacks.emplace_back(std::move(callback));
 		}
 
 		void Execute()
 		{
+			std::unique_lock<std::mutex> lock(m_Lock);
 			for (auto& callback : m_Callbacks)
 			{
 				callback();

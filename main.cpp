@@ -7,6 +7,16 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 using namespace aZero;
 
 #include "pipeline/ScenePass.hpp"
+#include "graphics_api/Wrappers/ResourceWrapping.hpp"
+#include "graphics_api/Wrappers/VertexBuffer.hpp"
+#include "graphics_api/Wrappers/CommandWrapping.hpp"
+#include "misc/CallbackExecutor.hpp"
+
+// Thanks to BetterComments2022 we can differentiate different type of comments! :)
+//! This is an important comment
+//x This is a crossed out comment
+//? This is a question
+//todo This is a todo comment
 
 int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int showCommand)
 {
@@ -34,14 +44,16 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	{
 		// API Interfaces
 		aZero::Engine engine(3, aZero::Helper::GetProjectDirectory() + "/../../../content");
+
 		std::shared_ptr<aZero::Window::RenderWindow> activeWindow = engine.CreateRenderWindow({ 1920, 1080 }, "aZero engine");
 		Rendering::RenderContext renderContext = engine.GetRenderContext();
+		IDxcCompiler3& compiler = engine.GetCompiler();
 
 		std::shared_ptr<Pipeline::VertexShader> vs = std::make_shared<Pipeline::VertexShader>(Pipeline::VertexShader());
-		vs->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
+		vs->CompileFromFile(compiler, engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
 
 		std::shared_ptr<Pipeline::PixelShader> ps = std::make_shared<Pipeline::PixelShader>(Pipeline::PixelShader());
-		ps->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+		ps->CompileFromFile(compiler, engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
 
 		std::shared_ptr<Rendering::RenderSurface> SceneColorSurface(
 			engine.CreateRenderSurface(activeWindow->GetClientDimensions(),
@@ -50,7 +62,6 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		std::shared_ptr<Rendering::RenderSurface> SceneDepthSurface(
 			engine.CreateRenderSurface(activeWindow->GetClientDimensions(),
 				Rendering::RenderSurface::Type::Depth_Target, DXM::Vector4(1, 0, 0, 0)));
-
 
 		Pipeline::ScenePass scenePass;
 		{
@@ -71,9 +82,10 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		}
 
 		Pipeline::ComputeShader cs;
-		cs.CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "TestShader.cs.hlsl");
+		cs.CompileFromFile(compiler, engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "TestShader.cs.hlsl");
 
 		Asset::AssetManager& assetManager = engine.GetAssetManager();
+		Asset::NewAssetManager& newAssetManager = engine.GetNewAssetManager();
 		Scene::SceneManager& sceneManager = engine.GetSceneManager();
 		//
 
@@ -85,6 +97,25 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		auto myMesh = assetManager.CreateMesh("mesh");
 		myMesh.GetAsset()->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "goblin.fbx");
 		renderContext.UpdateRenderState(myMesh);
+
+		Asset::NewMesh* newMesh = newAssetManager.CreateMesh("mesh");
+		newMesh->Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "goblin.fbx");
+		renderContext.NewUpdateRenderState(newMesh);
+
+		Asset::NewTexture* newAlbedo = newAssetManager.CreateTexture("texture");
+		newAlbedo->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinAlbedo.png",
+			DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+		renderContext.NewUpdateRenderState(newAlbedo);
+
+		Asset::NewTexture* newNormalMap = newAssetManager.CreateTexture("normal");
+		newNormalMap->Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinNormal.png",
+			DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM);
+		renderContext.NewUpdateRenderState(newNormalMap);
+
+		Asset::NewMaterial* newMaterial = newAssetManager.CreateMaterial("material");
+		newMaterial->m_Data.AlbedoTexture = newAlbedo;
+		newMaterial->m_Data.NormalMap = newNormalMap;
+		renderContext.NewUpdateRenderState(newMaterial);
 
 		// Creating a texture
 		auto myTexture = assetManager.CreateTexture("texture");
@@ -103,7 +134,6 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		myMaterial.GetAsset()->m_Data.NormalMap = myNormalMap;
 		renderContext.UpdateRenderState(myMaterial);
 
-
 		PointLightData plData;
 		{
 			ECS::Entity ent = scene.CreateEntity();
@@ -119,6 +149,11 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			CubeMeshComp.m_MeshReference = myMesh;
 			CubeMeshComp.m_MaterialReference = myMaterial;
 			scene.GetComponentManager().AddComponent(ent2, CubeMeshComp);
+
+			ECS::NewStaticMeshComponent NewCubeMeshComp;
+			NewCubeMeshComp.m_MeshReference = newMesh;
+			NewCubeMeshComp.m_MaterialReference = newMaterial;
+			scene.GetComponentManager().AddComponent(ent2, NewCubeMeshComp);
 
 			ECS::PointLightComponent pl;
 			plData.Color = { 1,1,1 };
@@ -221,8 +256,8 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 			// Example of render pipeline hotreloading
 			if (GetAsyncKeyState(VK_SPACE))
 			{
-				vs->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
-				ps->CompileFromFile(engine.GetPipelineManager().GetCompiler(), engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+				vs->CompileFromFile(compiler, engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
+				ps->CompileFromFile(compiler, engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
 
 				Pipeline::ScenePass::PassDescription scenePassDesc;
 				scenePassDesc.TopologyType = Pipeline::ScenePass::TOPOLOGY_TYPE::TRIANGLE;

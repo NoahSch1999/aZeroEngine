@@ -11,7 +11,7 @@ namespace aZero
 {
 	namespace Rendering
 	{
-		// TODO: Rework
+		// todo Rework
 		enum class GRAPH_PASS_TYPE { Per_Object_Static };
 		class RenderGraphPass
 		{
@@ -324,7 +324,7 @@ namespace aZero
 				}
 				else
 				{
-					// TODO: Impl
+					// todo Impl
 					throw;
 					/*for (auto& Constant : m_CSRootConstants)
 					{

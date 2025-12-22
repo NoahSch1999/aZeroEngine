@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <string>
 #include <fstream>
+#include <span>
 
 #include "graphics_api/D3D12Include.hpp"
 #include "graphics_api/DXCompilerInclude.hpp"
@@ -11,13 +12,17 @@ namespace aZero
 {
 	namespace Pipeline
 	{
-		class ScenePass;
-		class RenderPass;
-		enum class SHADER_TYPE { NONE, VS, PS, CS }; // TODO: Legacy shaders - Remove
+		enum class SHADER_TYPE { NONE, VS, PS, CS }; // todo Legacy shaders - Remove
 		class Shader
 		{
-			friend Pipeline::RenderPass;
-			friend Pipeline::ScenePass;
+			friend class RenderPass;
+			friend class ScenePass;
+
+			friend class NewRenderPass;
+			friend class MultiShaderPass;
+			friend class VertexShaderPass;
+			friend class MeshShaderPass;
+			friend class ComputeShaderPass;
 		private:
 			CComPtr<IDxcBlob> m_CompiledShader;
 
@@ -45,7 +50,7 @@ namespace aZero
 
 			virtual bool CompileFromFile(IDxcCompiler3& compiler, const std::string& path) = 0;
 			const std::unordered_map<std::string, ShaderResourceInfo>& GetResourceBindings() const { return m_ResourceNameToInformation; }
-
+			const std::vector<D3D12_ROOT_PARAMETER>& GetRootParameters() const { return m_RootParameters; }
 		};
 	}
 }

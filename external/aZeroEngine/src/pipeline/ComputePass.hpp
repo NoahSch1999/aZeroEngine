@@ -107,7 +107,7 @@ namespace aZero
 					allParams.emplace_back(Param);
 				}
 
-				// TODO: Fill in?
+				// todo Fill in?
 				std::vector<D3D12_STATIC_SAMPLER_DESC> StaticSamplers;
 				//
 
