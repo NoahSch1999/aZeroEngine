@@ -32,7 +32,7 @@ namespace aZero
 				return AllocOffset;
 			}
 
-			void Write(ID3D12GraphicsCommandList* CmdList, void* Data, uint32_t Offset, uint32_t NumBytes)
+			void Write(ID3D12GraphicsCommandListX* CmdList, void* Data, uint32_t Offset, uint32_t NumBytes)
 			{
 				m_StagingBuffer.Write(CmdList, Data, NumBytes, Offset);
 			}
@@ -60,12 +60,12 @@ namespace aZero
 				return *this;
 			}
 
-			LinearFrameAllocator(ID3D12Device* Device, uint32_t NumBytes, D3D12::ResourceRecycler& ResourceRecycler)
+			LinearFrameAllocator(ID3D12DeviceX* Device, uint32_t NumBytes, D3D12::ResourceRecycler& ResourceRecycler)
 			{
 				this->Init(Device, NumBytes, ResourceRecycler);
 			}
 
-			void Init(ID3D12Device* Device, uint32_t NumBytes, D3D12::ResourceRecycler& ResourceRecycler)
+			void Init(ID3D12DeviceX* Device, uint32_t NumBytes, D3D12::ResourceRecycler& ResourceRecycler)
 			{
 				m_CommandContext.Init(Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 				m_StagingBuffer.Init(Device, D3D12_HEAP_TYPE_UPLOAD, NumBytes, ResourceRecycler);
@@ -78,7 +78,7 @@ namespace aZero
 				return OffsetAfterAlloc <= MemorySize;
 			}
 
-			void AddAllocation(ID3D12GraphicsCommandList* CmdList, void* Data, D3D12::GPUBuffer* DstResource, uint32_t DstOffset, uint32_t NumBytes)
+			void AddAllocation(ID3D12GraphicsCommandListX* CmdList, void* Data, D3D12::GPUBuffer* DstResource, uint32_t DstOffset, uint32_t NumBytes)
 			{
 				const UINT64 DstResourceSize = DstResource->GetResource()->GetDesc().Width;
 				if (DstResourceSize < (DstOffset + NumBytes))
@@ -117,7 +117,7 @@ namespace aZero
 				m_CurrentAllocOffset = 0;
 			}
 
-			void RecordAllocations(ID3D12GraphicsCommandList* CmdList)
+			void RecordAllocations(ID3D12GraphicsCommandListX* CmdList)
 			{
 				int OuterCounter = 0;
 				for (const auto& [Resource, Allocations] : m_Allocations)

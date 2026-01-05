@@ -50,7 +50,7 @@ namespace aZero
 			UnorderedAccessView() = default;
 
 			UnorderedAccessView(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
@@ -64,7 +64,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
@@ -90,7 +90,7 @@ namespace aZero
 			}
 
 			UnorderedAccessView(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUTexture& Texture,
 				DXGI_FORMAT Format,
@@ -102,7 +102,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUTexture& Texture,
 				DXGI_FORMAT Format,
@@ -148,7 +148,7 @@ namespace aZero
 			ShaderResourceView() = default;
 
 			ShaderResourceView(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
@@ -162,7 +162,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUBuffer& Buffer,
 				DXGI_FORMAT Format,
@@ -189,7 +189,7 @@ namespace aZero
 			}
 
 			ShaderResourceView(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUTexture& Texture,
 				DXGI_FORMAT Format,
@@ -203,7 +203,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUTexture& Texture,
 				DXGI_FORMAT Format,
@@ -271,7 +271,7 @@ namespace aZero
 			}
 
 			DepthStencilView(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUTexture& Texture,
 				DXGI_FORMAT Format,
@@ -283,7 +283,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUTexture& Texture,
 				DXGI_FORMAT Format,
@@ -348,7 +348,7 @@ namespace aZero
 			}
 
 			RenderTargetView(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUTexture& Texture,
 				DXGI_FORMAT Format,
@@ -359,7 +359,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12::Descriptor&& Descriptor,
 				GPUTexture& Texture,
 				DXGI_FORMAT Format,

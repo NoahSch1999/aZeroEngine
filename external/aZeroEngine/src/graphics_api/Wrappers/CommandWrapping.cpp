@@ -1,6 +1,6 @@
 #include "CommandWrapping.hpp"
 
-aZero::RenderAPI::CommandList::CommandList(ID3D12GraphicsCommandList* commandList, CommandListAllocator& allocator, D3D12_COMMAND_LIST_TYPE type)
+aZero::RenderAPI::CommandList::CommandList(ID3D12GraphicsCommandListX* commandList, CommandListAllocator& allocator, D3D12_COMMAND_LIST_TYPE type)
 	:m_Allocator(&allocator), m_CommandList(commandList) {}
 
 void aZero::RenderAPI::CommandList::Move(CommandList& other)
@@ -52,12 +52,12 @@ aZero::RenderAPI::CommandList& aZero::RenderAPI::CommandList::operator=(CommandL
 	return *this;
 }
 
-aZero::RenderAPI::CommandListAllocator::CommandListAllocator(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type)
+aZero::RenderAPI::CommandListAllocator::CommandListAllocator(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type)
 {
 	this->Init(device, type);
 }
 
-void aZero::RenderAPI::CommandListAllocator::Init(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type)
+void aZero::RenderAPI::CommandListAllocator::Init(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type)
 {
 	if (!m_Allocator)
 	{
@@ -74,14 +74,14 @@ void aZero::RenderAPI::CommandListAllocator::Init(ID3D12Device* device, D3D12_CO
 void aZero::RenderAPI::CommandListAllocator::FreeCommandBuffer()
 {
 	m_Allocator.Get()->Reset();
-	for (ID3D12GraphicsCommandList* commandList : m_UsedCommandLists)
+	for (ID3D12GraphicsCommandListX* commandList : m_UsedCommandLists)
 	{
 		commandList->Close();
 	}
 
 	m_Allocator.Get()->Reset();
 
-	for (ID3D12GraphicsCommandList* commandList : m_UsedCommandLists)
+	for (ID3D12GraphicsCommandListX* commandList : m_UsedCommandLists)
 	{
 		commandList->Reset(m_Allocator.Get(), nullptr);
 	}
@@ -89,7 +89,7 @@ void aZero::RenderAPI::CommandListAllocator::FreeCommandBuffer()
 
 aZero::RenderAPI::CommandList aZero::RenderAPI::CommandListAllocator::CreateCommandList()
 {
-	ID3D12GraphicsCommandList* commandList;
+	ID3D12GraphicsCommandListX* commandList;
 	if (!m_FreeCommandLists.empty())
 	{
 		commandList = m_FreeCommandLists.top();
@@ -97,7 +97,7 @@ aZero::RenderAPI::CommandList aZero::RenderAPI::CommandListAllocator::CreateComm
 		return CommandList(commandList, *this, m_Type); // Thank you copy elision :)
 	}
 
-	ID3D12Device* device;
+	ID3D12DeviceX* device;
 	const HRESULT getDeviceRes = m_Allocator->GetDevice(IID_PPV_ARGS(&device));
 	if (FAILED(getDeviceRes))
 	{
@@ -122,12 +122,12 @@ void aZero::RenderAPI::CommandListAllocator::RecycleCommandList(CommandList& com
 	}
 }
 
-aZero::RenderAPI::CommandQueue::CommandQueue(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type)
+aZero::RenderAPI::CommandQueue::CommandQueue(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type)
 {
 	this->Init(device, type);
 }
 
-void aZero::RenderAPI::CommandQueue::Init(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type)
+void aZero::RenderAPI::CommandQueue::Init(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type)
 {
 	if (!m_Queue)
 	{

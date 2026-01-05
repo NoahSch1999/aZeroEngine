@@ -137,7 +137,7 @@ namespace aZero
 				m_Bindings.DepthStencilTarget = renderDepthStencilSurface;
 			}
 
-			bool Compile(ID3D12Device* device, const PassDescription& description, std::weak_ptr<Pipeline::VertexShader> vertexShader, std::optional<std::weak_ptr<Pipeline::PixelShader>> pixelShader)
+			bool Compile(ID3D12DeviceX* device, const PassDescription& description, std::weak_ptr<Pipeline::VertexShader> vertexShader, std::optional<std::weak_ptr<Pipeline::PixelShader>> pixelShader)
 			{
 				this->Reset();
 
@@ -182,7 +182,7 @@ namespace aZero
 				const std::unordered_map<uint32_t, std::unordered_map<uint32_t, StaticMeshBatchDrawData>>& batches, 
 				const LightDrawData& lightDrawData)
 			{
-				ID3D12GraphicsCommandList* cmdList = cmdContext.m_Context->GetCommandList();
+				ID3D12GraphicsCommandListX* cmdList = cmdContext.m_Context->GetCommandList();
 
 				// todo We dont wanna skip rendering if valid dsv/rtv but the one not used is expired etc
 				if (!this->ValidateBoundRenderSurfaces())
@@ -319,7 +319,7 @@ namespace aZero
 			};
 
 			// todo Make it into less input, maybe through "di"
-			bool RenderBatch(ID3D12GraphicsCommandList* cmdList,
+			bool RenderBatch(ID3D12GraphicsCommandListX* cmdList,
 				ID3D12DescriptorHeap* resourceHeap,
 				ID3D12DescriptorHeap* samplerHeap,
 				std::span<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles,
@@ -579,7 +579,7 @@ namespace aZero
 				return true;
 			}
 
-			bool CreateRootSignature(ID3D12Device* device)
+			bool CreateRootSignature(ID3D12DeviceX* device)
 			{
 				// todo Dont change the shaders, but instead store local "maps"
 				std::vector<D3D12_ROOT_PARAMETER> allParams;
@@ -636,7 +636,7 @@ namespace aZero
 				return true;
 			}
 
-			bool CreatePipelineState(ID3D12Device* device, const PassDescription& description)
+			bool CreatePipelineState(ID3D12DeviceX* device, const PassDescription& description)
 			{
 				D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc;
 				ZeroMemory(&pipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
@@ -728,7 +728,7 @@ namespace aZero
 				return true;
 			}
 
-			bool CompilePassPipeline(ID3D12Device* device, const PassDescription& desc)
+			bool CompilePassPipeline(ID3D12DeviceX* device, const PassDescription& desc)
 			{
 				if (!this->CreateRootSignature(device))
 				{
@@ -745,7 +745,7 @@ namespace aZero
 				return true;
 			}
 
-			bool BindResources(ID3D12GraphicsCommandList* cmdList)
+			bool BindResources(ID3D12GraphicsCommandListX* cmdList)
 			{
 				// todo Make less copy-pasta
 				for (const auto& binding : m_Bindings.VSBuffers)

@@ -26,7 +26,7 @@ aZero::RenderAPI::Resource& aZero::RenderAPI::Resource::operator=(Resource&& oth
 	return *this;
 }
 
-void aZero::RenderAPI::Resource::Init(ID3D12Device* device, aZero::RenderAPI::ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue)
+void aZero::RenderAPI::Resource::Init(ID3D12DeviceX* device, aZero::RenderAPI::ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue)
 {
 	m_diResourceRecycler = diResourceRecycler;
 
@@ -83,7 +83,7 @@ void aZero::RenderAPI::Buffer::Move(Buffer& other)
 	other.m_MappedPtr = nullptr;
 }
 
-aZero::RenderAPI::Buffer::Buffer(ID3D12Device* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler)
+aZero::RenderAPI::Buffer::Buffer(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler)
 {
 	this->Init(device, desc, opt_diResourceRecycler);
 }
@@ -102,7 +102,7 @@ aZero::RenderAPI::Buffer& aZero::RenderAPI::Buffer::operator=(Buffer&& other) no
 	return *this;
 }
 
-void aZero::RenderAPI::Buffer::Init(ID3D12Device* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler)
+void aZero::RenderAPI::Buffer::Init(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler)
 {
 	if (!this->IsDescValid(desc))
 	{
@@ -158,7 +158,7 @@ void aZero::RenderAPI::Texture2D::Move(Texture2D& other)
 	other.m_OptClearValue = std::optional<D3D12_CLEAR_VALUE>{};
 }
 
-aZero::RenderAPI::Texture2D::Texture2D(ID3D12Device* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler, std::optional<D3D12_CLEAR_VALUE> optClearValue)
+aZero::RenderAPI::Texture2D::Texture2D(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler, std::optional<D3D12_CLEAR_VALUE> optClearValue)
 {
 	this->Init(device, desc, opt_diResourceRecycler, optClearValue);
 }
@@ -177,7 +177,7 @@ aZero::RenderAPI::Texture2D& aZero::RenderAPI::Texture2D::operator=(Texture2D&& 
 	return *this;
 }
 
-void aZero::RenderAPI::Texture2D::Init(ID3D12Device* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler, std::optional<D3D12_CLEAR_VALUE> optClearValue)
+void aZero::RenderAPI::Texture2D::Init(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler, std::optional<D3D12_CLEAR_VALUE> optClearValue)
 {
 	if (!this->IsDescValid(desc))
 	{

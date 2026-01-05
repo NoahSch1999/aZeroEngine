@@ -69,12 +69,12 @@ namespace aZero
 				return *this;
 			}
 
-			DescriptorHeap(ID3D12Device* const Device, const D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t NumDescriptors, const bool GpuVisible = false)
+			DescriptorHeap(ID3D12DeviceX* const Device, const D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t NumDescriptors, const bool GpuVisible = false)
 			{
 				this->Init(Device, Type, NumDescriptors, GpuVisible);
 			}
 
-			void Init(ID3D12Device* const Device, const D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t NumDescriptors, const bool GpuVisible = false)
+			void Init(ID3D12DeviceX* const Device, const D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t NumDescriptors, const bool GpuVisible = false)
 			{
 				if (!m_Heap)
 				{

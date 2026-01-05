@@ -9,8 +9,8 @@ namespace aZero
 	class Engine : public NonCopyable
 	{
 	private:
-		Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
-		CComPtr<IDxcCompiler3> m_Compiler;
+		Microsoft::WRL::ComPtr<ID3D12DeviceX> m_Device;
+		CComPtr<IDxcCompilerX> m_Compiler;
 
 		// todo Replace with a better file system/handling implementation (perhaps a project file or something reads the path)
 		std::string m_ProjectDirectory;
@@ -39,7 +39,7 @@ namespace aZero
 
 		Rendering::RenderContext GetRenderContext();
 
-		IDxcCompiler3& GetCompiler() const { return *m_Compiler.p; }
+		IDxcCompilerX& GetCompiler() const { return *m_Compiler.p; }
 
 		Asset::AssetManager& GetAssetManager() { return *m_AssetManager.get(); } // todo Remove
 
@@ -50,6 +50,6 @@ namespace aZero
 		// todo Replace with a better file system/handling implementation (perhaps a project file or something reads the path)
 		const std::string& GetProjectDirectory() const { return m_ProjectDirectory; }
 
-		ID3D12Device* GetDevice() const { return m_Device.Get(); }
+		ID3D12DeviceX* GetDevice() const { return m_Device.Get(); }
 	};
 }

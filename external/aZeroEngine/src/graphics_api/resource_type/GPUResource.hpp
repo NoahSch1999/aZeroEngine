@@ -14,7 +14,7 @@ namespace aZero
 			ID3D12Resource* ResourcePtr;
 		};
 
-		void TransitionResources(ID3D12GraphicsCommandList* CmdList, const std::vector<ResourceTransitionBundles>& Bundles);
+		void TransitionResources(ID3D12GraphicsCommandListX* CmdList, const std::vector<ResourceTransitionBundles>& Bundles);
 
 		class GPUResource : public NonCopyable
 		{
@@ -32,7 +32,7 @@ namespace aZero
 			}
 
 			GPUResource(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12_HEAP_TYPE HeapType,
 				const D3D12_RESOURCE_DESC& Desc,
 				D3D12::ResourceRecycler& ResourceRecycler,
@@ -44,7 +44,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12_HEAP_TYPE HeapType,
 				const D3D12_RESOURCE_DESC& Desc,
 				D3D12::ResourceRecycler& ResourceRecycler,
@@ -79,7 +79,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12_HEAP_TYPE HeapType,
 				const D3D12_RESOURCE_DESC& Desc,
 				D3D12::ResourceRecycler& ResourceRecycler,
@@ -192,7 +192,7 @@ namespace aZero
 			GPUBuffer() = default;
 
 			GPUBuffer(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12_HEAP_TYPE HeapType,
 				uint64_t NumBytes,
 				D3D12::ResourceRecycler& ResourceRecycler
@@ -202,7 +202,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				D3D12_HEAP_TYPE HeapType,
 				uint64_t NumBytes,
 				D3D12::ResourceRecycler& ResourceRecycler
@@ -235,7 +235,7 @@ namespace aZero
 				GPUResource::Init(InResource, ResourceRecycler);
 			}
 
-			void Resize(ID3D12GraphicsCommandList* CmdList, uint32_t NewSizeBytes)
+			void Resize(ID3D12GraphicsCommandListX* CmdList, uint32_t NewSizeBytes)
 			{
 				D3D12_RESOURCE_DESC Desc = m_Resource->GetDesc();
 				const uint32_t OldSizeBytes = Desc.Width;
@@ -249,7 +249,7 @@ namespace aZero
 					throw std::invalid_argument("NA");
 				}
 
-				ID3D12Device* Device;
+				ID3D12DeviceX* Device;
 				Res = m_Resource->GetDevice(IID_PPV_ARGS(&Device));
 				if (FAILED(Res))
 				{
@@ -279,7 +279,7 @@ namespace aZero
 				this->Map(Props.Type);
 			}
 
-			void Write(ID3D12GraphicsCommandList* CmdList, void* Data, uint32_t NumBytes, uint32_t ByteOffset = 0)
+			void Write(ID3D12GraphicsCommandListX* CmdList, void* Data, uint32_t NumBytes, uint32_t ByteOffset = 0)
 			{
 				const uint32_t MemorySizeBytes = static_cast<uint32_t>(m_Resource->GetDesc().Width);
 				const uint32_t LastOffsetBytes = ByteOffset + NumBytes;
@@ -357,7 +357,7 @@ namespace aZero
 			}
 
 			GPUTexture(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				const DXM::Vector3& Dimensions,
 				DXGI_FORMAT Format,
 				D3D12_RESOURCE_FLAGS Flags,
@@ -371,7 +371,7 @@ namespace aZero
 			}
 
 			GPUTexture(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				const DXM::Vector3& Dimensions,
 				DXGI_FORMAT Format,
 				D3D12_RESOURCE_FLAGS Flags,
@@ -384,7 +384,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				const DXM::Vector3& Dimensions,
 				DXGI_FORMAT Format,
 				D3D12_RESOURCE_FLAGS Flags,
@@ -431,7 +431,7 @@ namespace aZero
 			}
 
 			void Init(
-				ID3D12Device* Device,
+				ID3D12DeviceX* Device,
 				const DXM::Vector3& Dimensions,
 				DXGI_FORMAT Format,
 				D3D12_RESOURCE_FLAGS Flags,
@@ -499,7 +499,7 @@ namespace aZero
 				D3D12_RESOURCE_STATES InitialState = D3D12_RESOURCE_STATE_COMMON,
 				std::optional<D3D12_CLEAR_VALUE> OptClearValue = std::optional<D3D12_CLEAR_VALUE>{})
 			{
-				ID3D12Device* Device;
+				ID3D12DeviceX* Device;
 				const HRESULT GetDeviceRes = this->GetResource()->GetDevice(IID_PPV_ARGS(&Device));
 				if (FAILED(GetDeviceRes))
 				{

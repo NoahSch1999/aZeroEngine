@@ -5,7 +5,6 @@
 #include <span>
 
 #include "graphics_api/D3D12Include.hpp"
-#include "graphics_api/DXCompilerInclude.hpp"
 #include "misc/RelativePathMacros.hpp"
 
 namespace aZero
@@ -38,7 +37,7 @@ namespace aZero
 		protected:
 			void Reset();
 
-			bool CompileImpl(IDxcCompiler3& compiler, const std::string& path, const std::string& targetSM, CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils);
+			bool CompileImpl(IDxcCompilerX& compiler, const std::string& path, const std::string& targetSM, CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils);
 
 			bool ReflectImpl(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils, D3D12_SHADER_VISIBILITY shaderVisibility, Microsoft::WRL::ComPtr<ID3D12ShaderReflection>& reflection);
 
@@ -48,9 +47,17 @@ namespace aZero
 			Shader() = default;
 			virtual ~Shader() {}
 
-			virtual bool CompileFromFile(IDxcCompiler3& compiler, const std::string& path) = 0;
+			virtual bool CompileFromFile(IDxcCompilerX& compiler, const std::string& path) = 0;
 			const std::unordered_map<std::string, ShaderResourceInfo>& GetResourceBindings() const { return m_ResourceNameToInformation; }
 			const std::vector<D3D12_ROOT_PARAMETER>& GetRootParameters() const { return m_RootParameters; }
+
+		public:
+			struct ThreadGroup
+			{
+				uint32_t x = 0;
+				uint32_t y = 0;
+				uint32_t z = 0;
+			};
 		};
 	}
 }

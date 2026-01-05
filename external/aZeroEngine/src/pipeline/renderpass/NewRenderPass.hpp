@@ -1,8 +1,9 @@
 #pragma once
-#include <span>
+#include <array>
 #include <optional>
 #include "graphics_api/Wrappers/CommandWrapping.hpp"
 #include "graphics_api/Wrappers/ResourceWrapping.hpp"
+#include "graphics_api/Wrappers/DescriptorWrapping.hpp"
 #include "renderer/RenderSurface.hpp"
 
 namespace aZero
@@ -58,10 +59,9 @@ namespace aZero
 
 				}
 
-				void SetBuffer(RenderAPI::Buffer& buffer, BindingType type)
+				void SetBuffer(RenderAPI::Buffer& buffer)
 				{
 					m_Buffer = &buffer;
-					m_Type = type;
 				}
 			};
 
@@ -91,14 +91,16 @@ namespace aZero
 
 				}
 
-				void Write(void* data, int32_t offset, int32_t numConstants)
+				template<typename T>
+				void Write(const T& data, int32_t dstOffset) const
 				{
-					if (offset + numConstants >= m_NumConstants)
+					const std::size_t numConstants = sizeof(T) / sizeof(int32_t);
+					if (dstOffset + numConstants > m_NumConstants)
 					{
 						throw std::out_of_range("Tried to write out-of-bounds into root constant.");
 					}
 
-					memcpy(static_cast<int32_t*>(m_Data.get()) + offset, &data, numConstants);
+					memcpy(static_cast<int32_t*>(m_Data.get()) + dstOffset, &data, numConstants * sizeof(int32_t));
 				}
 			};
 
@@ -119,6 +121,14 @@ namespace aZero
 				m_BufferBindings.m_Name_To_Binding.clear();
 				m_ConstantBindings.m_Bindings.clear();
 				m_ConstantBindings.m_Name_To_Binding.clear();
+			}
+
+			void Bind(RenderAPI::CommandList& cmdList, const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap) const
+			{
+				cmdList->SetPipelineState(m_PipelineState.Get());
+
+				std::array<ID3D12DescriptorHeap*, 2> heaps{ resourceHeap.Get(), samplerHeap.Get() };
+				cmdList->SetDescriptorHeaps(2, heaps.data());
 			}
 
 			template<typename ...Args>
@@ -159,10 +169,10 @@ namespace aZero
 				(this->GenerateBindingsImpl(bufferBindings, constantBindings, args), ...);
 			}
 
-			bool CreateRootSignatureImpl(ID3D12Device* device, ID3D12RootSignature* rootSignature, const std::vector<D3D12_ROOT_PARAMETER>& rootParams) const;
+			bool CreateRootSignatureImpl(ID3D12DeviceX* device, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature, const std::vector<D3D12_ROOT_PARAMETER>& rootParams) const;
 
 			template<typename DescriptionType, typename ...Args>
-			bool CreateRootSignature(ID3D12Device* device, const DescriptionType& description, ID3D12RootSignature* rootSignature, const Args&...args) const
+			bool CreateRootSignature(ID3D12DeviceX* device, const DescriptionType& description, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature, const Args&...args) const
 			{
 				const std::vector<D3D12_ROOT_PARAMETER> rootParams = this->GenerateRootParams(args...);
 				if (!NewRenderPass::CreateRootSignatureImpl(device, rootSignature, rootParams))

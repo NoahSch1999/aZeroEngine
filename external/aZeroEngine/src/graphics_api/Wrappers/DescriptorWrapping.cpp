@@ -52,7 +52,7 @@ aZero::RenderAPI::Descriptor& aZero::RenderAPI::Descriptor::operator=(Descriptor
 	return *this;
 }
 
-ID3D12Device* const aZero::RenderAPI::Descriptor::GetDevice() const
+ID3D12DeviceX* const aZero::RenderAPI::Descriptor::GetDevice() const
 { 
 	return m_diOwningHeap ? m_diOwningHeap->GetDevice() : nullptr; 
 }
@@ -69,12 +69,12 @@ void aZero::RenderAPI::DescriptorHeap::OnDescriptorDestructor(Descriptor& descri
 	}
 }
 
-aZero::RenderAPI::DescriptorHeap::DescriptorHeap(ID3D12Device* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible)
+aZero::RenderAPI::DescriptorHeap::DescriptorHeap(ID3D12DeviceX* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible)
 {
 	this->Init(device, diCallbackExecutor, type, numDescriptors, gpuVisible);
 }
 
-void aZero::RenderAPI::DescriptorHeap::Init(ID3D12Device* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible)
+void aZero::RenderAPI::DescriptorHeap::Init(ID3D12DeviceX* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible)
 {
 	if (!m_Heap)
 	{
@@ -154,7 +154,7 @@ bool aZero::RenderAPI::DescriptorHeap::IsGpuVisible() const
 
 uint32_t aZero::RenderAPI::DescriptorHeap::GetDescriptorSize() const
 {
-	ID3D12Device* device;
+	ID3D12DeviceX* device;
 	const HRESULT getDeviceRes = m_Heap->GetDevice(IID_PPV_ARGS(&device));
 	if (FAILED(getDeviceRes))
 	{
@@ -163,11 +163,11 @@ uint32_t aZero::RenderAPI::DescriptorHeap::GetDescriptorSize() const
 	return device->GetDescriptorHandleIncrementSize(this->GetType());
 }
 
-ID3D12Device* const aZero::RenderAPI::DescriptorHeap::GetDevice() const
+ID3D12DeviceX* const aZero::RenderAPI::DescriptorHeap::GetDevice() const
 {
 	if (m_Heap)
 	{
-		ID3D12Device* device;
+		ID3D12DeviceX* device;
 		const HRESULT getDeviceRes = m_Heap->GetDevice(IID_PPV_ARGS(&device));
 		if (FAILED(getDeviceRes))
 		{

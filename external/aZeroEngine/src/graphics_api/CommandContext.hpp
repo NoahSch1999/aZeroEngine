@@ -36,12 +36,12 @@ namespace aZero
 				return *this;
 			}
 
-			CommandContext(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type)
+			CommandContext(ID3D12DeviceX* Device, D3D12_COMMAND_LIST_TYPE Type)
 			{
 				this->Init(Device, Type);
 			}
 
-			void Init(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type)
+			void Init(ID3D12DeviceX* Device, D3D12_COMMAND_LIST_TYPE Type)
 			{
 				const HRESULT CommandAllocRes = Device->CreateCommandAllocator(Type, IID_PPV_ARGS(m_Allocator.GetAddressOf()));
 				if (FAILED(CommandAllocRes))
@@ -75,7 +75,7 @@ namespace aZero
 			{
 				if (m_IsRecording)
 				{
-					static_cast<ID3D12GraphicsCommandList*>(m_CommandList.Get())->Close();
+					static_cast<ID3D12GraphicsCommandListX*>(m_CommandList.Get())->Close();
 					m_IsRecording = false;
 				}
 			}
@@ -87,7 +87,7 @@ namespace aZero
 				this->StartRecording();
 			}
 
-			ID3D12GraphicsCommandList* GetCommandList() { return static_cast<ID3D12GraphicsCommandList*>(m_CommandList.Get()); }
+			ID3D12GraphicsCommandListX* GetCommandList() { return static_cast<ID3D12GraphicsCommandListX*>(m_CommandList.Get()); }
 		};
 
 		class CommandContextAllocator : public NonCopyable
@@ -142,12 +142,12 @@ namespace aZero
 		public:
 			CommandContextAllocator() = default;
 
-			CommandContextAllocator(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type, uint32_t NumContexts)
+			CommandContextAllocator(ID3D12DeviceX* Device, D3D12_COMMAND_LIST_TYPE Type, uint32_t NumContexts)
 			{
 				this->Init(Device, Type, NumContexts);
 			}
 
-			void Init(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type, uint32_t NumContexts)
+			void Init(ID3D12DeviceX* Device, D3D12_COMMAND_LIST_TYPE Type, uint32_t NumContexts)
 			{
 				m_Contexts.resize(NumContexts);
 				m_IsLent.resize(NumContexts);

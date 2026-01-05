@@ -23,8 +23,8 @@ namespace aZero
 
 		public:
 			ComputeShader() = default;
-			ComputeShader(IDxcCompiler3& compiler, const std::string& path);
-			bool CompileFromFile(IDxcCompiler3& compiler, const std::string& path) override;
+			ComputeShader(IDxcCompilerX& compiler, const std::string& path);
+			bool CompileFromFile(IDxcCompilerX& compiler, const std::string& path) override;
 		};
 	}
 }

@@ -1,6 +1,6 @@
 #include "ComputeShader.hpp"
 
-aZero::Pipeline::ComputeShader::ComputeShader(IDxcCompiler3& compiler, const std::string& path)
+aZero::Pipeline::ComputeShader::ComputeShader(IDxcCompilerX& compiler, const std::string& path)
 {
 	this->CompileFromFile(compiler, path);
 }
@@ -31,7 +31,7 @@ bool aZero::Pipeline::ComputeShader::Reflect(CComPtr<IDxcResult>& compilationRes
 	return true;
 }
 
-bool aZero::Pipeline::ComputeShader::CompileFromFile(IDxcCompiler3& compiler, const std::string& path)
+bool aZero::Pipeline::ComputeShader::CompileFromFile(IDxcCompilerX& compiler, const std::string& path)
 {
 	if (!this->ValidateShaderTypeFromFilepath(path))
 	{

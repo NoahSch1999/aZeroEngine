@@ -9,7 +9,7 @@ void aZero::Pipeline::Shader::Reset()
 	m_RootParameters.clear();
 }
 
-bool aZero::Pipeline::Shader::CompileImpl(IDxcCompiler3& compiler, const std::string& path, const std::string& targetSM, CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils)
+bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::string& path, const std::string& targetSM, CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils)
 {
 	std::vector<LPCWSTR> compilationArgs;
 

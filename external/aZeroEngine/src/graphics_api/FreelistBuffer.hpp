@@ -14,7 +14,7 @@ namespace aZero
 			RenderAPI::Buffer m_Buffer;
 		public:
 			NewFreelistBuffer() = default;
-			NewFreelistBuffer(ID3D12Device* device, uint32_t maxElements, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{})
+			NewFreelistBuffer(ID3D12DeviceX* device, uint32_t maxElements, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{})
 			{
 				RenderAPI::Buffer::Desc desc(sizeof(T) * maxElements, D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT);
 				m_Buffer = RenderAPI::Buffer(device, desc, opt_diResourceRecycler);

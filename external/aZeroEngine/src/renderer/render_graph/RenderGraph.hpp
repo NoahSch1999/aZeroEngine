@@ -200,7 +200,7 @@ namespace aZero
 				}
 			}
 
-			bool BeginPass(ID3D12GraphicsCommandList* CmdList)
+			bool BeginPass(ID3D12GraphicsCommandListX* CmdList)
 			{
 				if (!m_Pass.GetPipelineState())
 				{

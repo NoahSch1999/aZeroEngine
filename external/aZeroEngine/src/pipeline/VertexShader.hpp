@@ -24,8 +24,8 @@ namespace aZero
 
 		public:
 			VertexShader() = default;
-			VertexShader(IDxcCompiler3& compiler, const std::string& path);
-			bool CompileFromFile(IDxcCompiler3& compiler, const std::string& path) override;
+			VertexShader(IDxcCompilerX& compiler, const std::string& path);
+			bool CompileFromFile(IDxcCompilerX& compiler, const std::string& path) override;
 		};
 	}
 }

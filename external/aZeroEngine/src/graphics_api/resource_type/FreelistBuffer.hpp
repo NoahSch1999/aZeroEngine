@@ -17,13 +17,13 @@ namespace aZero
 		public:
 			FreelistBuffer() = default;
 
-			void Init(ID3D12Device* Device, uint32_t NumBytes, D3D12::ResourceRecycler& ResourceRecycler, D3D12_HEAP_TYPE HeapType)
+			void Init(ID3D12DeviceX* Device, uint32_t NumBytes, D3D12::ResourceRecycler& ResourceRecycler, D3D12_HEAP_TYPE HeapType)
 			{
 				m_Buffer = std::make_shared<D3D12::GPUBuffer>(Device, HeapType, NumBytes, ResourceRecycler);
 				m_Allocator.Init(NumBytes);
 			}
 
-			void Write(ID3D12GraphicsCommandList* CmdList, D3D12::LinearFrameAllocator& Allocator, const DS::FreelistAllocator::AllocationHandle& Handle, void* Data)
+			void Write(ID3D12GraphicsCommandListX* CmdList, D3D12::LinearFrameAllocator& Allocator, const DS::FreelistAllocator::AllocationHandle& Handle, void* Data)
 			{
 				const uint32_t OffsetAfterAlloc = Handle.GetStartOffset() + Handle.GetNumBytes();
 				const uint32_t MemorySizeBytes = static_cast<uint32_t>(m_Buffer->GetResource()->GetDesc().Width);
@@ -41,7 +41,7 @@ namespace aZero
 				Allocator.AddAllocation(CmdList, Data, m_Buffer.get(), Handle.GetStartOffset(), Handle.GetNumBytes());
 			}
 
-			void Write(ID3D12GraphicsCommandList* CmdList, D3D12::LinearFrameAllocator& Allocator, void* Data, uint32_t Offset, uint32_t NumBytes)
+			void Write(ID3D12GraphicsCommandListX* CmdList, D3D12::LinearFrameAllocator& Allocator, void* Data, uint32_t Offset, uint32_t NumBytes)
 			{
 				const uint32_t OffsetAfterAlloc = Offset + NumBytes;
 				const uint32_t MemorySizeBytes = static_cast<uint32_t>(m_Buffer->GetResource()->GetDesc().Width);

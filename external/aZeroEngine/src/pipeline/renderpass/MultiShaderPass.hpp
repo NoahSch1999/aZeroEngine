@@ -93,7 +93,7 @@ namespace aZero
 			}
 
 			template<typename ShaderType, typename DescriptionType>
-			bool CreatePipeline(ID3D12Device* device, const DescriptionType& description, const ShaderType& vertexGenerationShader, std::optional<Pipeline::PixelShader*> pixelShader, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature) const
+			bool CreateRootSignature(ID3D12DeviceX* device, const DescriptionType& description, const ShaderType& vertexGenerationShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const
 			{
 				if (pixelShader.has_value())
 				{
@@ -136,7 +136,7 @@ namespace aZero
 		public:
 			MultiShaderPass() = default;
 
-			void Bind(RenderAPI::CommandList& cmdList) const;
+			void Bind(RenderAPI::CommandList& cmdList, const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap) const;
 		};
 	}
 }

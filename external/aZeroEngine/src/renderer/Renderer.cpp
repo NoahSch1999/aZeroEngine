@@ -9,7 +9,8 @@ namespace aZero
 {
 	namespace Rendering
 	{
-		Renderer::Renderer(ID3D12Device* device, uint32_t bufferCount)
+		Renderer::Renderer(ID3D12DeviceX* device, uint32_t bufferCount, IDxcCompilerX& compiler)
+			:m_Compiler(compiler)
 		{
 			// todo Remove after new impl
 			m_diDevice = device;
@@ -39,7 +40,7 @@ namespace aZero
 
 			D3D12::CommandContext& CmdContext = *CmdContextHandle->m_Context;
 
-			ID3D12GraphicsCommandList* CmdList = CmdContext.GetCommandList();
+			ID3D12GraphicsCommandListX* CmdList = CmdContext.GetCommandList();
 
 			std::vector<D3D12::ResourceTransitionBundles> PreCopyBarriers;
 			PreCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, DstTexture });
@@ -299,7 +300,7 @@ namespace aZero
 			if (!cmdContext.has_value())
 				throw;
 
-			ID3D12GraphicsCommandList* cmdList = cmdContext.value().m_Context->GetCommandList();
+			ID3D12GraphicsCommandListX* cmdList = cmdContext.value().m_Context->GetCommandList();
 
 			m_AssetStagingAllocators.at(m_FrameIndex).RecordAllocations(cmdList);
 			m_AssetStagingAllocators.at(m_FrameIndex).Reset();
@@ -307,7 +308,7 @@ namespace aZero
 			m_GraphicsQueue.ExecuteContext(*cmdContext.value().m_Context);
 		}
 
-		void Renderer::AllocateFreelistMesh(Asset::Mesh& mesh, ID3D12GraphicsCommandList* cmdList)
+		void Renderer::AllocateFreelistMesh(Asset::Mesh& mesh, ID3D12GraphicsCommandListX* cmdList)
 		{
 			DS::FreelistAllocator::AllocationHandle allocHandle;
 
@@ -580,7 +581,7 @@ namespace aZero
 
 			auto CmdContext = m_CommandContextAllocator.GetContext();
 
-			ID3D12GraphicsCommandList* CmdList = CmdContext->m_Context->GetCommandList();
+			ID3D12GraphicsCommandListX* CmdList = CmdContext->m_Context->GetCommandList();
 			D3D12::TransitionResources(CmdList, Bundle);
 
 			D3D12_SUBRESOURCE_DATA SubresourceData{};
@@ -622,7 +623,7 @@ namespace aZero
 				//return;
 			}
 
-			ID3D12Device* const device = this->GetDevice();
+			ID3D12DeviceX* const device = this->GetDevice();
 			FrameContext& frameContext = this->GetCurrentContext();
 
 			GPUTexture2D assetData;
@@ -780,7 +781,7 @@ namespace aZero
 		//{
 		//	if (Batch.IsDrawable())
 		//	{
-		//		ID3D12GraphicsCommandList* CmdList = CmdContext.GetCommandList();
+		//		ID3D12GraphicsCommandListX* CmdList = CmdContext.GetCommandList();
 
 		//		m_BatchVertexBuffer.Write(CmdList, Batch.GetData(), Batch.GetNumBytes());
 

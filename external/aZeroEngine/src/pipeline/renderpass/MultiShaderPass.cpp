@@ -1,7 +1,9 @@
 #include "MultiShaderPass.hpp"
 
-void aZero::Pipeline::MultiShaderPass::Bind(RenderAPI::CommandList& cmdList) const
+void aZero::Pipeline::MultiShaderPass::Bind(RenderAPI::CommandList& cmdList, const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap) const
 {
+	NewRenderPass::Bind(cmdList, resourceHeap, samplerHeap);
+	cmdList->SetGraphicsRootSignature(m_RootSignature.Get());
 	for (const BufferBinding& buffer : m_BufferBindings.m_Bindings)
 	{
 		// Skip binding bufferslot if no buffer was bound

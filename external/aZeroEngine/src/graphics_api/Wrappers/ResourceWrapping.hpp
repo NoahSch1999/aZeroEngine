@@ -62,7 +62,7 @@ namespace aZero
 		{
 		protected:
 			Microsoft::WRL::ComPtr<ID3D12Resource> m_Resource = nullptr;
-			void Init(ID3D12Device* device, ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue);
+			void Init(ID3D12DeviceX* device, ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue);
 			void Reset();
 
 		private:
@@ -102,11 +102,11 @@ namespace aZero
 
 		public:
 			Buffer() = default;
-			Buffer(ID3D12Device* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{});
+			Buffer(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{});
 			Buffer(Buffer&& other) noexcept;
 			Buffer& operator=(Buffer&& other) noexcept;
 
-			void Init(ID3D12Device* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{});
+			void Init(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{});
 			void Reset();
 
 			bool IsDescValid(const Desc& desc);
@@ -150,11 +150,11 @@ namespace aZero
 
 		public:
 			Texture2D() = default;
-			Texture2D(ID3D12Device* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{}, std::optional<D3D12_CLEAR_VALUE> optClearValue = std::optional<D3D12_CLEAR_VALUE>{});
+			Texture2D(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{}, std::optional<D3D12_CLEAR_VALUE> optClearValue = std::optional<D3D12_CLEAR_VALUE>{});
 			Texture2D(Texture2D&& other) noexcept;
 			Texture2D& operator=(Texture2D&& other) noexcept;
 
-			void Init(ID3D12Device* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{}, std::optional<D3D12_CLEAR_VALUE> optClearValue = std::optional<D3D12_CLEAR_VALUE>{});
+			void Init(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler = std::optional<ResourceRecycler*>{}, std::optional<D3D12_CLEAR_VALUE> optClearValue = std::optional<D3D12_CLEAR_VALUE>{});
 			void Reset();
 
 			D3D12_TEXTURE_BARRIER CreateTransition(D3D12_BARRIER_SYNC newSync, D3D12_BARRIER_ACCESS newAccess, D3D12_BARRIER_LAYOUT newLayout);

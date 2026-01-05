@@ -1,6 +1,6 @@
 #include "NewRenderPass.hpp"
 
-bool aZero::Pipeline::NewRenderPass::CreateRootSignatureImpl(ID3D12Device* device, ID3D12RootSignature* rootSignature, const std::vector<D3D12_ROOT_PARAMETER>& rootParams) const
+bool aZero::Pipeline::NewRenderPass::CreateRootSignatureImpl(ID3D12DeviceX* device, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature, const std::vector<D3D12_ROOT_PARAMETER>& rootParams) const
 {
 	// todo Fill in?
 	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers;
@@ -24,7 +24,7 @@ bool aZero::Pipeline::NewRenderPass::CreateRootSignatureImpl(ID3D12Device* devic
 		return false;
 	}
 
-	const HRESULT rsRes = device->CreateRootSignature(0, serializeBlob->GetBufferPointer(), serializeBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	const HRESULT rsRes = device->CreateRootSignature(0, serializeBlob->GetBufferPointer(), serializeBlob->GetBufferSize(), IID_PPV_ARGS(rootSignature.GetAddressOf()));
 	if (FAILED(rsRes))
 	{
 		DEBUG_PRINT("Failed to create root signature");

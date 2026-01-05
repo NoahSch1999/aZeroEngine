@@ -28,14 +28,12 @@ namespace aZero
 				return true;
 			}
 
-			bool CreatePipelineState(ID3D12Device* device, const Description& description, Pipeline::ComputeShader& computeShader, ID3D12PipelineState* pipelineState) const;
-
-			bool CreatePipeline(ID3D12Device* device, const Description& description, Pipeline::ComputeShader& computeShader, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature) const;
+			bool CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState) const;
 
 		public:
 			ComputeShaderPass() = default;
 
-			bool Compile(ID3D12Device* device, const Description& description, Pipeline::ComputeShader& computeShader);
+			bool Compile(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader);
 
 			void Bind(RenderAPI::CommandList& cmdList) const;
 		};

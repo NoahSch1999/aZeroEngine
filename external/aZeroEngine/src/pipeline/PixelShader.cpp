@@ -1,6 +1,6 @@
 #include "PixelShader.hpp"
 
-aZero::Pipeline::PixelShader::PixelShader(IDxcCompiler3& compiler, const std::string& path)
+aZero::Pipeline::PixelShader::PixelShader(IDxcCompilerX& compiler, const std::string& path)
 {
 	this->CompileFromFile(compiler, path);
 }
@@ -116,7 +116,7 @@ bool aZero::Pipeline::PixelShader::ValidateFormatWithMask(DXGI_FORMAT format, NU
 	return false;
 }
 
-bool aZero::Pipeline::PixelShader::CompileFromFile(IDxcCompiler3& compiler, const std::string& path)
+bool aZero::Pipeline::PixelShader::CompileFromFile(IDxcCompilerX& compiler, const std::string& path)
 {
 	if (!this->ValidateShaderTypeFromFilepath(path))
 	{

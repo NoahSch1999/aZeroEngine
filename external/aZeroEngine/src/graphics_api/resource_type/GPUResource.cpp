@@ -1,6 +1,6 @@
 #include "GPUResource.hpp"
 
-void aZero::D3D12::TransitionResources(ID3D12GraphicsCommandList* CmdList, const std::vector<ResourceTransitionBundles>& Bundles)
+void aZero::D3D12::TransitionResources(ID3D12GraphicsCommandListX* CmdList, const std::vector<ResourceTransitionBundles>& Bundles)
 {
 	std::vector<D3D12_RESOURCE_BARRIER> Barriers(Bundles.size());
 	for (int BarrierIndex = 0; BarrierIndex < Barriers.size(); BarrierIndex++)

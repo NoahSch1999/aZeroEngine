@@ -47,7 +47,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 
 		std::shared_ptr<aZero::Window::RenderWindow> activeWindow = engine.CreateRenderWindow({ 1920, 1080 }, "aZero engine");
 		Rendering::RenderContext renderContext = engine.GetRenderContext();
-		IDxcCompiler3& compiler = engine.GetCompiler();
+		IDxcCompilerX& compiler = engine.GetCompiler();
 
 		std::shared_ptr<Pipeline::VertexShader> vs = std::make_shared<Pipeline::VertexShader>(Pipeline::VertexShader());
 		vs->CompileFromFile(compiler, engine.GetProjectDirectory() + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");

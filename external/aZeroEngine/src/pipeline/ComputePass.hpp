@@ -31,7 +31,7 @@ namespace aZero
 
 			}
 
-			void Compile(ID3D12Device* device, const PassDescription& description, std::weak_ptr<Pipeline::ComputeShader> computeShader)
+			void Compile(ID3D12DeviceX* device, const PassDescription& description, std::weak_ptr<Pipeline::ComputeShader> computeShader)
 			{
 				if (!this->ValidateAndAsignPass(description, computeShader))
 				{
@@ -81,7 +81,7 @@ namespace aZero
 				return true;
 			}
 
-			bool CompilePassPipeline(ID3D12Device* device, const PassDescription& desc)
+			bool CompilePassPipeline(ID3D12DeviceX* device, const PassDescription& desc)
 			{
 				if (!this->CreateRootSignature(device))
 				{
@@ -98,7 +98,7 @@ namespace aZero
 				return true;
 			}
 
-			bool CreateRootSignature(ID3D12Device* device)
+			bool CreateRootSignature(ID3D12DeviceX* device)
 			{
 				std::vector<D3D12_ROOT_PARAMETER> allParams;
 				std::shared_ptr<Pipeline::ComputeShader> computeShader = m_ComputeShader.lock();
@@ -139,7 +139,7 @@ namespace aZero
 				return true;
 			}
 
-			bool CreatePipelineState(ID3D12Device* device, const PassDescription& description)
+			bool CreatePipelineState(ID3D12DeviceX* device, const PassDescription& description)
 			{
 				D3D12_COMPUTE_PIPELINE_STATE_DESC pipelineStateDesc;
 				pipelineStateDesc.pRootSignature = m_RootSignature.Get();

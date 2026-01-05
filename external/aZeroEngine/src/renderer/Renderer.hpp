@@ -16,6 +16,8 @@
 #include "misc/CallbackExecutor.hpp"
 #include "graphics_api/Wrappers/VertexBuffer.hpp"
 #include "graphics_api/FreelistBuffer.hpp"
+#include "pipeline/renderpass/MeshShaderPass.hpp"
+#include "pipeline/renderpass/VertexShaderPass.hpp"
 
 namespace aZero
 {
@@ -146,7 +148,7 @@ namespace aZero
 				}
 
 				FrameContext() = default;
-				FrameContext(ID3D12Device* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
+				FrameContext(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
 				{
 					this->Init(device, resourceHeap, recycler);
 				}
@@ -154,7 +156,7 @@ namespace aZero
 				FrameContext(FrameContext&&) noexcept = default;
 				FrameContext& operator=(FrameContext&&) noexcept = default;
 
-				void Init(ID3D12Device* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
+				void Init(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
 				{
 					const uint32_t frameBufferSize = 1000000;
 					const RenderAPI::Buffer::Desc frameBufferDesc(frameBufferSize, D3D12_HEAP_TYPE_UPLOAD);
@@ -206,7 +208,7 @@ namespace aZero
 				std::vector<RenderAPI::Descriptor> m_Descriptors;
 
 				SamplerManager() = default;
-				SamplerManager(ID3D12Device* device, RenderAPI::DescriptorHeap& heap)
+				SamplerManager(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& heap)
 				{
 					D3D12_SAMPLER_DESC SamplerDesc;
 					SamplerDesc.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -224,6 +226,8 @@ namespace aZero
 
 				const RenderAPI::Descriptor& GetSampler(Type type) { return m_Descriptors.at(type); }
 			};
+
+			IDxcCompilerX& m_Compiler;
 
 			RenderAPI::CommandQueue m_DirectCommandQueue;
 			RenderAPI::CommandQueue m_CopyCommandQueue;
@@ -255,7 +259,7 @@ namespace aZero
 				return true;
 			}
 
-			void NewInit(ID3D12Device* device, uint32_t numFramesInFlight)
+			void NewInit(ID3D12DeviceX* device, uint32_t numFramesInFlight)
 			{
 				m_DirectCommandQueue = RenderAPI::CommandQueue(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 				m_CopyCommandQueue = RenderAPI::CommandQueue(device, D3D12_COMMAND_LIST_TYPE_COPY);
@@ -275,6 +279,39 @@ namespace aZero
 
 				m_MeshEntryBuffer = RenderAPI::NewFreelistBuffer<MeshEntry>(device, 1000, &m_NewResourceRecycler);
 				m_NewMaterialBuffer = RenderAPI::NewFreelistBuffer<MaterialData>(device, 1000, &m_NewResourceRecycler);
+
+				// todo Test with only render targets + ps and with both. Also test with amplification shader.
+				// !Mesh shader pipeline example
+				Pipeline::MeshShader ms;
+				ms.CompileFromFile(m_Compiler, aZero::Helper::GetProjectDirectory() + "/../../../content" + SHADER_SOURCE_RELATIVE_PATH + "TestMeshShader.ms.hlsl");
+
+				Pipeline::PixelShader ps;
+				ps.CompileFromFile(m_Compiler, aZero::Helper::GetProjectDirectory() + "/../../../content" + SHADER_SOURCE_RELATIVE_PATH + "BasePass.ps.hlsl");
+
+				Pipeline::MeshShaderPass::Description msDesc;
+				msDesc.m_DepthStencil.m_Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+				Pipeline::MeshShaderPass msPass;
+				msPass.Compile(m_diDevice, msDesc, ms, { &ps });
+
+				// todo Test with only render targets + ps and with both
+				// !Vertex shader pass example
+				/*std::shared_ptr<Pipeline::VertexShader> vs = std::make_shared<Pipeline::VertexShader>(Pipeline::VertexShader());
+				vs->CompileFromFile(m_Compiler, aZero::Helper::GetProjectDirectory() + "/../../../content" + SHADER_SOURCE_RELATIVE_PATH + "BasePass.vs.hlsl");
+				Pipeline::VertexShaderPass vPass;
+				Pipeline::VertexShaderPass::Description vPassDesc;
+				vPassDesc.m_TopologyType = Pipeline::VertexShaderPass::TopologyType::TRIANGLE;
+				vPassDesc.m_DepthStencil.m_Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+				vPass.Compile(m_diDevice, vPassDesc, *vs.get(), {});
+
+				const auto camConstantBufferBinding = vPass.GetConstantBinding("VertexPerPassData");
+				camConstantBufferBinding->Write(3, 0);
+
+				auto posBufferBinding = vPass.GetBufferBinding("PositionBuffer");
+				aZero::RenderAPI::Buffer::Desc buffDesc(10, D3D12_HEAP_TYPE_DEFAULT);
+				aZero::RenderAPI::Buffer testBuffer(m_diDevice, buffDesc);
+				posBufferBinding->SetBuffer(testBuffer);
+
+				vPass.Bind(m_FrameContexts[0].m_DirectCmdList, m_ResourceHeapNew, m_SamplerHeapNew);*/
 			}
 
 			bool NewBeginFrame()
@@ -338,9 +375,9 @@ namespace aZero
 				// todo When we're also using other types of queues we need to add them here and do some other stuff
 			}
 
-			ID3D12Device* GetDevice() const
+			ID3D12DeviceX* GetDevice() const
 			{
-				ID3D12Device* device;
+				ID3D12DeviceX* device;
 				const HRESULT deviceRes = m_DirectCommandQueue.Get()->GetDevice(IID_PPV_ARGS(&device));
 				if (FAILED(deviceRes))
 				{
@@ -388,14 +425,14 @@ namespace aZero
 			D3D12::FreelistBuffer m_MaterialBuffer;
 			std::unordered_map<Asset::AssetID, DS::FreelistAllocator::AllocationHandle> m_MaterialAllocMap;
 
-			void AllocateFreelistMesh(Asset::Mesh& mesh, ID3D12GraphicsCommandList* cmdList);
+			void AllocateFreelistMesh(Asset::Mesh& mesh, ID3D12GraphicsCommandListX* cmdList);
 			void InitCommandRecording();
 			void InitFrameResources();
 			void InitDescriptorHeaps();
 			void InitSamplers();
 			void UploadStagedAssets();
 
-			ID3D12Device* m_diDevice = nullptr;
+			ID3D12DeviceX* m_diDevice = nullptr;
 
 			D3D12::CommandQueue m_GraphicsQueue;
 
@@ -450,7 +487,7 @@ namespace aZero
 
 			Renderer() = default;
 
-			Renderer(ID3D12Device* device, uint32_t bufferCount);
+			Renderer(ID3D12DeviceX* device, uint32_t bufferCount, IDxcCompilerX& compiler);
 
 			Renderer(Renderer&&) noexcept = default;
 			Renderer& operator=(Renderer&&) noexcept = default;

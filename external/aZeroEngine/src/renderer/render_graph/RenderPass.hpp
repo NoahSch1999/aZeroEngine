@@ -76,7 +76,7 @@ namespace aZero
 				return *this;
 			}
 
-			bool Init(ID3D12Device* Device, const Pipeline::VertexShader& VertexShader, const Pipeline::PixelShader& PixelShader, const std::vector<DXGI_FORMAT>& RtvFormats, DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE)
+			bool Init(ID3D12DeviceX* Device, const Pipeline::VertexShader& VertexShader, const Pipeline::PixelShader& PixelShader, const std::vector<DXGI_FORMAT>& RtvFormats, DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN, D3D12_PRIMITIVE_TOPOLOGY_TYPE TopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE)
 			{
 				if (!VertexShader.m_CompiledShader || !PixelShader.m_CompiledShader)
 				{
@@ -213,7 +213,7 @@ namespace aZero
 				return true;
 			}
 		
-			bool Init(ID3D12Device* Device, const Pipeline::ComputeShader& ComputeShader)
+			bool Init(ID3D12DeviceX* Device, const Pipeline::ComputeShader& ComputeShader)
 			{
 				this->Reset();
 
@@ -276,7 +276,7 @@ namespace aZero
 			D3D12_PRIMITIVE_TOPOLOGY_TYPE GetTopologyType() const { return m_TopologyType; }
 			PASS_TYPE GetPassType() const { return m_PassType; }
 
-			void SetShaderResource(ID3D12GraphicsCommandList* CmdList, const std::string& ShaderResourceName, void* Data, uint32_t SizeBytes, Pipeline::SHADER_TYPE Type)
+			void SetShaderResource(ID3D12GraphicsCommandListX* CmdList, const std::string& ShaderResourceName, void* Data, uint32_t SizeBytes, Pipeline::SHADER_TYPE Type)
 			{
 				Shader::ShaderResourceInfo* Info;
 				if (Type == Pipeline::SHADER_TYPE::VS)
@@ -350,7 +350,7 @@ namespace aZero
 				
 			}
 
-			void SetShaderResource(ID3D12GraphicsCommandList* CmdList, const std::string& ShaderResourceName, D3D12_GPU_VIRTUAL_ADDRESS VirtualAddress, Pipeline::SHADER_TYPE Type)
+			void SetShaderResource(ID3D12GraphicsCommandListX* CmdList, const std::string& ShaderResourceName, D3D12_GPU_VIRTUAL_ADDRESS VirtualAddress, Pipeline::SHADER_TYPE Type)
 			{
 				Shader::ShaderResourceInfo* Info;
 				if (Type == Pipeline::SHADER_TYPE::VS)

@@ -36,7 +36,7 @@ namespace aZero
 			D3D12_GPU_DESCRIPTOR_HANDLE GetGpuHandle() const { return m_GpuHandle; }
 			DescriptorIndex GetHeapIndex() const { return m_HeapIndex; }
 			bool IsValid() const { return m_HeapIndex != Descriptor::InvalidDescriptorIndex; }
-			ID3D12Device* const GetDevice() const;
+			ID3D12DeviceX* const GetDevice() const;
 		};
 
 		class DescriptorHeap : public NonCopyable
@@ -55,9 +55,9 @@ namespace aZero
 
 		public:
 			DescriptorHeap() = default;
-			DescriptorHeap(ID3D12Device* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible);
+			DescriptorHeap(ID3D12DeviceX* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible);
 
-			void Init(ID3D12Device* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible);
+			void Init(ID3D12DeviceX* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible);
 
 			Descriptor CreateDescriptor();
 			void DestroyDescriptor(Descriptor&& descriptor);
@@ -72,7 +72,7 @@ namespace aZero
 			ID3D12DescriptorHeap* Get() const { return m_Heap.Get(); }
 			bool IsGpuVisible() const;
 			bool IsInitiated() const { return m_Heap != nullptr; }
-			ID3D12Device* const GetDevice() const;
+			ID3D12DeviceX* const GetDevice() const;
 		};
 	}
 }

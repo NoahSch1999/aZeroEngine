@@ -8,12 +8,14 @@ namespace aZero
 	{
 		class MeshShaderPass : public MultiShaderPass
 		{
+		public:
 			using Description = MultiShaderPassDesc;
 		private:
 			void Reset()
 			{
 				NewRenderPass::Reset();
 				// todo Add pipeline-specific resets
+				m_MSThreadGroups = Pipeline::Shader::ThreadGroup();
 			}
 
 			bool ValidatePassInputs(const Description& description) const
@@ -23,12 +25,15 @@ namespace aZero
 				return true;
 			}
 
-			bool CreatePipelineState(ID3D12Device* device, const Description& description, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature) const;
+			bool CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const;
 
+			Pipeline::Shader::ThreadGroup m_MSThreadGroups;
 		public:
 			MeshShaderPass() = default;
 
-			bool Compile(ID3D12Device* device, const Description& description, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader);
+			bool Compile(ID3D12DeviceX* device, const Description& description, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader);
+
+			[[nodiscard]] Pipeline::Shader::ThreadGroup GetMSThreadGroups() const { return m_MSThreadGroups; }
 		};
 	}
 }

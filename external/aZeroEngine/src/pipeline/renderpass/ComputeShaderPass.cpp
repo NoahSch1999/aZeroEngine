@@ -1,30 +1,13 @@
 #include "ComputeShaderPass.hpp"
 
-bool aZero::Pipeline::ComputeShaderPass::CreatePipelineState(ID3D12Device* device, const Description& description, Pipeline::ComputeShader& computeShader, ID3D12PipelineState* pipelineState) const
+bool aZero::Pipeline::ComputeShaderPass::CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState) const
 {
 	// todo Impl
 
 	return true;
 }
 
-bool  aZero::Pipeline::ComputeShaderPass::CreatePipeline(ID3D12Device* device, const Description& description, Pipeline::ComputeShader& computeShader, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature) const
-{
-	if (!NewRenderPass::CreateRootSignature(device, description, rootSignature, computeShader));
-	{
-		DEBUG_PRINT("Failed to create root signature.");
-		return false;
-	}
-
-	if (!this->CreatePipelineState(device, description, computeShader, pipelineState))
-	{
-		DEBUG_PRINT("Failed to create pipeline state.");
-		return false;
-	}
-
-	return true;
-}
-
-bool aZero::Pipeline::ComputeShaderPass::Compile(ID3D12Device* device, const Description& description, Pipeline::ComputeShader& computeShader)
+bool aZero::Pipeline::ComputeShaderPass::Compile(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader)
 {
 	if (!this->ValidatePassInputs(description))
 	{
@@ -32,11 +15,17 @@ bool aZero::Pipeline::ComputeShaderPass::Compile(ID3D12Device* device, const Des
 		return false;
 	}
 
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
-	if (!this->CreatePipeline(device, description, computeShader, pipelineState.Get(), rootSignature.Get()))
+	if (!NewRenderPass::CreateRootSignature(device, description, rootSignature, computeShader));
 	{
-		DEBUG_PRINT("Failed to compile pass pipeline.");
+		DEBUG_PRINT("Failed to create root signature.");
+		return false;
+	}
+
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState = nullptr;
+	if (!this->CreatePipelineState(device, description, computeShader, pipelineState))
+	{
+		DEBUG_PRINT("Failed to create pipeline state.");
 		return false;
 	}
 
@@ -45,6 +34,7 @@ bool aZero::Pipeline::ComputeShaderPass::Compile(ID3D12Device* device, const Des
 	NewRenderPass::GenerateBindings(bufferBindings, constantBindings, computeShader);
 
 	NewRenderPass::PostCompile(std::move(pipelineState), std::move(rootSignature), std::move(bufferBindings), std::move(constantBindings));
+
 	// todo Assign local variables
 
 	return true;

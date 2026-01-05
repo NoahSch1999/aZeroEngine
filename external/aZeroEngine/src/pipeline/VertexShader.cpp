@@ -1,6 +1,6 @@
 #include "VertexShader.hpp"
 
-aZero::Pipeline::VertexShader::VertexShader(IDxcCompiler3& compiler, const std::string& path)
+aZero::Pipeline::VertexShader::VertexShader(IDxcCompilerX& compiler, const std::string& path)
 {
 	this->CompileFromFile(compiler, path);
 }
@@ -79,7 +79,7 @@ bool aZero::Pipeline::VertexShader::Reflect(CComPtr<IDxcResult>& compilationResu
 	return true;
 }
 
-bool aZero::Pipeline::VertexShader::CompileFromFile(IDxcCompiler3& compiler, const std::string& path)
+bool aZero::Pipeline::VertexShader::CompileFromFile(IDxcCompilerX& compiler, const std::string& path)
 {
 	if (!this->ValidateShaderTypeFromFilepath(path))//
 	{

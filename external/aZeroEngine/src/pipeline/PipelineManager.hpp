@@ -9,22 +9,22 @@ namespace aZero
 		// todo Remove and simply provide the renderpass, rendergraph and shader-subclass interfaces?
 		class PipelineManager
 		{
-			ID3D12Device* m_Device;
-			CComPtr<IDxcCompiler3> m_Compiler;
+			ID3D12DeviceX* m_Device;
+			CComPtr<IDxcCompilerX> m_Compiler;
 			std::string m_ShaderFolderPath;
 			std::unordered_map<std::string, std::shared_ptr<Pipeline::VertexShader>> m_VertexShaders;
 
 		public:
 			PipelineManager() = default;
 
-			PipelineManager(ID3D12Device* device, const std::string& shaderFolderPath)
+			PipelineManager(ID3D12DeviceX* device, const std::string& shaderFolderPath)
 			{
 				m_Device = device;
 				m_ShaderFolderPath = shaderFolderPath;
 				DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_Compiler));
 			}
 
-			IDxcCompiler3& GetCompiler() { return *m_Compiler.p; }
+			IDxcCompilerX& GetCompiler() { return *m_Compiler.p; }
 			const std::string& GetShaderFolderPath() const { return m_ShaderFolderPath; }
 
 			std::weak_ptr<Pipeline::VertexShader> LoadShader(const std::string& fileName)

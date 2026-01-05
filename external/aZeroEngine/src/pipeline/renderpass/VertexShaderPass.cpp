@@ -1,10 +1,10 @@
 #include "VertexShaderPass.hpp"
 
-bool aZero::Pipeline::VertexShaderPass::CreatePipelineState(ID3D12Device* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature) const
+bool aZero::Pipeline::VertexShaderPass::CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc;
 	ZeroMemory(&pipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	pipelineStateDesc.pRootSignature = rootSignature;
+	pipelineStateDesc.pRootSignature = rootSignature.Get();
 	pipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 	// todo Make this a setting
@@ -27,7 +27,7 @@ bool aZero::Pipeline::VertexShaderPass::CreatePipelineState(ID3D12Device* device
 	pipelineStateDesc.InputLayout.pInputElementDescs = vertexShader.m_InputElementDescs.data();
 
 	// todo Fix
-	//pipelineStateDesc.PrimitiveTopologyType = 
+	pipelineStateDesc.PrimitiveTopologyType = static_cast<D3D12_PRIMITIVE_TOPOLOGY_TYPE>(description.m_TopologyType);
 
 	// todo Make this a setting
 	pipelineStateDesc.SampleMask = std::numeric_limits<uint32_t>::max();
@@ -59,22 +59,24 @@ bool aZero::Pipeline::VertexShaderPass::CreatePipelineState(ID3D12Device* device
 			}
 		}
 
-		D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
-		depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-		if (description.m_DepthStencil.m_Format == DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
-		{
-			depthStencilDesc.DepthEnable = false;
-		}
-		else
-		{
-			pipelineStateDesc.DepthStencilState = depthStencilDesc;
-			pipelineStateDesc.DSVFormat = description.m_DepthStencil.m_Format;
-		}
-
 		pipelineStateDesc.PS = {
 		reinterpret_cast<BYTE*>(pixelShaderRef.m_CompiledShader->GetBufferPointer()),
 		pixelShaderRef.m_CompiledShader->GetBufferSize()
 		};
+	}
+
+	// TODO: wrong usage of the depth
+	throw;
+	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
+	depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	if (description.m_DepthStencil.m_Format == DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
+	{
+		depthStencilDesc.DepthEnable = false;
+	}
+	else
+	{
+		pipelineStateDesc.DepthStencilState = depthStencilDesc;
+		pipelineStateDesc.DSVFormat = description.m_DepthStencil.m_Format;
 	}
 
 	pipelineStateDesc.VS = {
@@ -92,7 +94,7 @@ bool aZero::Pipeline::VertexShaderPass::CreatePipelineState(ID3D12Device* device
 	return true;
 }
 
-bool aZero::Pipeline::VertexShaderPass::Compile(ID3D12Device* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader)
+bool aZero::Pipeline::VertexShaderPass::Compile(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader)
 {
 	if (!this->ValidatePassInputs(description))
 	{
@@ -100,11 +102,17 @@ bool aZero::Pipeline::VertexShaderPass::Compile(ID3D12Device* device, const Desc
 		return false;
 	}
 
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
-	if (!MultiShaderPass::CreatePipeline(device, description, vertexShader, pixelShader, pipelineState.Get(), rootSignature.Get()))
+	if (!MultiShaderPass::CreateRootSignature(device, description, vertexShader, pixelShader, rootSignature))
 	{
-		DEBUG_PRINT("Failed to compile pass pipeline.");
+		DEBUG_PRINT("Failed to compile pass root signature.");
+		return false;
+	}
+
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState = nullptr;
+	if (!this->CreatePipelineState(device, description, vertexShader, pixelShader, pipelineState, rootSignature))
+	{
+		DEBUG_PRINT("Failed to compile pass pipeline state.");
 		return false;
 	}
 

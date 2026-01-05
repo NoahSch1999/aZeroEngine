@@ -8,6 +8,7 @@ namespace aZero
 	{
 		class VertexShaderPass : public MultiShaderPass
 		{
+		public:
 			enum class TopologyType { INVALID = 0, POINT = 1, LINE = 2, TRIANGLE = 3 };
 
 			struct Description : public MultiShaderPassDesc
@@ -39,14 +40,14 @@ namespace aZero
 				return true;
 			}
 
-			bool CreatePipelineState(ID3D12Device* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature) const;
+			bool CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const;
 
 			TopologyType m_TopologyType;
 
 		public:
 			VertexShaderPass() = default;
 
-			bool Compile(ID3D12Device* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader);
+			bool Compile(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader);
 		};
 	}
 }

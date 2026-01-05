@@ -22,7 +22,7 @@ namespace aZero
 			bool m_ShouldClear = true;
 
 			// todo Rework so any type can be used etc. maybe ditch a dedicated RenderSurface class entirely and instead let the user handle the resource and rtvs themselves
-			RenderSurface(ID3D12Device* Device,
+			RenderSurface(ID3D12DeviceX* Device,
 				D3D12::ResourceRecycler* ResourceRecycler,
 				D3D12::Descriptor&& Descriptor,
 				const DXM::Vector2& Dimensions,
@@ -149,7 +149,7 @@ namespace aZero
 				return *m_Texture.get(); 
 			}
 
-			void RecordClear(ID3D12GraphicsCommandList* cmdList)
+			void RecordClear(ID3D12GraphicsCommandListX* cmdList)
 			{
 				if (m_ShouldClear)
 				{

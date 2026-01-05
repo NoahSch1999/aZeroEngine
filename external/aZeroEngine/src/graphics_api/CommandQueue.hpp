@@ -9,7 +9,7 @@ namespace aZero
 		{
 		private:
 			Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_Queue;
-			Microsoft::WRL::ComPtr<ID3D12Fence> m_Fence;
+			Microsoft::WRL::ComPtr<ID3D12FenceX> m_Fence;
 
 			// NOTE - Issue if these are going above the valid range of UINT64? How should this be handled?
 			uint64_t m_NextFenceValue = 0;
@@ -38,12 +38,12 @@ namespace aZero
 				return *this;
 			}
 
-			CommandQueue(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type)
+			CommandQueue(ID3D12DeviceX* Device, D3D12_COMMAND_LIST_TYPE Type)
 			{
 				this->Init(Device, Type);
 			}
 
-			void Init(ID3D12Device* Device, D3D12_COMMAND_LIST_TYPE Type)
+			void Init(ID3D12DeviceX* Device, D3D12_COMMAND_LIST_TYPE Type)
 			{
 				D3D12_COMMAND_QUEUE_DESC Desc;
 				Desc.Type = Type;

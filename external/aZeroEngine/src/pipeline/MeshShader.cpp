@@ -1,6 +1,6 @@
 #include "MeshShader.hpp"
 
-aZero::Pipeline::MeshShader::MeshShader(IDxcCompiler3& compiler, const std::string& path)
+aZero::Pipeline::MeshShader::MeshShader(IDxcCompilerX& compiler, const std::string& path)
 {
 	this->CompileFromFile(compiler, path);
 }
@@ -19,17 +19,16 @@ bool aZero::Pipeline::MeshShader::ValidateShaderTypeFromFilepath(const std::stri
 bool aZero::Pipeline::MeshShader::Reflect(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils)
 {
 	Microsoft::WRL::ComPtr<ID3D12ShaderReflection> reflection;
-	if (!Shader::ReflectImpl(compilationResult, utils, D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_VERTEX, reflection))
+	if (!Shader::ReflectImpl(compilationResult, utils, D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_MESH, reflection))
 	{
 		return false;
 	}
 
 	reflection->GetThreadGroupSize(&m_ThreadGroupCount.x, &m_ThreadGroupCount.y, &m_ThreadGroupCount.z);
-
 	return true;
 }
 
-bool aZero::Pipeline::MeshShader::CompileFromFile(IDxcCompiler3& compiler, const std::string& path)
+bool aZero::Pipeline::MeshShader::CompileFromFile(IDxcCompilerX& compiler, const std::string& path)
 {
 	if (!this->ValidateShaderTypeFromFilepath(path))//
 	{

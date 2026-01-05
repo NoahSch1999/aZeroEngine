@@ -17,15 +17,15 @@ namespace aZero
 			friend class CommandListAllocator;
 		private:
 			CommandListAllocator* m_Allocator = nullptr;
-			ID3D12GraphicsCommandList* m_CommandList = nullptr;
+			ID3D12GraphicsCommandListX* m_CommandList = nullptr;
 			bool m_IsRecording = true;
 
-			CommandList(ID3D12GraphicsCommandList* commandList, CommandListAllocator& allocator, D3D12_COMMAND_LIST_TYPE type);
+			CommandList(ID3D12GraphicsCommandListX* commandList, CommandListAllocator& allocator, D3D12_COMMAND_LIST_TYPE type);
 			void Move(CommandList& other);
 
 		public:
-			ID3D12GraphicsCommandList* operator->() { return m_CommandList; }
-			const ID3D12GraphicsCommandList* operator->() const { return m_CommandList; }
+			ID3D12GraphicsCommandListX* operator->() { return m_CommandList; }
+			const ID3D12GraphicsCommandListX* operator->() const { return m_CommandList; }
 
 			void StartRecording();
 			void StopRecording();
@@ -36,7 +36,7 @@ namespace aZero
 			CommandList& operator=(CommandList&& other) noexcept;
 
 			D3D12_COMMAND_LIST_TYPE GetType() const { return m_CommandList->GetType(); }
-			ID3D12GraphicsCommandList* Get() const { return m_CommandList; }
+			ID3D12GraphicsCommandListX* Get() const { return m_CommandList; }
 			bool IsInitiated() const { return m_Allocator != nullptr; }
 			bool IsRecording() const { return m_IsRecording; }
 		};
@@ -46,14 +46,14 @@ namespace aZero
 		private:
 			Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_Allocator = nullptr;
 			D3D12_COMMAND_LIST_TYPE m_Type;
-			std::set<ID3D12GraphicsCommandList*> m_UsedCommandLists;
-			std::stack<ID3D12GraphicsCommandList*> m_FreeCommandLists;
+			std::set<ID3D12GraphicsCommandListX*> m_UsedCommandLists;
+			std::stack<ID3D12GraphicsCommandListX*> m_FreeCommandLists;
 
 		public:
 			CommandListAllocator() = default;
-			CommandListAllocator(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type);
+			CommandListAllocator(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type);
 
-			void Init(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type);
+			void Init(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type);
 
 			CommandList CreateCommandList();
 			void FreeCommandBuffer();
@@ -68,7 +68,7 @@ namespace aZero
 		{
 		private:
 			Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_Queue = nullptr;
-			Microsoft::WRL::ComPtr<ID3D12Fence> m_Fence = nullptr;
+			Microsoft::WRL::ComPtr<ID3D12FenceX> m_Fence = nullptr;
 			D3D12_COMMAND_LIST_TYPE m_Type;
 
 			// NOTE - Issue if these are going above the valid range of UINT64. Should this be handled? Probably not
@@ -77,9 +77,9 @@ namespace aZero
 
 		public:
 			CommandQueue() = default;
-			CommandQueue(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type);
+			CommandQueue(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type);
 
-			void Init(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type);
+			void Init(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type);
 
 			uint64_t Signal();
 			void Flush();

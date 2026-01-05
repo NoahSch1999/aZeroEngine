@@ -13,6 +13,7 @@ namespace aZero
 			friend class ScenePass;
 			friend class NewRenderPass;
 			friend class VertexShaderPass;
+			friend class MeshShaderPass;
 		private:
 			enum NUM_RTV_CHANNELS { R = 1, RG = 2, RGB = 3, RGBA = 4 };
 
@@ -37,8 +38,8 @@ namespace aZero
 
 		public:
 			PixelShader() = default;
-			PixelShader(IDxcCompiler3& compiler, const std::string& path);
-			bool CompileFromFile(IDxcCompiler3& compiler, const std::string& path) override;
+			PixelShader(IDxcCompilerX& compiler, const std::string& path);
+			bool CompileFromFile(IDxcCompilerX& compiler, const std::string& path) override;
 			uint32_t NumRenderTargets() const { return m_RenderTargetMasks.size(); }
 			bool ValidateRenderTargetDXGIs(std::span<DXGI_FORMAT> formats);
 		};

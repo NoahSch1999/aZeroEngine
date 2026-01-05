@@ -116,7 +116,7 @@ aZero::Window::RenderWindow::RenderWindow(
 	ShowWindow(m_WindowHandle, SW_SHOW);
 	UpdateWindow(m_WindowHandle);
 
-	ID3D12Device* Device;
+	ID3D12DeviceX* Device;
 	const HRESULT GetDeviceRes = GraphicsQueue.GetCommandQueue()->GetDevice(IID_PPV_ARGS(&Device));
 	if (FAILED(GetDeviceRes))
 	{

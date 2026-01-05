@@ -18,7 +18,7 @@ namespace aZero
 				DescriptorBufferCombo() = default;
 
 				template<typename T>
-				void Init(ID3D12Device* device, DescriptorHeap& heap, ResourceRecycler& resourceRecycler, const std::vector<T>& data, RenderAPI::CommandList& stagingCmdList)
+				void Init(ID3D12DeviceX* device, DescriptorHeap& heap, ResourceRecycler& resourceRecycler, const std::vector<T>& data, RenderAPI::CommandList& stagingCmdList)
 				{
 					Buffer::Desc desc(data.size() * sizeof(T), D3D12_HEAP_TYPE_DEFAULT);
 					m_Buffer.Init(device, desc, &resourceRecycler); 
@@ -62,7 +62,7 @@ namespace aZero
 					throw std::runtime_error("One or more vertex channels doesn't have any data.");
 				}
 
-				ID3D12Device* const device = heap.GetDevice();
+				ID3D12DeviceX* const device = heap.GetDevice();
 				if (!device)
 				{
 					throw std::runtime_error("Failed to get descriptor heap device.");
