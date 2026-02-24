@@ -19,63 +19,11 @@ namespace aZero
 		}
 
 		m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_Compiler.p);
-		m_AssetManager = std::make_unique<Asset::AssetManager>();
-		m_NewAssetManager = std::make_unique<Asset::NewAssetManager>();
-		m_SceneManager = std::make_unique<Scene::SceneManager>();
+		m_NewAssetManager = std::make_unique<Asset::AssetManager>();
 	}
 
 	Engine::~Engine()
 	{
-		m_Renderer->FlushGraphicsQueue();
-	}
-
-	Rendering::RenderContext Engine::GetRenderContext()
-	{
-		return Rendering::RenderContext(*m_Renderer.get());
-	}
-
-	std::shared_ptr<Window::RenderWindow> Engine::CreateRenderWindow(DXM::Vector2 dimensions, const std::string& name)
-	{
-		const HWND ExistingWindow = FindWindowA(name.c_str(), name.c_str());
-		if (ExistingWindow != NULL)
-		{
-			return nullptr;
-		}
-
-		return std::make_shared<Window::RenderWindow>(
-			m_Renderer->m_GraphicsQueue,
-			name,
-			dimensions,
-			&m_Renderer->m_ResourceRecycler,
-			m_Renderer->m_BufferCount, DXGI_FORMAT_R8G8B8A8_UNORM
-		);
-	}
-
-	std::shared_ptr<Rendering::RenderSurface> Engine::CreateRenderSurface(
-		const DXM::Vector2& dimensions,
-		Rendering::RenderSurface::Type type,
-		std::optional<DXM::Vector4> clearColor
-	)
-	{
-		if (type == Rendering::RenderSurface::Type::Color_Target)
-		{
-			return std::shared_ptr<Rendering::RenderSurface>(new Rendering::RenderSurface(
-				m_Device.Get(),
-				&m_Renderer->m_ResourceRecycler,
-				m_Renderer->m_RTVHeap.GetDescriptor(),
-				dimensions,
-				type,
-				clearColor
-			));
-		}
-
-		return std::shared_ptr<Rendering::RenderSurface>(new Rendering::RenderSurface(
-			m_Device.Get(),
-			&m_Renderer->m_ResourceRecycler,
-			m_Renderer->m_DSVHeap.GetDescriptor(),
-			dimensions,
-			type,
-			clearColor
-		));
+		m_Renderer->FlushGPU();
 	}
 }

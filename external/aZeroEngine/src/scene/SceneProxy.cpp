@@ -4,7 +4,7 @@ namespace aZero
 {
 	namespace Scene
 	{
-		void SceneProxy::UpdateStaticMesh(ECS::EntityID id, const ECS::TransformComponent* transformComponent, const ECS::NewStaticMeshComponent* staticMeshComponent)
+		void SceneProxy::UpdateStaticMesh(ECS::EntityID id, const ECS::TransformComponent* transformComponent, const ECS::StaticMeshComponent* staticMeshComponent)
 		{
 			if (!transformComponent || !staticMeshComponent) {
 				m_StaticMeshes.Remove(id);

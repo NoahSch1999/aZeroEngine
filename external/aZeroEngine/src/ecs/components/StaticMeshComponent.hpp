@@ -9,20 +9,20 @@ namespace aZero
 	{
 		class StaticMeshComponent
 		{
-		public:
-			Asset::AssetHandle<Asset::Mesh> m_MeshReference;
-			Asset::AssetHandle<Asset::Material> m_MaterialReference;
+		private:
+			Asset::Mesh* m_MeshReference = nullptr;
+			Asset::Material* m_MaterialReference = nullptr;
 
+		public:
 			StaticMeshComponent() = default;
-		};
+			StaticMeshComponent(Asset::Mesh* mesh, Asset::Material* material)
+				:m_MeshReference(mesh), m_MaterialReference(material){ }
+			
+			void SetMesh(Asset::Mesh* mesh) { m_MeshReference = mesh; }
+			const Asset::Mesh* GetMesh() const { return m_MeshReference; }
 
-		class NewStaticMeshComponent
-		{
-		public:
-			Asset::NewMesh* m_MeshReference = nullptr;
-			Asset::NewMaterial* m_MaterialReference = nullptr;
-
-			NewStaticMeshComponent() = default;
+			void SetMaterial(Asset::Material* material) { m_MaterialReference = material; }
+			const Asset::Material* GetMaterial() const { return m_MaterialReference; }
 		};
 	}
 }

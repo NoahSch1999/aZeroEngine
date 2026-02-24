@@ -12,8 +12,7 @@ namespace aZero
 	{
 		typedef ComponentManager<
 			TransformComponent, 
-			StaticMeshComponent, 
-			NewStaticMeshComponent,
+			StaticMeshComponent,
 			DirectionalLightComponent,
 			PointLightComponent, 
 			SpotLightComponent, 

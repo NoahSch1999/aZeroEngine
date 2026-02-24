@@ -12,7 +12,7 @@ namespace aZero
 			constexpr uint32_t MaxEntities = 1000;
 			m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(MaxEntities);
 			m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(MaxEntities);
-			m_ComponentManager.GetComponentArray<ECS::NewStaticMeshComponent>().Init(MaxEntities);
+			m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(MaxEntities);
 			m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(MaxEntities);
 			m_ComponentManager.GetComponentArray<ECS::PointLightComponent>().Init(MaxEntities);
 			m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(MaxEntities);
@@ -67,7 +67,7 @@ namespace aZero
 			const ECS::EntityID id = entity.GetID();
 			if (ECS::TransformComponent* tf = m_ComponentManager.GetComponent<ECS::TransformComponent>(entity))
 			{
-				const ECS::NewStaticMeshComponent* mesh = m_ComponentManager.GetComponent<ECS::NewStaticMeshComponent>(entity);
+				const ECS::StaticMeshComponent* mesh = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity);
 				m_Proxy.UpdateStaticMesh(id, tf, mesh);
 
 				const ECS::CameraComponent* camera = m_ComponentManager.GetComponent<ECS::CameraComponent>(entity);

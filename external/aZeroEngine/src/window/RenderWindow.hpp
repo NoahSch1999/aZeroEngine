@@ -6,9 +6,7 @@
 
 #include "graphics_api/D3D12Include.hpp"
 #include "renderer/ResourceRecycler.hpp"
-#include "graphics_api/resource_type/GPUResourceView.hpp"
 #include "misc/NonCopyable.hpp"
-#include "graphics_api/CommandQueue.hpp"
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -135,7 +133,7 @@ namespace aZero
 				{
 					SetWindowLongA(m_WindowHandle, GWL_STYLE, WS_POPUP);
 					ShowWindow(m_WindowHandle, SW_SHOW);
-					CmdQueue.FlushImmediate();
+					//CmdQueue.FlushImmediate();
 					int x = GetSystemMetrics(SM_CXSCREEN);
 					int y = GetSystemMetrics(SM_CYSCREEN);
 					this->Resize(DXM::Vector2(x, y));
@@ -144,7 +142,7 @@ namespace aZero
 				{
 					SetWindowLongA(m_WindowHandle, GWL_STYLE, WS_OVERLAPPEDWINDOW);
 					ShowWindow(m_WindowHandle, SW_SHOW); 
-					CmdQueue.FlushImmediate();
+					//CmdQueue.FlushImmediate();
 					auto ClientDims = this->GetClientDimensions();
 					this->Resize(ClientDims);
 				}

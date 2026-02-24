@@ -1,6 +1,9 @@
 #pragma once
-#include "graphics_api/Wrappers/ResourceWrapping.hpp"
-#include "graphics_api/Wrappers/DescriptorWrapping.hpp"
+#include "graphics_api/resource/buffer/Buffer.hpp"
+#include "graphics_api/resource/texture/Texture2D.hpp"
+#include "graphics_api/descriptor/DescriptorHeap.hpp"
+#include "graphics_api/command_recording/CommandList.hpp"
+#include "graphics_api/command_recording/CommandQueue.hpp"
 #include "misc/LinearAllocator.hpp"
 
 namespace aZero
@@ -29,11 +32,8 @@ namespace aZero
 			//
 
 			// Commandlist stuff
-			RenderAPI::CommandListAllocator m_DirectCmdAllocator;
 			RenderAPI::CommandList m_DirectCmdList;
-			RenderAPI::CommandListAllocator m_CopyCmdAllocator;
 			RenderAPI::CommandList m_CopyCmdList;
-			RenderAPI::CommandListAllocator m_ComputeCmdAllocator;
 			RenderAPI::CommandList m_ComputeCmdList;
 			//
 
@@ -90,7 +90,9 @@ namespace aZero
 				this->Init(device, resourceHeap, recycler);
 			}
 
-			FrameContext(FrameContext&&) noexcept = default;
+			FrameContext(FrameContext&&) noexcept {
+
+			}
 			FrameContext& operator=(FrameContext&&) noexcept = default;
 
 			void Init(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
@@ -107,27 +109,23 @@ namespace aZero
 				m_SpotLightBuffer.Init(device, primitiveBufferDesc, &recycler);
 				m_DirectionalLightBuffer.Init(device, primitiveBufferDesc, &recycler);
 
-				m_DirectCmdAllocator.Init(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
-				m_CopyCmdAllocator.Init(device, D3D12_COMMAND_LIST_TYPE_COPY);
-				m_ComputeCmdAllocator.Init(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
-
 				m_StaticMeshDescriptor = resourceHeap.CreateDescriptor();
 				m_PointLightDescriptor = resourceHeap.CreateDescriptor();
 				m_SpotLightDescriptor = resourceHeap.CreateDescriptor();
 				m_DirectionalLightDescriptor = resourceHeap.CreateDescriptor();
 
-				m_DirectCmdList = m_DirectCmdAllocator.CreateCommandList();
-				m_CopyCmdList = m_CopyCmdAllocator.CreateCommandList();
-				m_ComputeCmdList = m_ComputeCmdAllocator.CreateCommandList();
+				m_DirectCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+				m_CopyCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COPY);
+				m_ComputeCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
 			};
 
 			// Used on engine frame beginning
 			void Begin()
 			{
 				m_FrameAllocator.Reset();
-				m_DirectCmdAllocator.FreeCommandBuffer();
-				m_CopyCmdAllocator.FreeCommandBuffer();
-				m_ComputeCmdAllocator.FreeCommandBuffer();
+				m_DirectCmdList.ClearCommandBuffer();
+				m_CopyCmdList.ClearCommandBuffer();
+				m_ComputeCmdList.ClearCommandBuffer();
 			}
 		};
 

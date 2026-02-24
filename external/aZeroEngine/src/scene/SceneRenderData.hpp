@@ -16,10 +16,10 @@ namespace aZero
 				uint32_t m_NumVertices = 0;
 
 				StaticMesh() = default;
-				StaticMesh(const ECS::TransformComponent& transform, const ECS::NewStaticMeshComponent& staticMesh)
+				StaticMesh(const ECS::TransformComponent& transform, const ECS::StaticMeshComponent& staticMesh)
 				{
-					const Asset::NewMesh* mesh = staticMesh.GetMesh();
-					const Asset::NewMaterial* material = staticMesh.GetMaterial();
+					const Asset::Mesh* mesh = staticMesh.GetMesh();
+					const Asset::Material* material = staticMesh.GetMaterial();
 
 					if (mesh && material
 						&& mesh->GetRenderID() != std::numeric_limits<Asset::RenderID>::max()

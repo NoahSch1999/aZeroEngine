@@ -1,29 +1,54 @@
 #pragma once
-#include "LightData.hpp"
-
 namespace aZero
 {
 	namespace ECS
 	{
-		template<typename LightData>
-		class LightComponent
+		struct LightComponentBase
 		{
-		private:
-			LightData m_Data;
+			DXM::Vector3 Color;
+			float Intensity;
 
-		public:
-			LightComponent() = default;
-
-			LightComponent(const LightData& Data)
-				:m_Data(Data)
-			{ }
-
-			const LightData& GetData() const { return m_Data; }
-			void SetData(const LightData& Data) { m_Data = Data; }
+			LightComponentBase() = default;
+			LightComponentBase(const DXM::Vector3& color, float intensity)
+				:Color(color), Intensity(intensity) {
+			}
 		};
 
-		using DirectionalLightComponent = LightComponent<DirectionalLightData>;
-		using PointLightComponent = LightComponent<PointLightData>;
-		using SpotLightComponent = LightComponent<SpotLightData>;
+		struct DirectionalLightComponent : public LightComponentBase
+		{
+			DXM::Vector3 Direction;
+			DirectionalLightComponent() = default;
+			DirectionalLightComponent(const DXM::Vector3& color, float intensity, const DXM::Vector3& direction)
+				:LightComponentBase(color, intensity), Direction(direction) {
+			}
+		};
+
+		struct PointLightComponent : public LightComponentBase
+		{
+			DXM::Vector3 Position;
+			float FalloffFactor;
+
+			PointLightComponent() = default;
+			PointLightComponent(const DXM::Vector3& color, float intensity, const DXM::Vector3& position, float falloffFactor)
+				:LightComponentBase(color, intensity), Position(position), FalloffFactor(falloffFactor) {
+			}
+		};
+
+		struct SpotLightComponent : public LightComponentBase
+		{
+			DXM::Vector3 Position;
+			DXM::Vector3 Direction;
+			float Range;
+
+			// Cos of angle that is valid between light vector to point and direction
+			// 1 is smaller cone, 0 is 90 deg cone
+			float CutoffAngle;
+
+			SpotLightComponent() = default;
+			SpotLightComponent(const DXM::Vector3& color, float intensity,
+				const DXM::Vector3& direction, const DXM::Vector3& position, float range, float cutoffAngle)
+				:LightComponentBase(color, intensity), Direction(direction), Position(position), Range(range), CutoffAngle(cutoffAngle) {
+			}
+		};
 	}
 }

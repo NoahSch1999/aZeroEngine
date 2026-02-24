@@ -1,8 +1,5 @@
 #include "RenderWindow.hpp"
 
-#include "graphics_api/resource_type/GPUResource.hpp"
-#include "graphics_api/CommandQueue.hpp"
-
 LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -47,12 +44,12 @@ void aZero::Window::RenderWindow::CreateSwapchain(
 	FullscreenDesc.Scaling = DXGI_MODE_SCALING_STRETCHED;
 	FullscreenDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 
-	const HRESULT SwapChainRes = m_Factory->CreateSwapChainForHwnd(GraphicsQueue.GetCommandQueue(), m_WindowHandle,
+	/*const HRESULT SwapChainRes = m_Factory->CreateSwapChainForHwnd(GraphicsQueue.GetCommandQueue(), m_WindowHandle,
 		&SwapChainDesc, &FullscreenDesc, nullptr, (IDXGISwapChain1**)m_SwapChain.GetAddressOf());
 	if (FAILED(SwapChainRes))
 	{
 		throw std::invalid_argument("Failed to create swapchain");
-	}
+	}*/
 
 	m_SwapChain->SetMaximumFrameLatency(2);
 	m_WaitableHandle = m_SwapChain->GetFrameLatencyWaitableObject();
@@ -117,11 +114,11 @@ aZero::Window::RenderWindow::RenderWindow(
 	UpdateWindow(m_WindowHandle);
 
 	ID3D12DeviceX* Device;
-	const HRESULT GetDeviceRes = GraphicsQueue.GetCommandQueue()->GetDevice(IID_PPV_ARGS(&Device));
+	/*const HRESULT GetDeviceRes = GraphicsQueue.GetCommandQueue()->GetDevice(IID_PPV_ARGS(&Device));
 	if (FAILED(GetDeviceRes))
 	{
 		throw std::invalid_argument("Failed to get CommandQueue device");
-	}
+	}*/
 
 	const HRESULT DXGIRes = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(m_Factory.GetAddressOf()));
 	if (FAILED(DXGIRes))

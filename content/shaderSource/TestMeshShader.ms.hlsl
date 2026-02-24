@@ -4,9 +4,35 @@ struct CameraData
     float4x4 ViewProjectionMatrix;
 };
 
+struct VSPerBatchConstants
+{
+    unsigned int StartInstanceOffset;
+    unsigned int MeshEntryIndex;
+    int pad1;
+    int pad2;
+};
+
+struct MeshEntry
+{
+    unsigned int VertexStartOffset;
+    unsigned int NumIndices;
+};
+
+struct InstanceData
+{
+    float4x4 WorldMatrix;
+};
+
 ConstantBuffer<CameraData> VertexPerPassData : register(b0);
+ConstantBuffer<VSPerBatchConstants> PerBatchConstantsBuffer : register(b1);
 
 StructuredBuffer<float3> PositionBuffer : register(t0);
+StructuredBuffer<float2> UVBuffer : register(t1);
+StructuredBuffer<float3> NormalBuffer : register(t2);
+StructuredBuffer<float3> TangentBuffer : register(t3);
+StructuredBuffer<unsigned int> IndexBuffer : register(t4);
+StructuredBuffer<MeshEntry> MeshEntryBuffer : register(t5);
+StructuredBuffer<InstanceData> InstanceBuffer : register(t6);
 
 struct VertexOut
 {
@@ -31,13 +57,13 @@ void main(
     SetMeshOutputCounts(3, 1);
 
     // Triangle vertices in clip space
-    verts[0].Position = float4(PositionBuffer[0].x, PositionBuffer[0].y, PositionBuffer[0].z, 1.0f);
-    verts[1].Position = float4(0.5f, -0.5f, 0.0f, 1.0f);
-    verts[2].Position = float4(-0.5f, -0.5f, 0.0f, 1.0f);
+    verts[0].Position = float4(PositionBuffer[0].x, PositionBuffer[0].y, PositionBuffer[0].z, IndexBuffer[0].x);
+    verts[1].Position = float4(UVBuffer[0].x, NormalBuffer[0].x, TangentBuffer[0].x, 1.0f);
+    verts[2].Position = float4(MeshEntryBuffer[0].NumIndices, -0.5f, 0.0f, 1.0f);
 
     // Per-vertex color
-    verts[0].Normal = float3(1, 0, 0);
-    verts[1].Normal = float3(0, 1, 0);
+    verts[0].Normal = float3(InstanceBuffer[0].WorldMatrix[0][0], 0, 0);
+    verts[1].Normal = float3(0, PerBatchConstantsBuffer.MeshEntryIndex, 0);
     verts[2].Normal = float3(VertexPerPassData.ViewProjectionMatrix[0][0], 0, 1);
 
     verts[0].WorldPosition = 1.f;

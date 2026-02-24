@@ -19,6 +19,7 @@ namespace aZero
 		public:
 			ResourceRecycler() = default;
 
+			// todo Threadsafe with refcount?
 			void RecycleResource(Microsoft::WRL::ComPtr<ID3D12Resource> Resource)
 			{
 				std::unique_lock<std::mutex>(m_Mutex);

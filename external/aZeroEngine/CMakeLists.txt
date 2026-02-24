@@ -15,30 +15,34 @@ file(GLOB ENGINE_HEADERS
 )
 
 add_library(aZeroEngine
-    "src/graphics_api/resource_type/GPUResource.cpp"
-    "src/graphics_api/Descriptor.cpp"
     "src/misc/HelperFunctions.cpp"
     "src/misc/STBIHack.cpp"
-    
     "src/renderer/Renderer.cpp"
     "src/window/RenderWindow.cpp"
     "src/assets/Mesh.cpp" 
     "src/assets/Material.cpp" 
     "src/assets/Texture.cpp"
     "src/engine/Engine.cpp" 
-    "src/pipeline/Shader.cpp" 
-    "src/pipeline/VertexShader.cpp" 
-    "src/pipeline/PixelShader.cpp" 
-    "src/pipeline/ComputeShader.cpp" 
-    "src/graphics_api/Wrappers/CommandWrapping.cpp" 
-    "src/graphics_api/Wrappers/DescriptorWrapping.cpp" 
-    "src/graphics_api/Wrappers/ResourceWrapping.cpp" 
-    "src/pipeline/MeshShader.cpp" 
-    "src/pipeline/renderpass/ComputeShaderPass.cpp" 
-    "src/pipeline/renderpass/VertexShaderPass.cpp"
-    "src/pipeline/renderpass/MeshShaderPass.cpp"
-    "src/pipeline/renderpass/NewRenderPass.cpp"  
-    "src/pipeline/renderpass/MultiShaderPass.cpp")
+    "src/scene/Scene.cpp" 
+    "src/pipeline/shader/Shader.cpp" 
+    "src/pipeline/shader/VertexShader.cpp" 
+    "src/pipeline/shader/PixelShader.cpp" 
+    "src/pipeline/shader/ComputeShader.cpp"
+    "src/pipeline/shader/MeshShader.cpp" 
+    "src/pipeline/pass/ComputeShaderPass.cpp" 
+    "src/pipeline/pass/VertexShaderPass.cpp"
+    "src/pipeline/pass/MeshShaderPass.cpp"
+    "src/pipeline/pass/RenderPass.cpp"  
+    "src/pipeline/pass/MultiShaderPass.cpp" 
+    "src/scene/SceneProxy.cpp" 
+    "src/graphics_api/resource/ResourceBase.cpp"
+    "src/graphics_api/resource/buffer/Buffer.cpp" 
+    "src/graphics_api/resource/texture/Texture2D.cpp"
+    "src/graphics_api/command_recording/CommandList.cpp"
+    "src/graphics_api/command_recording/CommandQueue.cpp"
+    "src/graphics_api/descriptor/Descriptor.cpp"
+    "src/graphics_api/descriptor/DescriptorHeap.cpp"
+)
 
 target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 
