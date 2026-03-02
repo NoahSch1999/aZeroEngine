@@ -5,18 +5,27 @@
 
 It's a work-in-progress remake of my old game engine found here: https://github.com/NoahSch1999/aZeroEngine-Project
 
-It has several main interfaces which handle certain functionality:
+The idea is that the API provides easy-to-use and flexible engine-functionalities. Then the user can do whatever they want with it.
+
+The API doesn't provide a build-in window-creation since the idea is to make it as flexible as possible. Instead of having a window class, the API provides functionality to copy a rendered frame to your swapchain.
+
+### Classes
+*Core classes*
  - Engine
-	 - Main interface of the engine
-	 - Provides access to the other interfaces
- - Renderer
-	 - Handles rendering related functionality
- - Window
-	 - Encapsulates a window and relevant functionality
- - AssetManager
-	 - Enables asset loading and handling
+	 - Main interface of the engine.
+	 - Provides access to the other interfaces.
+
+*Core api interfaces*
  - Scene
-	 - Stores game entities which are considered to be in the same scene
+	 - Interface to store and modify entities in your scene.
+ - Renderer
+	 - Interface for all render-related functionality such as rendering scenes, render-settings, updating the renderstate of entities, and more...
+ - RenderTarget
+     - Interface that represents a color render target.
+ - DepthStencilTarget
+     - Interface that represents a depth and stencil render target.
+ - Swapchain
+     - Interface that connects the rendered frames to the application window.
 
 ### Usage Guide
 SETUP GUIDE FOR VISUAL STUDIO
@@ -37,7 +46,7 @@ Requires at least Windows Kits 10.0.22621.0. Try installing the most up-to-date 
 
  - Asset loading (mesh, texture, etc)
  - Dynamic amount of point, spot, and directional lights with frustrum culling for the first two
- - Per-batch instanced drawing which batches all draws based on unique materials and meshes
+ - Per-batch instanced drawing that batches all draws based on unique materials and meshes
  - Normal mapping
  - In-engine HLSL shader compilation and reflection enabling name-based pipeline binding
 
