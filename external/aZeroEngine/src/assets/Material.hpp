@@ -3,28 +3,36 @@
 
 namespace aZero
 {
+	namespace Rendering
+	{
+		class Renderer;
+	}
+
 	namespace Asset
 	{
 		class Material : public AssetBase
 		{
-		private:
-			friend class NewAssetAllocator<Material>;
-
-			Material() = default;
-			Material(AssetID assetID, const std::string& name)
-				:AssetBase(assetID, name){}
-
+			friend class Rendering::Renderer;
 		public:
-
 			struct Data
 			{
-				std::string AlbedoTextureName;
-				std::string NormalMapName;
 				Texture* AlbedoTexture = nullptr;
 				Texture* NormalMap = nullptr;
 			};
 
+			Material() = default;
+			Material(const std::string& name)
+				:AssetBase(name) { }
+
 			bool Load(const std::string& filePath);
+
+			void SetAlbedoTexture(Texture* texture) { m_Data.AlbedoTexture = texture; }
+			Texture* GetAlbedoTexture() const { return m_Data.AlbedoTexture; }
+
+			void SetNormalMap(Texture* texture) { m_Data.NormalMap = texture; }
+			Texture* GetNormalMap() const { return m_Data.NormalMap; }
+
+		private:
 
 			Data m_Data;
 		};

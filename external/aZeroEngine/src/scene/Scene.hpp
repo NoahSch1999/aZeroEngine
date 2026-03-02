@@ -11,6 +11,7 @@ namespace aZero
 		using SceneID = uint32_t;
 		constexpr SceneID InvalidSceneID = std::numeric_limits<SceneID>::max();
 
+		// TODO: Remove ID and name?
 		class Scene
 		{
 		public:

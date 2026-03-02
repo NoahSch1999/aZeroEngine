@@ -20,3 +20,5 @@ using ID3D12DeviceX = ID3D12Device9;
 using ID3D12FenceX = ID3D12Fence1;
 using ID3D12GraphicsCommandListX = ID3D12GraphicsCommandList7;
 using IDxcCompilerX = IDxcCompiler3;
+using IDXGIFactoryX = IDXGIFactory2;
+using IDXGISwapChainX = IDXGISwapChain2;

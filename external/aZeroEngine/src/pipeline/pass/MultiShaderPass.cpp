@@ -2,8 +2,26 @@
 
 void aZero::Pipeline::MultiShaderPass::Bind(RenderAPI::CommandList& cmdList) const
 {
-	RenderPass::Bind(cmdList);
+	ShaderPassBase::Bind(cmdList);
 	cmdList->SetGraphicsRootSignature(m_RootSignature.Get());
+
+	std::array<D3D12_CPU_DESCRIPTOR_HANDLE, 9> outputTargets;
+	const auto& renderTargets = m_RenderTargets.GetData();
+	for (uint32_t i = 0; i < renderTargets.size(); i++)
+	{
+		outputTargets[i] = renderTargets[i]->GetCpuHandle();
+	}
+
+	if (m_DepthStencilTarget.has_value())
+	{
+		D3D12_CPU_DESCRIPTOR_HANDLE dsvDescriptor = m_DepthStencilTarget.value()->GetCpuHandle();
+		cmdList->OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), outputTargets.data(), 0, &dsvDescriptor);
+	}
+	else
+	{
+		cmdList->OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), outputTargets.data(), 0, nullptr);
+	}
+
 	for (const BufferBinding& buffer : m_BufferBindings.m_Bindings)
 	{
 		// Skip binding bufferslot if no buffer was bound

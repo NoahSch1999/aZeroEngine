@@ -7,7 +7,7 @@ namespace aZero
 	{
 		class VertexShader : public Shader
 		{
-			friend class RenderPass;
+			friend class ShaderPassBase;
 			friend class ScenePass;
 			friend class NewRenderPass;
 			friend class VertexShaderPass;

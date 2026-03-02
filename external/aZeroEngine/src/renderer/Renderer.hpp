@@ -11,9 +11,12 @@
 #include "pipeline/pass/VertexShaderPass.hpp"
 #include "SamplerManager.hpp"
 #include "FrameContext.hpp"
+#include "scene/Scene.hpp"
 
 namespace aZero
 {
+	class Engine;
+
 	namespace Asset
 	{
 		class Mesh;
@@ -25,26 +28,31 @@ namespace aZero
 	{
 		class Renderer : public NonCopyable
 		{
+			friend class Engine;
 		public:
 			Renderer() = default;
 			Renderer(ID3D12DeviceX* device, uint32_t bufferCount, IDxcCompilerX& compiler);
 			Renderer(Renderer&&) noexcept = default;
 			Renderer& operator=(Renderer&&) noexcept = default;
 
+			size_t GetBufferingCount() const { return m_FrameContexts.size(); }
+			RenderAPI::CommandQueue& GetGraphicsCommandQueue() { return m_DirectCommandQueue; }
+
 			bool BeginFrame();
 
-			void Render();
+			void Render(const Scene::Scene& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget);
 
 			void CopyTextureToTexture(RenderAPI::Texture2D& dstTexture, RenderAPI::Texture2D& srcTexture);
 
 			void FlushGPU();
+			uint64_t SignalGraphicsQueue() { return m_DirectCommandQueue.Signal(); }
 
 			void UpdateRenderState(Asset::Mesh* mesh);
 			void UpdateRenderState(Asset::Material* material);
 			void UpdateRenderState(Asset::Texture* texture);
-			void NewRemoveRenderState(Asset::Mesh* mesh);
-			void NewRemoveRenderState(Asset::Material* material);
-			void NewRemoveRenderState(Asset::Texture* texture);
+			void RemoveRenderState(Asset::Mesh* mesh);
+			void RemoveRenderState(Asset::Material* material);
+			void RemoveRenderState(Asset::Texture* texture);
 
 		private:
 			FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
@@ -104,13 +112,13 @@ namespace aZero
 			std::vector<FrameContext> m_FrameContexts;
 
 			RenderAPI::IndexedBuffer<MaterialData> m_NewMaterialBuffer;
-			std::unordered_map<Asset::AssetID, uint32_t> m_NewMaterialAllocMap;
+			std::unordered_map<Asset::RenderID, uint32_t> m_NewMaterialAllocMap;
 
 			RenderAPI::IndexedBuffer<MeshEntry> m_MeshEntryBuffer;
-			std::unordered_map<Asset::AssetID, uint32_t> m_NewMeshEntryAllocMap;
+			std::unordered_map<Asset::RenderID, uint32_t> m_NewMeshEntryAllocMap;
 
-			std::unordered_map<Asset::AssetID, RenderAPI::VertexBuffer> m_GPUMeshes;
-			std::unordered_map<Asset::AssetID, GPUTexture2D> m_GPUTextures;
+			std::unordered_map<Asset::RenderID, RenderAPI::VertexBuffer> m_GPUMeshes;
+			std::unordered_map<Asset::RenderID, GPUTexture2D> m_GPUTextures;
 
 			Pipeline::VertexShader m_NewBasePassVS;
 			Pipeline::PixelShader m_NewBasePassPS;

@@ -7,7 +7,7 @@ namespace aZero
 	{
 		class ComputeShader : public Shader
 		{
-			friend class RenderPass;
+			friend class ShaderPassBase;
 			friend class ComputeShaderPass;
 		public:
 			ComputeShader() = default;

@@ -4,22 +4,20 @@
 
 namespace aZero
 {
+	namespace Scene
+	{
+		struct RenderData;
+	}
+
 	namespace Asset
 	{
 		using VertexIndex = uint32_t;
 
 		class Mesh : public AssetBase
 		{
-		private:
-			friend class NewAssetAllocator<Mesh>;
-			Mesh() = default;
-			Mesh(AssetID assetID, const std::string& name)
-				:AssetBase(assetID, name)
-			{
-
-			}
+			friend struct Scene::RenderData;
 		public:
-			struct VertexData
+			struct Data
 			{
 				std::vector<DXM::Vector3> Positions;
 				std::vector<DXM::Vector2> UVs;
@@ -28,18 +26,19 @@ namespace aZero
 				std::vector<VertexIndex>  Indices;
 			};
 
+			Mesh() = default;
+			Mesh(const std::string& name)
+				:AssetBase(name) { }
+
 			bool Load(const std::string& filePath);
 
-			void RemoveVertexData()
-			{
-				m_VertexData.Positions.clear();
-				m_VertexData.UVs.clear();
-				m_VertexData.Normals.clear();
-				m_VertexData.Tangents.clear();
-				m_VertexData.Indices.clear();
-			}
+			void RemoveVertexData();
 
-			VertexData m_VertexData;
+			const Data& GetVertexData() const { return m_VertexData; }
+			float GetBoundingSphereRadius() const { return m_BoundingSphereRadius; }
+
+		private:
+			Data m_VertexData;
 			float m_BoundingSphereRadius;
 		};
 	}

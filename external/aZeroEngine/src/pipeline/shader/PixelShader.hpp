@@ -9,7 +9,7 @@ namespace aZero
 	{
 		class PixelShader final : public Shader
 		{
-			friend class RenderPass;
+			friend class ShaderPassBase;
 			friend class ScenePass;
 			friend class NewRenderPass;
 			friend class VertexShaderPass;

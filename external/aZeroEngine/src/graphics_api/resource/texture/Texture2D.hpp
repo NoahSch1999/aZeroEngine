@@ -17,8 +17,8 @@ namespace aZero
 				D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
 
 				Desc() = default;
-				Desc(uint32_t width, uint32_t height, DXGI_FORMAT format)
-					:Width(width), Height(height), Format(format) {
+				Desc(uint32_t width, uint32_t height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE)
+					:Width(width), Height(height), Format(format), Flags(flags) {
 				}
 			};
 
@@ -51,6 +51,7 @@ namespace aZero
 			// NOTE: Texture2D::CreateTransition() will change the internal resource tracking. Once you've called this function you need to transition the resource to the returned state or else the tracking will be incorrect.
 			D3D12_RESOURCE_BARRIER CreateTransition(D3D12_RESOURCE_STATES newState);
 
+			// NOTE! In-progress...
 			D3D12_TEXTURE_BARRIER CreateTransition(D3D12_BARRIER_SYNC newSync, D3D12_BARRIER_ACCESS newAccess, D3D12_BARRIER_LAYOUT newLayout);
 
 			bool IsDescValid(const Desc& desc) const;

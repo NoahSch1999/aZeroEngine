@@ -118,7 +118,7 @@ bool aZero::Pipeline::VertexShaderPass::Compile(ID3D12DeviceX* device, const Des
 
 	BindingCombo<BufferBinding> bufferBindings;
 	BindingCombo<ConstantBinding> constantBindings;
-	std::unordered_map<std::string, Rendering::RenderSurface*> renderTargets;
+	DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*> renderTargets;
 	MultiShaderPass::GenerateBindings(bufferBindings, constantBindings, renderTargets, description, vertexShader, pixelShader);
 
 	MultiShaderPass::PostCompile(std::move(renderTargets), std::move(pipelineState), std::move(rootSignature), std::move(bufferBindings), std::move(constantBindings));

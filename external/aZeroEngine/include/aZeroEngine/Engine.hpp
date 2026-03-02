@@ -1,9 +1,7 @@
 #pragma once
 #include <memory>
-#include "window/RenderWindow.hpp"
 #include "renderer/Renderer.hpp"
-#include "assets/AssetManager.hpp"
-#include "scene\Scene.hpp"
+#include "scene/Scene.hpp"
 
 namespace aZero
 {
@@ -17,8 +15,17 @@ namespace aZero
 
 		IDxcCompilerX& GetCompiler() const { return *m_Compiler.p; }
 
-		Asset::AssetManager& GetNewAssetManager() { return *m_NewAssetManager.get(); }
-		Rendering::Renderer& GetRenderer() { return *m_Renderer.get(); }
+		Rendering::Renderer& GetRenderer() const { return *m_Renderer.get(); }
+
+		Rendering::RenderTarget CreateRenderTarget(const Rendering::RenderTargetDesc& desc, bool shouldClear) const
+		{
+			return Rendering::RenderTarget(m_Device.Get(), m_Renderer->m_RTVHeapNew, m_Renderer->m_NewResourceRecycler, desc, shouldClear);
+		}
+
+		Rendering::DepthTarget CreateDepthStencilTarget(const Rendering::DepthTargetDesc& desc, bool shouldClear) const
+		{
+			return Rendering::DepthTarget(m_Device.Get(), m_Renderer->m_DSVHeapNew, m_Renderer->m_NewResourceRecycler, desc, shouldClear);
+		}
 
 		// todo Replace with a better file system/handling implementation (perhaps a project file or something reads the path)
 		const std::string& GetProjectDirectory() const { return m_ProjectDirectory; }
@@ -32,7 +39,6 @@ namespace aZero
 
 		// API Interfaces
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
-		std::unique_ptr<Asset::AssetManager> m_NewAssetManager;
 		//
 	};
 }

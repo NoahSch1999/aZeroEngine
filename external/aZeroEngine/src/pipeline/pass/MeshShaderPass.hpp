@@ -13,7 +13,7 @@ namespace aZero
 		private:
 			void Reset()
 			{
-				RenderPass::Reset();
+				ShaderPassBase::Reset();
 				m_MSThreadGroups = Pipeline::Shader::ThreadGroup();
 			}
 

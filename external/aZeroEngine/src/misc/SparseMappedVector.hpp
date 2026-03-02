@@ -1,3 +1,4 @@
+#pragma once
 #include <unordered_map>
 #include <span>
 
@@ -83,6 +84,8 @@ namespace aZero
 			}
 
 			const std::span<const Type> GetData() const { return std::span{ m_Data }; }
+
+			bool Contains(const IDType& ID) const { return m_ID_To_Index.contains(ID); }
 		};
 	}
 }

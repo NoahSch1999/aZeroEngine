@@ -14,7 +14,7 @@ namespace aZero
 	{
 		class Shader
 		{
-			friend class RenderPass;
+			friend class ShaderPassBase;
 			friend class MultiShaderPass;
 			friend class VertexShaderPass;
 			friend class MeshShaderPass;

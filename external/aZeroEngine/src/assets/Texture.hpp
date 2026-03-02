@@ -2,21 +2,18 @@
 #include <vector>
 #include "Asset.hpp"
 
-
 namespace aZero
 {
+	namespace Rendering
+	{
+		class Renderer;
+	}
+
 	namespace Asset
 	{
 		class Texture : public AssetBase
 		{
-		private:
-			friend class NewAssetAllocator<Texture>;
-			Texture() = default;
-			Texture(AssetID assetID, const std::string& name)
-				: AssetBase(assetID, name)
-			{
-
-			}
+			friend class Rendering::Renderer;
 		public:
 			struct Data
 			{
@@ -25,6 +22,13 @@ namespace aZero
 				DXGI_FORMAT Format;
 			};
 
+			Texture() = default;
+			Texture(const std::string& name)
+				: AssetBase(name)
+			{
+
+			}
+
 			bool Load(const std::string& filePath, DXGI_FORMAT format);
 
 			void RemoveTexelData()
@@ -32,6 +36,7 @@ namespace aZero
 				m_Data.TexelData.clear();
 			}
 
+		private:
 			Data m_Data;
 		};
 	}

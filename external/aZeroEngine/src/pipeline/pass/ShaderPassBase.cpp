@@ -1,6 +1,6 @@
-#include "RenderPass.hpp"
+#include "ShaderPassBase.hpp"
 
-bool aZero::Pipeline::RenderPass::CreateRootSignatureImpl(ID3D12DeviceX* device, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature, const std::vector<D3D12_ROOT_PARAMETER>& rootParams) const
+bool aZero::Pipeline::ShaderPassBase::CreateRootSignatureImpl(ID3D12DeviceX* device, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature, const std::vector<D3D12_ROOT_PARAMETER>& rootParams) const
 {
 	// todo Fill in?
 	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers;

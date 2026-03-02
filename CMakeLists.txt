@@ -21,6 +21,7 @@ add_executable(aZeroEditor WIN32
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_tables.cpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_draw.cpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_demo.cpp"
+    "windowCreation.cpp"
 )
 
 target_include_directories(aZeroEditor

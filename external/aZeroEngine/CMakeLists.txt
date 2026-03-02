@@ -18,7 +18,6 @@ add_library(aZeroEngine
     "src/misc/HelperFunctions.cpp"
     "src/misc/STBIHack.cpp"
     "src/renderer/Renderer.cpp"
-    "src/window/RenderWindow.cpp"
     "src/assets/Mesh.cpp" 
     "src/assets/Material.cpp" 
     "src/assets/Texture.cpp"
@@ -32,7 +31,7 @@ add_library(aZeroEngine
     "src/pipeline/pass/ComputeShaderPass.cpp" 
     "src/pipeline/pass/VertexShaderPass.cpp"
     "src/pipeline/pass/MeshShaderPass.cpp"
-    "src/pipeline/pass/RenderPass.cpp"  
+    "src/pipeline/pass/ShaderPassBase.cpp"  
     "src/pipeline/pass/MultiShaderPass.cpp" 
     "src/scene/SceneProxy.cpp" 
     "src/graphics_api/resource/ResourceBase.cpp"
@@ -42,7 +41,7 @@ add_library(aZeroEngine
     "src/graphics_api/command_recording/CommandQueue.cpp"
     "src/graphics_api/descriptor/Descriptor.cpp"
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
-)
+ "src/graphics_api/SwapChain.cpp")
 
 target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 

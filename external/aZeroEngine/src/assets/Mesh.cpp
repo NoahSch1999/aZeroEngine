@@ -68,4 +68,15 @@ bool aZero::Asset::Mesh::Load(const std::string& path)
 			}
 		}
 	}
+
+	return true;
+}
+
+void aZero::Asset::Mesh::RemoveVertexData()
+{
+	m_VertexData.Positions.clear();
+	m_VertexData.UVs.clear();
+	m_VertexData.Normals.clear();
+	m_VertexData.Tangents.clear();
+	m_VertexData.Indices.clear();
 }

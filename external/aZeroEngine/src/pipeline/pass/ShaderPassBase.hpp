@@ -13,7 +13,7 @@ namespace aZero
 	{
 		// todo Flytta in shaderparams i samtliga descriptions
 		// todo Check if input shaders are compiled
-		class RenderPass
+		class ShaderPassBase
 		{
 		public:
 			// Currently not supporting CBV since we can't differentiate them from constants when reflecting. The performance of SRV is pretty much the same on modern hardware anyways.
@@ -31,7 +31,7 @@ namespace aZero
 
 			class BindingBase
 			{
-				friend RenderPass;
+				friend ShaderPassBase;
 				friend class MultiShaderPass;
 				friend class ComputeShaderPass;
 			private:
@@ -47,7 +47,7 @@ namespace aZero
 
 			class BufferBinding : public BindingBase
 			{
-				friend RenderPass;
+				friend ShaderPassBase;
 				friend class MultiShaderPass;
 				friend class ComputeShaderPass;
 			private:
@@ -70,7 +70,7 @@ namespace aZero
 
 			class ConstantBinding : public BindingBase, public NonCopyable
 			{
-				friend RenderPass;
+				friend ShaderPassBase;
 				friend class MultiShaderPass;
 				friend class ComputeShaderPass;
 			private:
@@ -114,7 +114,7 @@ namespace aZero
 				std::vector<T> m_Bindings; // Binding slots
 			};
 
-			RenderPass() = default;
+			ShaderPassBase() = default;
 
 			bool IsCompiled() const { return m_PipelineState != nullptr; }
 
@@ -219,7 +219,7 @@ namespace aZero
 			template<typename DescriptionType, typename ...Args>
 			bool CreateRootSignature(ID3D12DeviceX* device, const DescriptionType& description, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature, const Args&...args) const
 			{
-				if (!RenderPass::CreateRootSignatureImpl(device, rootSignature, this->GenerateRootParams(args...)))
+				if (!ShaderPassBase::CreateRootSignatureImpl(device, rootSignature, this->GenerateRootParams(args...)))
 				{
 					DEBUG_PRINT("Failed to create root signature.");
 					return false;

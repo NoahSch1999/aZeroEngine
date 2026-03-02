@@ -1,12 +1,12 @@
 #pragma once
-#include "RenderPass.hpp"
+#include "ShaderPassBase.hpp"
 #include "pipeline/shader/ComputeShader.hpp"
 
 namespace aZero
 {
 	namespace Pipeline
 	{
-		class ComputeShaderPass : public RenderPass
+		class ComputeShaderPass : public ShaderPassBase
 		{
 		public:
 			struct Description
@@ -25,7 +25,7 @@ namespace aZero
 		private:
 			void Reset()
 			{
-				RenderPass::Reset();
+				ShaderPassBase::Reset();
 				m_ThreadGroupCount = Pipeline::Shader::ThreadGroup();
 			}
 

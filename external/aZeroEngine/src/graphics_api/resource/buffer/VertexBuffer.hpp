@@ -58,7 +58,7 @@ namespace aZero
 				ID3D12DeviceX* device,
 				RenderAPI::CommandList& uploadCommandList,
 				ResourceRecycler& resourceRecycler,
-				const Asset::Mesh::VertexData& data,
+				const Asset::Mesh::Data& data,
 				DescriptorHeap& heap
 			)
 			{

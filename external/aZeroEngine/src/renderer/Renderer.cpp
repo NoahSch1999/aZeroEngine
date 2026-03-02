@@ -1,6 +1,5 @@
 #include "Renderer.hpp"
 #include "scene/Scene.hpp"
-#include "assets/AssetManager.hpp"
 #include "RenderSurface.hpp"
 
 namespace aZero
@@ -39,7 +38,6 @@ namespace aZero
 
 			m_MeshEntryBuffer = RenderAPI::IndexedBuffer<MeshEntry>(device, 1000, &m_NewResourceRecycler);
 			m_NewMaterialBuffer = RenderAPI::IndexedBuffer<MaterialData>(device, 1000, &m_NewResourceRecycler);
-
 		}
 
 		bool Renderer::AdvanceFrameIfReady()
@@ -65,15 +63,11 @@ namespace aZero
 				m_FrameCount++;
 			}
 
-			// todo Maybe do something specific if a new frame cannot begin?
-
 			return hasNewFrameStarted;
 		}
 
-		void Renderer::Render()
+		void Renderer::Render(const Scene::Scene& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget)
 		{
-			// todo Check if it can render if rtv etc. is free... Maybe do the check after performing the queued updates?
-
 			FrameContext& frameContext = this->GetCurrentContext();
 			// Perform uploads for all updated/new assets and other stagings
 			frameContext.RecordFrameAllocations(frameContext.m_DirectCmdList);
@@ -102,8 +96,6 @@ namespace aZero
 			preCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, dstResource });
 			preCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE, srcResource });
 
-			// todo Change to this once enhanced barriers is added
-			//dstTexture.CreateTransition()
 			RenderAPI::TransitionResources(frameContext.m_DirectCmdList, preCopyBarriers);
 
 			frameContext.m_DirectCmdList->CopyResource(dstTexture.GetResource(), srcTexture.GetResource());
@@ -112,8 +104,6 @@ namespace aZero
 			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON, dstResource });
 			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON, srcResource });
 
-			// todo Change to this once enhanced barriers is added
-			//dstTexture.CreateTransition()
 			RenderAPI::TransitionResources(frameContext.m_DirectCmdList, postCopyBarriers);
 
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList);
@@ -127,7 +117,8 @@ namespace aZero
 				throw;
 			}
 
-			if (mesh->m_VertexData.Positions.empty())
+			const Asset::Mesh::Data& vertexData = mesh->GetVertexData();
+			if (vertexData.Positions.empty())
 			{
 				return;
 			}
@@ -137,38 +128,38 @@ namespace aZero
 			// todo Handle re-create of the descriptors
 			if (mesh->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
 			{
-				m_GPUMeshes.emplace(mesh->GetAssetID(), RenderAPI::VertexBuffer(m_diDevice, frameContext.m_DirectCmdList, m_NewResourceRecycler, mesh->m_VertexData, m_ResourceHeapNew));
+				m_GPUMeshes.emplace(mesh->GetRenderID(), RenderAPI::VertexBuffer(m_diDevice, frameContext.m_DirectCmdList, m_NewResourceRecycler, vertexData, m_ResourceHeapNew));
 
-				const auto& gpuMesh = m_GPUMeshes.at(mesh->GetAssetID());
+				const auto& gpuMesh = m_GPUMeshes.at(mesh->GetRenderID());
 				MeshEntry meshHandle;
 				meshHandle.PositionsIndex = gpuMesh.m_Positions.m_Descriptor.GetHeapIndex();
 				meshHandle.UVsIndex = gpuMesh.m_UVs.m_Descriptor.GetHeapIndex();
 				meshHandle.NormalsIndex = gpuMesh.m_Normals.m_Descriptor.GetHeapIndex();
 				meshHandle.TangentsIndex = gpuMesh.m_Tangents.m_Descriptor.GetHeapIndex();
 				meshHandle.IndicesIndex = gpuMesh.m_Indices.m_Descriptor.GetHeapIndex();
-				meshHandle.NumIndices = static_cast<uint32_t>(mesh->m_VertexData.Indices.size());
+				meshHandle.NumIndices = static_cast<uint32_t>(vertexData.Indices.size());
 
 				const uint32_t index = m_MeshEntryBuffer.Allocate();
 				mesh->m_RenderID = index;
 
 				frameContext.AddAllocation(meshHandle, m_MeshEntryBuffer.GetBuffer(), m_MeshEntryBuffer.GetByteOffset(index));
-				m_NewMeshEntryAllocMap[mesh->GetAssetID()] = index;
+				m_NewMeshEntryAllocMap[mesh->GetRenderID()] = index;
 			}
 			else
 			{
-				const Asset::AssetID id = mesh->GetAssetID();
+				const Asset::RenderID id = mesh->GetRenderID();
 				m_GPUMeshes.erase(id);
 
-				m_GPUMeshes.emplace(mesh->GetAssetID(), RenderAPI::VertexBuffer(m_diDevice, frameContext.m_DirectCmdList, m_NewResourceRecycler, mesh->m_VertexData, m_ResourceHeapNew));
+				m_GPUMeshes.emplace(mesh->GetRenderID(), RenderAPI::VertexBuffer(m_diDevice, frameContext.m_DirectCmdList, m_NewResourceRecycler, vertexData, m_ResourceHeapNew));
 
-				const auto& gpuMesh = m_GPUMeshes.at(mesh->GetAssetID());
+				const auto& gpuMesh = m_GPUMeshes.at(mesh->GetRenderID());
 				MeshEntry meshHandle;
 				meshHandle.PositionsIndex = gpuMesh.m_Positions.m_Descriptor.GetHeapIndex();
 				meshHandle.UVsIndex = gpuMesh.m_UVs.m_Descriptor.GetHeapIndex();
 				meshHandle.NormalsIndex = gpuMesh.m_Normals.m_Descriptor.GetHeapIndex();
 				meshHandle.TangentsIndex = gpuMesh.m_Tangents.m_Descriptor.GetHeapIndex();
 				meshHandle.IndicesIndex = gpuMesh.m_Indices.m_Descriptor.GetHeapIndex();
-				meshHandle.NumIndices = static_cast<uint32_t>(mesh->m_VertexData.Indices.size());
+				meshHandle.NumIndices = static_cast<uint32_t>(vertexData.Indices.size());
 
 				frameContext.AddAllocation(meshHandle, m_MeshEntryBuffer.GetBuffer(), m_MeshEntryBuffer.GetByteOffset(m_NewMeshEntryAllocMap[id]));
 			}
@@ -187,7 +178,7 @@ namespace aZero
 			
 			MaterialData materialData;
 
-			if (albedoTexture == nullptr || (albedoTexture && albedoTexture->GetRenderID() == std::numeric_limits<Asset::RenderID>::max()))
+			if (albedoTexture == nullptr || (albedoTexture && albedoTexture->GetRenderID() == Asset::InvalidRenderID))
 			{
 				materialData.AlbedoIndex = -1;
 			}
@@ -196,7 +187,7 @@ namespace aZero
 				materialData.AlbedoIndex = albedoTexture->GetRenderID();
 			}
 
-			if (normalTexture == nullptr || (normalTexture && normalTexture->GetRenderID() == std::numeric_limits<Asset::RenderID>::max()))
+			if (normalTexture == nullptr || (normalTexture && normalTexture->GetRenderID() == Asset::InvalidRenderID))
 			{
 				materialData.NormalIndex = -1;
 			}
@@ -205,12 +196,12 @@ namespace aZero
 				materialData.NormalIndex = normalTexture->GetRenderID();
 			}
 
-			if (material->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
+			if (material->GetRenderID() == Asset::InvalidRenderID)
 			{
 				const uint32_t index = m_NewMaterialBuffer.Allocate();
 				material->m_RenderID = index;
 
-				m_NewMaterialAllocMap[material->GetAssetID()] = index;
+				m_NewMaterialAllocMap[material->m_RenderID] = index;
 			}
 
 			FrameContext& frameContext = this->GetCurrentContext();
@@ -230,6 +221,7 @@ namespace aZero
 			{
 				// todo How to handle textures where the format doesnt match the channel count
 				// todo Fix why this is triggered
+				// Maybe use dxtk texture loading functions?
 				DEBUG_PRINT("Texel data size doesn't match the Texture dimensions and channel count.");
 				//return;
 			}
@@ -265,7 +257,7 @@ namespace aZero
 
 			m_diDevice->CreateShaderResourceView(assetData.m_Texture.GetResource(), &srvDesc, assetData.m_Srv.GetCpuHandle());
 
-			if (texture->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
+			if (texture->GetRenderID() == Asset::InvalidRenderID)
 			{
 				texture->m_RenderID = assetData.m_Srv.GetHeapIndex();
 			}
@@ -296,18 +288,16 @@ namespace aZero
 
 			frameContext.SetLatestSignal(m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList));
 
-			m_GPUTextures[texture->GetAssetID()] = std::move(assetData);
+			m_GPUTextures[texture->m_RenderID] = std::move(assetData);
 		}
 
-		void Renderer::NewRemoveRenderState(Asset::Mesh* mesh)
+		void Renderer::RemoveRenderState(Asset::Mesh* mesh)
 		{
-			if (mesh && mesh->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+			if (mesh && mesh->GetRenderID() != Asset::InvalidRenderID)
 			{
 				// todo Remove it after its last usage so we dont create a new view with the same descriptor index while its still accessed on the gpu
-				// Invalidate the assets render-resource reference id
-				mesh->m_RenderID = std::numeric_limits<Asset::RenderID>::max();
 
-				const Asset::AssetID id = mesh->GetAssetID();
+				const Asset::RenderID id = mesh->GetRenderID();
 
 				// Remove the vertex data
 				m_GPUMeshes.erase(id);
@@ -316,34 +306,38 @@ namespace aZero
 				const uint32_t meshEntryIndex = m_NewMeshEntryAllocMap.at(id);
 				m_MeshEntryBuffer.Deallocate(meshEntryIndex);
 				m_NewMeshEntryAllocMap.erase(id);
+
+				// Invalidate the assets render-resource reference id
+				mesh->m_RenderID = Asset::InvalidRenderID;
 			}
 		}
 
-		void Renderer::NewRemoveRenderState(Asset::Material* material)
+		void Renderer::RemoveRenderState(Asset::Material* material)
 		{
-			if (material && material->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+			if (material && material->GetRenderID() != Asset::InvalidRenderID)
 			{
-				// Invalidate the assets render-resource reference id
-				material->m_RenderID = std::numeric_limits<Asset::RenderID>::max();
 
-				const Asset::AssetID id = material->GetAssetID();
+				const Asset::RenderID id = material->GetRenderID();
 
 				// Remove the material
 				const uint32_t meshEntryIndex = m_NewMaterialAllocMap.at(id);
 				m_NewMaterialBuffer.Deallocate(meshEntryIndex);
 				m_NewMaterialAllocMap.erase(id);
+
+				// Invalidate the assets render-resource reference id
+				material->m_RenderID = Asset::InvalidRenderID;
 			}
 		}
 
-		void Renderer::NewRemoveRenderState(Asset::Texture* texture)
+		void Renderer::RemoveRenderState(Asset::Texture* texture)
 		{
-			if (texture && texture->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
+			if (texture && texture->GetRenderID() != Asset::InvalidRenderID)
 			{
-				// Invalidate the assets render-resource reference id
-				texture->m_RenderID = std::numeric_limits<Asset::RenderID>::max();
-
 				// todo Remove it after its last usage so we dont create a new view with the same descriptor index while its still accessed on the gpu
-				m_GPUTextures.erase(texture->GetAssetID());
+				m_GPUTextures.erase(texture->GetRenderID());
+
+				// Invalidate the assets render-resource reference id
+				texture->m_RenderID = Asset::InvalidRenderID;
 			}
 		}
 	}

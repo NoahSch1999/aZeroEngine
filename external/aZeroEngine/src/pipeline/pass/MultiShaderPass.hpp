@@ -1,6 +1,7 @@
 #pragma once
-#include "RenderPass.hpp"
+#include "ShaderPassBase.hpp"
 #include "pipeline/shader/PixelShader.hpp"
+#include "misc/SparseMappedVector.hpp"
 
 namespace aZero
 {
@@ -23,43 +24,44 @@ namespace aZero
 			DepthStencil m_DepthStencil;
 		};
 
-		class MultiShaderPass : public RenderPass
+		class MultiShaderPass : public ShaderPassBase
 		{
 		protected:
-			std::unordered_map<std::string, Rendering::RenderSurface*> m_RenderTargets;
-			std::optional<Rendering::RenderSurface*> m_DepthStencilTarget;
+			DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*> m_RenderTargets;
+			std::optional<RenderAPI::Descriptor*> m_DepthStencilTarget;
+
 			void Reset()
 			{
-				m_RenderTargets.clear();
+				m_RenderTargets = DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*>();
 				m_DepthStencilTarget.reset();
 			}
 
 			template<typename ShaderType, typename DescriptionType>
 			void GenerateBindings(BindingCombo<BufferBinding>& bufferBindings,
-				BindingCombo<ConstantBinding>& constantBindings, std::unordered_map<std::string, Rendering::RenderSurface*>& renderTargets, const DescriptionType& description,
+				BindingCombo<ConstantBinding>& constantBindings, DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*>& renderTargets, const DescriptionType& description,
 				const ShaderType& vertexGenerationShader, std::optional<Pipeline::PixelShader*> pixelShader) const
 			{
 				if (pixelShader.has_value())
 				{
 					Pipeline::PixelShader& pixelShaderRef = *pixelShader.value();
-					RenderPass::GenerateBindings(bufferBindings, constantBindings, vertexGenerationShader, pixelShaderRef);
+					ShaderPassBase::GenerateBindings(bufferBindings, constantBindings, vertexGenerationShader, pixelShaderRef);
 				}
 				else
 				{
-					RenderPass::GenerateBindings(bufferBindings, constantBindings, vertexGenerationShader);
+					ShaderPassBase::GenerateBindings(bufferBindings, constantBindings, vertexGenerationShader);
 				}
 
-				this->GenerateOutputBindings<MultiShaderPassDesc::RenderTarget>(description, renderTargets, description.m_RenderTargets);
+				this->GenerateOutputBindings<MultiShaderPassDesc::RenderTarget>(description, renderTargets);
 			}
 
-			void PostCompile(std::unordered_map<std::string, Rendering::RenderSurface*>&& renderTargets,
+			void PostCompile(DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*>&& renderTargets,
 				Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState,
 				Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature,
 				BindingCombo<BufferBinding>&& bufferBindings,
 				BindingCombo<ConstantBinding>&& constantBindings
 			)
 			{
-				RenderPass::PostCompile(
+				ShaderPassBase::PostCompile(
 					pipelineState,
 					rootSignature,
 					std::move(bufferBindings),
@@ -70,7 +72,7 @@ namespace aZero
 			}
 
 			template<typename T, typename DescriptionType>
-			bool GenerateOutputBindings(const DescriptionType& description, std::unordered_map<std::string, Rendering::RenderSurface*>& outTargets, const std::vector<T>& inTargets) const
+			bool GenerateOutputBindings(const DescriptionType& description, DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*>& outTargets) const
 			{
 				for (int32_t rtvIndex = 0; rtvIndex < description.m_RenderTargets.size(); rtvIndex++)
 				{
@@ -80,14 +82,13 @@ namespace aZero
 						DEBUG_PRINT("Render target at index " + std::to_string(rtvIndex) + " didn't have a name");
 						return false;
 					}
-
-					if (outTargets.contains(rtv.m_Name))
+					if (outTargets.Contains(rtv.m_Name))
 					{
 						DEBUG_PRINT("Render target at index " + std::to_string(rtvIndex) + " with name " + rtv.m_Name + " already exist.");
 						return false;
 					}
 
-					outTargets[rtv.m_Name] = nullptr;
+					outTargets.AddOrUpdate(rtv.m_Name, nullptr);
 				}
 				return true;
 			}
@@ -98,7 +99,7 @@ namespace aZero
 				if (pixelShader.has_value())
 				{
 					Pipeline::PixelShader& pixelShaderRef = *pixelShader.value();
-					if (!RenderPass::CreateRootSignature(device, description, rootSignature, vertexGenerationShader, pixelShaderRef))
+					if (!ShaderPassBase::CreateRootSignature(device, description, rootSignature, vertexGenerationShader, pixelShaderRef))
 					{
 						DEBUG_PRINT("Failed to create root signature.");
 						return false;
@@ -106,7 +107,7 @@ namespace aZero
 				}
 				else
 				{
-					if (!RenderPass::CreateRootSignature(device, description, rootSignature, vertexGenerationShader))
+					if (!ShaderPassBase::CreateRootSignature(device, description, rootSignature, vertexGenerationShader))
 					{
 						DEBUG_PRINT("Failed to create root signature.");
 						return false;

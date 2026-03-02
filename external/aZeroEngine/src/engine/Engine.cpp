@@ -19,7 +19,6 @@ namespace aZero
 		}
 
 		m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_Compiler.p);
-		m_NewAssetManager = std::make_unique<Asset::AssetManager>();
 	}
 
 	Engine::~Engine()

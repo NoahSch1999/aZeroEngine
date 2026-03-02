@@ -8,7 +8,7 @@ namespace aZero
 	{
 		class MeshShader : public Shader
 		{
-			friend class RenderPass;
+			friend class ShaderPassBase;
 			friend class ScenePass;
 			friend class MeshShaderPass;
 		private:

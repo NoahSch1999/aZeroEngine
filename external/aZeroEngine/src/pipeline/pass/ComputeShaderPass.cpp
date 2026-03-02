@@ -16,7 +16,7 @@ bool aZero::Pipeline::ComputeShaderPass::Compile(ID3D12DeviceX* device, const De
 	}
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
-	if (!RenderPass::CreateRootSignature(device, description, rootSignature, computeShader));
+	if (!ShaderPassBase::CreateRootSignature(device, description, rootSignature, computeShader));
 	{
 		DEBUG_PRINT("Failed to create root signature.");
 		return false;
@@ -31,9 +31,9 @@ bool aZero::Pipeline::ComputeShaderPass::Compile(ID3D12DeviceX* device, const De
 
 	BindingCombo<BufferBinding> bufferBindings;
 	BindingCombo<ConstantBinding> constantBindings;
-	RenderPass::GenerateBindings(bufferBindings, constantBindings, computeShader);
+	ShaderPassBase::GenerateBindings(bufferBindings, constantBindings, computeShader);
 
-	RenderPass::PostCompile(std::move(pipelineState), std::move(rootSignature), std::move(bufferBindings), std::move(constantBindings));
+	ShaderPassBase::PostCompile(std::move(pipelineState), std::move(rootSignature), std::move(bufferBindings), std::move(constantBindings));
 
 	m_ThreadGroupCount = computeShader.m_ThreadGroupCount;
 
@@ -42,7 +42,7 @@ bool aZero::Pipeline::ComputeShaderPass::Compile(ID3D12DeviceX* device, const De
 
 void aZero::Pipeline::ComputeShaderPass::Bind(RenderAPI::CommandList& cmdList) const
 {
-	RenderPass::Bind(cmdList);
+	ShaderPassBase::Bind(cmdList);
 	cmdList->SetComputeRootSignature(m_RootSignature.Get());
 
 	for (const BufferBinding& buffer : m_BufferBindings.m_Bindings)

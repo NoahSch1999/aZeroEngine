@@ -10,22 +10,15 @@ namespace aZero
 
 	namespace Asset
 	{
-		using AssetID = uint32_t;
 		using RenderID = uint32_t;
 		constexpr RenderID InvalidRenderID = std::numeric_limits<RenderID>::max();
-
-		template<typename T>
-		class NewAssetAllocator;
 
 		class AssetBase
 		{
 			friend Rendering::Renderer;
 		public:
-			AssetBase(AssetID assetID, const std::string& name)
-				:m_AssetID(assetID), m_Name(name) {
-			}
-
-			AssetID GetAssetID() const { return m_AssetID; }
+			AssetBase(const std::string& name)
+				:m_Name(name) { }
 
 			RenderID GetRenderID() const { return m_RenderID; }
 
@@ -34,8 +27,7 @@ namespace aZero
 		private:
 			RenderID m_RenderID = InvalidRenderID;
 
-			AssetID m_AssetID;
-
+			// TODO: Remove name?
 			std::string m_Name;
 		};
 	}

@@ -19,7 +19,7 @@ namespace aZero
 		private:
 			void Reset()
 			{
-				RenderPass::Reset();
+				ShaderPassBase::Reset();
 				m_TopologyType = TopologyType::INVALID;
 			}
 
