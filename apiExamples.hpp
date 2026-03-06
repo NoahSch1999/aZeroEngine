@@ -6,8 +6,7 @@ inline void LoadAssets(
 	Asset::Mesh& mesh,
 	Asset::Material& material,
 	Asset::Texture& albedo,
-	Asset::Texture& normalMap
-	)
+	Asset::Texture& normalMap)
 {
 	mesh.Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "goblin.fbx");
 	engine.GetRenderer().UpdateRenderState(&mesh);
@@ -27,8 +26,7 @@ inline void CreateScene(
 	Scene::Scene& scene,
 	Asset::Mesh& mesh,
 	Asset::Material& material,
-	const DXM::Vector2& windowDimensions
-	)
+	const DXM::Vector2& windowDimensions)
 {
 	ECS::ComponentManagerDecl& ecsManager = scene.GetComponentManager();
 
@@ -58,14 +56,14 @@ inline void CreateScene(
 	scene.UpdateRenderState(cameraEntity);
 }
 
-std::tuple<Rendering::RenderTarget, Rendering::DepthTarget> CreateRenderSurfaces(const Engine& engine, const DXM::Vector2& windowDimensions)
+inline auto CreateRenderSurfaces(const Engine& engine, const DXM::Vector2& windowDimensions)
 {
 	Rendering::RenderTarget::Desc rtvDesc;
 	rtvDesc.colorClearValue = { 0,0,0,0 };
 	rtvDesc.dimensions = windowDimensions;
 	rtvDesc.format = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-	Rendering::DepthTargetDesc dsvDesc;
+	Rendering::DepthTarget::Desc dsvDesc;
 	dsvDesc.stencilClearValue = 0;
 	dsvDesc.depthClearValue = 0;
 	dsvDesc.dimensions = windowDimensions;

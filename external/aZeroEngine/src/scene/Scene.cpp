@@ -4,11 +4,9 @@ namespace aZero
 {
 	namespace Scene
 	{
-		Scene::Scene(SceneID ID, const std::string& name)
+		Scene::Scene()
 		{
-			m_ID = ID;
-			m_Name = name;
-
+			// TODO: Change how we init a scene's ecs so it can be configured better ec.
 			constexpr uint32_t MaxEntities = 1000;
 			m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(MaxEntities);
 			m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(MaxEntities);

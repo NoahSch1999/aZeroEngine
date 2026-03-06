@@ -38,7 +38,7 @@ namespace aZero
 			size_t GetBufferingCount() const { return m_FrameContexts.size(); }
 			RenderAPI::CommandQueue& GetGraphicsCommandQueue() { return m_DirectCommandQueue; }
 
-			bool BeginFrame();
+			bool NewFrame();
 
 			void Render(const Scene::Scene& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget);
 

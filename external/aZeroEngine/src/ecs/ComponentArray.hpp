@@ -17,7 +17,7 @@ namespace aZero
 		public:
 			ComponentArray() = default;
 
-			ComponentArray(unsigned int StartNumElements, int AdditionalElementsWhenResize = 1)
+			ComponentArray(unsigned int StartNumElements)
 			{
 				this->Init(StartNumElements);
 			}

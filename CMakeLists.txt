@@ -21,12 +21,14 @@ add_executable(aZeroEditor WIN32
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_tables.cpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_draw.cpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_demo.cpp"
-    "windowCreation.cpp"
 )
 
 target_include_directories(aZeroEditor
     PUBLIC ${PROJECT_SOURCE_DIR}/external/aZeroEngine/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/imgui-src
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/imgui-src
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/imgui-src
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/SDLWindowCppWrapper-src
 )
 
 target_link_directories(aZeroEditor
@@ -34,7 +36,9 @@ target_link_directories(aZeroEditor
 )
 
 target_link_libraries(aZeroEditor 
-    PUBLIC aZeroEngine
+    PUBLIC 
+        aZeroEngine
+        SDLWindowCppWrapper
 )
 
 # ImGui
@@ -44,4 +48,13 @@ FetchContent_Declare(
   GIT_TAG        "docking"
 )
 FetchContent_MakeAvailable(ImGui)
+#
+
+# Window
+FetchContent_Declare(
+  SDLWindowCppWrapper
+  GIT_REPOSITORY https://github.com/NoahSch1999/SDL_Window_CPP_Wrapper.git
+  GIT_TAG        "main"
+)
+FetchContent_MakeAvailable(SDLWindowCppWrapper)
 #

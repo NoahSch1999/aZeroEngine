@@ -6,17 +6,10 @@ namespace aZero
 {
 	namespace Scene
 	{
-		class SceneManager;
-
-		using SceneID = uint32_t;
-		constexpr SceneID InvalidSceneID = std::numeric_limits<SceneID>::max();
-
-		// TODO: Remove ID and name?
 		class Scene
 		{
 		public:
-			Scene() = default;
-			Scene(SceneID ID, const std::string& name);
+			Scene();
 
 			void RenameEntity(ECS::Entity entity, const std::string& newName);
 
@@ -36,11 +29,7 @@ namespace aZero
 			const ECS::ComponentManagerDecl& GetComponentManager() const { return m_ComponentManager; }
 
 		private:
-			friend SceneManager;
-
-			SceneID m_ID = InvalidSceneID;
 			SceneProxy m_Proxy;
-			std::string m_Name;
 			std::unordered_map<std::string, ECS::Entity> m_Entities;
 			std::unordered_map<ECS::EntityID, std::string> m_Entity_To_Name;
 			ECS::EntityManager m_EntityManager;

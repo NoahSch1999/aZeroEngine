@@ -1,7 +1,8 @@
 #include "aZeroEditor.hpp"
+#include "RenderWindow.hpp"
 
-#include "windowCreation.hpp"
 #include "apiExamples.hpp"
+
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 
@@ -31,6 +32,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	DXGIGetDebugInterface1(0, IID_PPV_ARGS(&idxgiDebug));
 #endif // DEBUG
 
+	// TODO: Take in width/height instead of vector2f in the entire project when specifying window dimensions
 	try
 	{
 		// API Interfaces
@@ -39,22 +41,26 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		//
 
 		// Create your own implemented window and swapchain
-		WindowWrapper window(renderer, "Window", { 1920, 1080 }, { 1920, 1080 });
+		RenderWindow window(Window::SDLWindowDesc("MyWindow", { 0,0,800,600 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
 		//
 
 		// Create render surfaces
-		auto [rtv, dsv] = CreateRenderSurfaces(engine, { window.GetClientDimensions() });
+		auto [width, height] = window.GetClientDimensions();
+		auto [rtv, dsv] = CreateRenderSurfaces(engine, { (float)width, (float)height });
 		//
 
 		// Scene setup
+		// TODO: Seperate the asset classes from file and name related stuff.
+		//		That way its easier to handle both file-assets and programmatically created assets in the same way.
+		//		An asset doesn't need a "name" unless it needs to either be fetched from some cache OR related to a filepath.
 		Asset::Mesh mesh("mesh");
 		Asset::Material material("material");
 		Asset::Texture albedo("albedo");
 		Asset::Texture normalMap("normalMap");
 		LoadAssets(engine, mesh, material, albedo, normalMap);
 
-		Scene::Scene scene(0, "MyScene");
-		CreateScene(scene, mesh, material, window.GetClientDimensions());
+		Scene::Scene scene;
+		CreateScene(scene, mesh, material, { (float)width, (float)height });
 		//
 
 		float rot = 0.f;
@@ -62,10 +68,10 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		std::cout << "Render-loop started!\n";
 		while (window.IsOpen())
 		{
-			window.HandleMessages();
+			window.PollEvents();
 
 			// Call "NewFrame()" with API
-			renderer.BeginFrame();
+			renderer.NewFrame();
 
 			if (GetAsyncKeyState(VK_ESCAPE))
 			{

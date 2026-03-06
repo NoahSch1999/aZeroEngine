@@ -54,7 +54,7 @@ namespace aZero
 			return true;
 		}
 
-		bool Renderer::BeginFrame()
+		bool Renderer::NewFrame()
 		{
 			const bool hasNewFrameStarted = AdvanceFrameIfReady();
 			if (hasNewFrameStarted)
