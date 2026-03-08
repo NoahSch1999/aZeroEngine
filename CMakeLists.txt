@@ -11,7 +11,7 @@ add_compile_definitions(aZeroEditor NOMINMAX)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/external/aZeroEngine)
 
-add_executable(aZeroEditor WIN32 
+add_executable(aZeroEditor
     "main.cpp" 
     "aZeroEditor.hpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui.cpp"
@@ -28,7 +28,7 @@ target_include_directories(aZeroEditor
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/imgui-src
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/imgui-src
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/imgui-src
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/SDLWindowCppWrapper-src
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/SDLCppWrapper-src
 )
 
 target_link_directories(aZeroEditor
@@ -38,7 +38,7 @@ target_link_directories(aZeroEditor
 target_link_libraries(aZeroEditor 
     PUBLIC 
         aZeroEngine
-        SDLWindowCppWrapper
+        SDLCppWrapper
 )
 
 # ImGui
@@ -50,11 +50,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(ImGui)
 #
 
-# Window
+# SDLCppWrapper
 FetchContent_Declare(
-  SDLWindowCppWrapper
-  GIT_REPOSITORY https://github.com/NoahSch1999/SDL_Window_CPP_Wrapper.git
+  SDLCppWrapper
+  GIT_REPOSITORY https://github.com/NoahSch1999/SDL-Cpp-Wrapper.git
   GIT_TAG        "main"
 )
-FetchContent_MakeAvailable(SDLWindowCppWrapper)
+FetchContent_MakeAvailable(SDLCppWrapper)
 #

@@ -1,8 +1,8 @@
 #include "aZeroEditor.hpp"
 #include "RenderWindow.hpp"
+#include "SDLCppWrapper.hpp"
 
 #include "apiExamples.hpp"
-
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 
@@ -10,7 +10,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 
 using namespace aZero;
 
-int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int showCommand)
+int main(int argc, char* argv[])
 {
 #if USE_DEBUG
 	AllocConsole();
@@ -32,6 +32,8 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 	DXGIGetDebugInterface1(0, IID_PPV_ARGS(&idxgiDebug));
 #endif // DEBUG
 
+	aZero::SDLCppWrapper::Init();
+
 	// TODO: Take in width/height instead of vector2f in the entire project when specifying window dimensions
 	try
 	{
@@ -40,7 +42,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		Rendering::Renderer& renderer = engine.GetRenderer();
 		//
 
-		// Create your own implemented window and swapchain
+		// Create your own implemented window and swapchain + input system
 		RenderWindow window(Window::SDLWindowDesc("MyWindow", { 0,0,800,600 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
 		//
 
@@ -68,7 +70,7 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		std::cout << "Render-loop started!\n";
 		while (window.IsOpen())
 		{
-			window.PollEvents();
+			window.Update();
 
 			// Call "NewFrame()" with API
 			renderer.NewFrame();
@@ -121,6 +123,8 @@ int WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int s
 		printf(e.what());
 		DebugBreak();
 	}
+
+	aZero::SDLCppWrapper::Shutdown();
 
 	// Link error...
 	//DEBUG_FUNC([&] {idxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, (DXGI_DEBUG_RLO_FLAGS)(DXGI_DEBUG_RLO_IGNORE_INTERNAL | DXGI_DEBUG_RLO_DETAIL)); });

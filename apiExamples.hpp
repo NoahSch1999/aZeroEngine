@@ -3,10 +3,10 @@
 
 inline void LoadAssets(
 	aZero::Engine& engine, 
-	Asset::Mesh& mesh,
-	Asset::Material& material,
-	Asset::Texture& albedo,
-	Asset::Texture& normalMap)
+	aZero::Asset::Mesh& mesh,
+	aZero::Asset::Material& material,
+	aZero::Asset::Texture& albedo,
+	aZero::Asset::Texture& normalMap)
 {
 	mesh.Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "goblin.fbx");
 	engine.GetRenderer().UpdateRenderState(&mesh);
@@ -23,29 +23,29 @@ inline void LoadAssets(
 }
 
 inline void CreateScene(
-	Scene::Scene& scene,
-	Asset::Mesh& mesh,
-	Asset::Material& material,
+	aZero::Scene::Scene& scene,
+	aZero::Asset::Mesh& mesh,
+	aZero::Asset::Material& material,
 	const DXM::Vector2& windowDimensions)
 {
-	ECS::ComponentManagerDecl& ecsManager = scene.GetComponentManager();
+	aZero::ECS::ComponentManagerDecl& ecsManager = scene.GetComponentManager();
 
 	// Create mesh
-	ECS::Entity meshEntity = scene.CreateEntity();
+	aZero::ECS::Entity meshEntity = scene.CreateEntity();
 	scene.RenameEntity(meshEntity, "MeshEntity");
-	ecsManager.AddComponent(meshEntity, ECS::StaticMeshComponent(&mesh, &material));
+	ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 
-	ecsManager.GetComponent<ECS::TransformComponent>(meshEntity)
+	ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
 		->SetTransform(DXM::Matrix::CreateScale(0.5) * 
 			DXM::Matrix::CreateRotationY(3.1415) * DXM::Matrix::CreateTranslation(0, -1.5, 5));
 
 	scene.UpdateRenderState(meshEntity);
 
 	// Create camera
-	ECS::Entity cameraEntity = scene.CreateEntity();
+	aZero::ECS::Entity cameraEntity = scene.CreateEntity();
 	scene.RenameEntity(cameraEntity, "CameraEntity");
 
-	ECS::CameraComponent cameraComponent;
+	aZero::ECS::CameraComponent cameraComponent;
 	cameraComponent.m_TopLeft = { 0,0 };
 	cameraComponent.m_Dimensions = windowDimensions;
 	cameraComponent.m_NearPlane = 0.001f;
@@ -56,14 +56,14 @@ inline void CreateScene(
 	scene.UpdateRenderState(cameraEntity);
 }
 
-inline auto CreateRenderSurfaces(const Engine& engine, const DXM::Vector2& windowDimensions)
+inline auto CreateRenderSurfaces(const aZero::Engine& engine, const DXM::Vector2& windowDimensions)
 {
-	Rendering::RenderTarget::Desc rtvDesc;
+	aZero::Rendering::RenderTarget::Desc rtvDesc;
 	rtvDesc.colorClearValue = { 0,0,0,0 };
 	rtvDesc.dimensions = windowDimensions;
 	rtvDesc.format = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-	Rendering::DepthTarget::Desc dsvDesc;
+	aZero::Rendering::DepthTarget::Desc dsvDesc;
 	dsvDesc.stencilClearValue = 0;
 	dsvDesc.depthClearValue = 0;
 	dsvDesc.dimensions = windowDimensions;
