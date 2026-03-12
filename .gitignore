@@ -393,4 +393,4 @@ FodyWeavers.xsd
 *.sln.iml
 
 #Custom
-/out
+/build
