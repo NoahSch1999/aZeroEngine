@@ -2,8 +2,6 @@
 #include "include/window/SDLWindow_Win32.hpp"
 #include "graphics_api/SwapChain.hpp"
 #include "renderer/Renderer.hpp"
-#include "TestGamepad.hpp"
-#include "TestKeyboard.hpp"
 
 LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -23,21 +21,18 @@ public:
 	bool WaitOnSwapchain() { return WaitForSingleObject(m_WaitableHandle, 0) == WAIT_OBJECT_0; }
 	void Present() { m_SwapChain.Present(); }
 	void Update() { 
-		m_Keyboard.UpdateKeyStates();
 		this->PollEvents();
 	}
 
 private:
 	void PollEventImpl(const SDL_Event& event) final {
-		if (m_Keyboard.IsKeyDown(SDL_SCANCODE_ESCAPE))
-			this->Close();
-
-		m_Keyboard.ProcessEvent(event);
-		m_GamepadManager.ProcessEvent(event);
+		if (event.key.type == SDL_EVENT_KEY_DOWN) {
+			if (event.key.key == SDLK_ESCAPE) {
+				this->Close(); // Close window
+			}
+		}
 	}
 
-	aZero::Input::GamepadManager<aZero::TestGamepad> m_GamepadManager;
-	aZero::TestKeyboard m_Keyboard;
 	aZero::RenderAPI::SwapChain m_SwapChain;
 	HANDLE m_WaitableHandle;
 	aZero::Rendering::Renderer* di_Renderer = nullptr;

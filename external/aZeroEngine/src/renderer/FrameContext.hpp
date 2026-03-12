@@ -4,7 +4,7 @@
 #include "graphics_api/descriptor/DescriptorHeap.hpp"
 #include "graphics_api/command_recording/CommandList.hpp"
 #include "graphics_api/command_recording/CommandQueue.hpp"
-#include "misc/LinearAllocator.hpp"
+#include "LinearAllocator.hpp"
 
 namespace aZero
 {
@@ -39,9 +39,12 @@ namespace aZero
 
 			// Per-frame linear staging allocator that stores allocations and can record them at a later point
 			LinearAllocator<> m_FrameAllocator;
+
 			struct FrameAllocation
 			{
-				LinearAllocator<>::Allocation allocation;
+				// TODO: Make it so LinearAllocator has the option to allocate without using templates for the handle 
+				//				This is to allow arbitrary allocation sizes that can be stored inside std::vector<FrameAllocation> m_FrameAllocations;
+				LinearAllocator<>::Handle<int> allocation;
 				uint32_t dstOffset;
 				RenderAPI::Buffer* buffer;
 			};
@@ -52,7 +55,7 @@ namespace aZero
 			void AddAllocation(const T& data, RenderAPI::Buffer& buffer, uint32_t dstOffset)
 			{
 				FrameAllocation allocation;
-				allocation.allocation = m_FrameAllocator.Allocate(sizeof(T));
+				//allocation.allocation = m_FrameAllocator.Allocate(sizeof(T));
 				allocation.buffer = &buffer;
 				allocation.dstOffset = dstOffset;
 				m_FrameAllocations.emplace_back(allocation);
@@ -63,7 +66,7 @@ namespace aZero
 			{
 				for (const FrameAllocation& allocation : m_FrameAllocations)
 				{
-					cmdList->CopyBufferRegion(allocation.buffer->GetResource(), allocation.dstOffset, m_FrameBuffer.GetResource(), allocation.allocation.Offset, allocation.allocation.Size);
+					//cmdList->CopyBufferRegion(allocation.buffer->GetResource(), allocation.dstOffset, m_FrameBuffer.GetResource(), allocation.allocation, allocation.allocation.Size);
 				}
 			}
 			//
@@ -100,7 +103,7 @@ namespace aZero
 				const uint32_t frameBufferSize = 1000000;
 				const RenderAPI::Buffer::Desc frameBufferDesc(frameBufferSize, D3D12_HEAP_TYPE_UPLOAD);
 				m_FrameBuffer.Init(device, frameBufferDesc, &recycler);
-				m_FrameAllocator.Init(m_FrameBuffer.GetCPUAccessibleMemory(), frameBufferSize);
+				m_FrameAllocator = LinearAllocator<>((std::byte*)m_FrameBuffer.GetCPUAccessibleMemory(), frameBufferSize);
 
 				const uint32_t primitiveBufferSize = 1000000;
 				const RenderAPI::Buffer::Desc primitiveBufferDesc(primitiveBufferSize, D3D12_HEAP_TYPE_UPLOAD);
@@ -122,7 +125,7 @@ namespace aZero
 			// Used on engine frame beginning
 			void Begin()
 			{
-				m_FrameAllocator.Reset();
+				//m_FrameAllocator.Reset();
 				m_DirectCmdList.ClearCommandBuffer();
 				m_CopyCmdList.ClearCommandBuffer();
 				m_ComputeCmdList.ClearCommandBuffer();

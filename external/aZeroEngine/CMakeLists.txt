@@ -1,9 +1,13 @@
-﻿cmake_minimum_required (VERSION 3.20)
+﻿cmake_minimum_required (VERSION 3.23)
 
 project (aZeroEngine VERSION 1.0)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+#set(BUILD_DXTK12_EFFECTS OFF CACHE BOOL "" FORCE)
+#set(BUILD_DXTK12_AUDIO OFF CACHE BOOL "" FORCE)
+#set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
 include(FetchContent)
 
@@ -41,7 +45,7 @@ add_library(aZeroEngine
     "src/graphics_api/command_recording/CommandQueue.cpp"
     "src/graphics_api/descriptor/Descriptor.cpp"
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
- "src/graphics_api/SwapChain.cpp")
+    "src/graphics_api/SwapChain.cpp")
 
 target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 
@@ -51,7 +55,7 @@ target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
 # Assimp
 FetchContent_Declare(Assimp
     GIT_REPOSITORY https://github.com/assimp/assimp.git
-    GIT_TAG "v6.0.2"
+    GIT_TAG "v6.0.4"
 )
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -67,6 +71,9 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/microsoft/DirectX-Headers.git
   GIT_TAG        "v1.614.1"
 )
+set(DXHEADERS_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(DXHEADERS_INSTALL OFF CACHE BOOL "" FORCE)
+set(DXHEADERS_BUILD_GOOGLE_TEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(DirectX-Headers)
 #
 
@@ -76,6 +83,8 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/microsoft/DirectXTK12.git
   GIT_TAG        "main"
 )
+set(BUILD_XAUDIO_WIN10 OFF CACHE BOOL "" FORCE)
+set(BUILD_DXIL_SHADERS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(DirectXTK12)
 #
 
@@ -99,6 +108,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(AgilitySDK)
 #
 
+# miniaudio
+FetchContent_Declare(
+    miniaudio
+    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+    GIT_TAG        "master"
+)
+FetchContent_MakeAvailable(miniaudio)
+#
+
 # YAML-CPP
 FetchContent_Declare(
     yaml-cpp
@@ -118,13 +136,13 @@ FetchContent_MakeAvailable(aZero-Sparse-Set)
 #
 
 # aZero Linear Allocator
-#FetchContent_Declare(
- #   aZero-Linear-Allocator
-  #  GIT_REPOSITORY https://github.com/NoahSch1999/aZero-LinearAllocator.git
-  #  GIT_TAG        "master"
-#)
-#FetchContent_MakeAvailable(aZero-Linear-Allocator)
-#
+FetchContent_Declare(
+   aZero-Linear-Allocator
+   GIT_REPOSITORY https://github.com/NoahSch1999/aZero-LinearAllocator.git
+   GIT_TAG        "master"
+)
+FetchContent_MakeAvailable(aZero-Linear-Allocator)
+
 
 target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -137,6 +155,7 @@ target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/yaml-cpp-src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-sparse-set-src/src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include
+    PUBLIC ${CMAKE_BINARY_DIR}/_deps/miniaudio-src
 )
 
 target_link_directories(aZeroEngine
@@ -156,9 +175,15 @@ target_link_libraries(aZeroEngine
     PUBLIC assimp
     PUBLIC zlibstaticd
     PUBLIC yaml-cpp
+    PUBLIC miniaudio
     #PUBLIC DXGIDebug.dll
 )
 #
+
+target_precompile_headers(aZeroEngine PUBLIC
+    <${CMAKE_BINARY_DIR}/_deps/miniaudio-src/miniaudio.h>
+    <${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include/LinearAllocator.hpp>
+)
 
 # DXCompiler
 file(COPY ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/bin/x64/dxcompiler.dll

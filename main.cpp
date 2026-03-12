@@ -4,6 +4,9 @@
 
 #include "apiExamples.hpp"
 
+
+#include "audio/AudioSystem.hpp"
+
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
@@ -31,14 +34,18 @@ int main(int argc, char* argv[])
 	Microsoft::WRL::ComPtr<IDXGIDebug> idxgiDebug;
 	DXGIGetDebugInterface1(0, IID_PPV_ARGS(&idxgiDebug));
 #endif // DEBUG
-
+	
 	aZero::SDLCppWrapper::Init();
+
+	Audio::AudioSystem audioSystem;
+	
+	Audio::AudioSource source;
 
 	// TODO: Take in width/height instead of vector2f in the entire project when specifying window dimensions
 	try
 	{
 		// API Interfaces
-		aZero::Engine engine(3, aZero::Helper::GetProjectDirectory() + "/../../../content");
+		aZero::Engine engine(3, aZero::Helper::GetProjectDirectory() + "/../../content");
 		Rendering::Renderer& renderer = engine.GetRenderer();
 		//
 
@@ -85,6 +92,12 @@ int main(int argc, char* argv[])
 			ECS::CameraComponent& cam = *scene.GetComponentManager().GetComponent<ECS::CameraComponent>(camEnt);
 			if (GetAsyncKeyState('W'))
 			{
+				static bool x = true;
+				if (x) {
+					source = audioSystem.LoadAudio("C:/Users/Noah Schierenbeck/Music/test.wav").value();
+					x = false;
+					source.Play();
+				}
 				cam.m_Position += DXM::Vector3(0, 0, 0.01f);
 			}
 
