@@ -16,13 +16,13 @@ namespace aZero
 				TopologyType m_TopologyType;
 			};
 
-		private:
-			void Reset()
-			{
-				ShaderPassBase::Reset();
-				m_TopologyType = TopologyType::INVALID;
-			}
+			VertexShaderPass() = default;
+			VertexShaderPass(VertexShaderPass&& other) noexcept;
+			VertexShaderPass& operator=(VertexShaderPass&& other) noexcept;
 
+			bool Compile(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader);
+
+		private:
 			bool ValidatePassInputs(const Description& description) const
 			{
 				if (!MultiShaderPass::ValidatePassInputs(description))
@@ -43,11 +43,6 @@ namespace aZero
 			bool CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const;
 
 			TopologyType m_TopologyType;
-
-		public:
-			VertexShaderPass() = default;
-
-			bool Compile(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader);
 		};
 	}
 }

@@ -1,5 +1,17 @@
 #include "ComputeShaderPass.hpp"
 
+aZero::Pipeline::ComputeShaderPass::ComputeShaderPass(ComputeShaderPass&& other) noexcept
+{
+	*this = std::move(other);
+}
+
+aZero::Pipeline::ComputeShaderPass& aZero::Pipeline::ComputeShaderPass::operator=(ComputeShaderPass&& other) noexcept
+{
+	ShaderPassBase::operator=(std::move(other));
+	std::swap(m_ThreadGroupCount, other.m_ThreadGroupCount);
+	return *this;
+}
+
 bool aZero::Pipeline::ComputeShaderPass::CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState) const
 {
 	// todo Impl

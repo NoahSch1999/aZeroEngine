@@ -23,23 +23,6 @@ add_executable(aZeroEditor
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_demo.cpp"
 )
 
-target_include_directories(aZeroEditor
-    PRIVATE ${PROJECT_SOURCE_DIR}/external/aZeroEngine/include
-    PRIVATE ${CMAKE_BINARY_DIR}/_deps/imgui-src
-    PRIVATE ${CMAKE_BINARY_DIR}/_deps/imgui-src
-    PRIVATE ${CMAKE_BINARY_DIR}/_deps/imgui-src
-    PRIVATE ${CMAKE_BINARY_DIR}/_deps/SDLCppWrapper-src
-)
-
-target_link_directories(aZeroEditor
-    PRIVATE ${CMAKE_BINARY_DIR}external/aZeroEngine
-)
-
-target_link_libraries(aZeroEditor 
-    PRIVATE 
-        aZeroEngine
-        SDLCppWrapper
-)
 
 # ImGui
 FetchContent_Declare(
@@ -58,3 +41,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDLCppWrapper)
 #
+
+target_include_directories(aZeroEditor
+    PRIVATE ${CMAKE_BINARY_DIR}/_deps/imgui-src
+)
+
+target_link_libraries(aZeroEditor 
+    PRIVATE 
+        aZeroEngine
+        SDLCppWrapper
+)

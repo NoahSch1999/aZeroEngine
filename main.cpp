@@ -5,7 +5,7 @@
 #include "apiExamples.hpp"
 
 
-#include "audio/AudioSystem.hpp"
+//#include "audio/AudioSystem.hpp"
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 
@@ -25,8 +25,8 @@ int main(int argc, char* argv[])
 		d3d12Debug->EnableDebugLayer();
 
 	// GPU-side validation layer
-	CComPtr<ID3D12Debug> dbContr0;
-	CComPtr<ID3D12Debug1> dbContr1;
+	Microsoft::WRL::ComPtr<ID3D12Debug> dbContr0;
+	Microsoft::WRL::ComPtr<ID3D12Debug1> dbContr1;
 	D3D12GetDebugInterface(IID_PPV_ARGS(&dbContr0));
 	dbContr0->QueryInterface(IID_PPV_ARGS(&dbContr1));
 	dbContr1->SetEnableGPUBasedValidation(true);
@@ -37,9 +37,9 @@ int main(int argc, char* argv[])
 	
 	aZero::SDLCppWrapper::Init();
 
-	Audio::AudioSystem audioSystem;
+	/*Audio::AudioSystem audioSystem;
 	
-	Audio::AudioSource source;
+	Audio::AudioSource source;*/
 
 	// TODO: Take in width/height instead of vector2f in the entire project when specifying window dimensions
 	try
@@ -82,11 +82,6 @@ int main(int argc, char* argv[])
 			// Call "NewFrame()" with API
 			renderer.NewFrame();
 
-			if (GetAsyncKeyState(VK_ESCAPE))
-			{
-				break;
-			}
-
 			// Example of moving the camera
 			ECS::Entity camEnt = scene.GetEntity("CameraEntity").value();
 			ECS::CameraComponent& cam = *scene.GetComponentManager().GetComponent<ECS::CameraComponent>(camEnt);
@@ -94,9 +89,9 @@ int main(int argc, char* argv[])
 			{
 				static bool x = true;
 				if (x) {
-					source = audioSystem.LoadAudio("C:/Users/Noah Schierenbeck/Music/test.wav").value();
-					x = false;
-					source.Play();
+					//source = audioSystem.LoadAudio("C:/Users/Noah Schierenbeck/Music/test.wav").value();
+					//x = false;
+					//source.Play();
 				}
 				cam.m_Position += DXM::Vector3(0, 0, 0.01f);
 			}

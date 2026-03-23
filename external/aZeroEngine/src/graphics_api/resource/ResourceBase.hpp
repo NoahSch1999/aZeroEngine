@@ -20,23 +20,20 @@ namespace aZero
 		*/
 		class ResourceBase : public NonCopyable
 		{
-		protected:
-			Microsoft::WRL::ComPtr<ID3D12Resource> m_Resource = nullptr;
-			void Init(ID3D12DeviceX* device, ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue);
-			void Reset();
-
-		private:
-			ResourceRecycler* m_diResourceRecycler = nullptr;
-
-			void Move(ResourceBase& other);
-			void OnDestroy();
-
 		public:
 			ResourceBase() = default;
+			ResourceBase(ID3D12DeviceX* device, aZero::RenderAPI::ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue);
 			~ResourceBase();
 			ResourceBase(ResourceBase&& other) noexcept;
 			ResourceBase& operator=(ResourceBase&& other) noexcept;
 			ID3D12Resource* GetResource() const { return m_Resource.Get(); }
+
+		protected:
+			Microsoft::WRL::ComPtr<ID3D12Resource> m_Resource = nullptr;
+
+		private:
+			ResourceRecycler* m_diResourceRecycler = nullptr;
+			void OnDestroy();
 		};
 
 		// todo Remove once enhanced barriers are used

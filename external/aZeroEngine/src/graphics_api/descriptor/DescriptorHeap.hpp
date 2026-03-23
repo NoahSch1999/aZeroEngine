@@ -7,6 +7,7 @@ namespace aZero
 
 	namespace RenderAPI
 	{
+		// TODO: Add resize functionality
 		class DescriptorHeap : public NonCopyable
 		{
 			friend class Descriptor;
@@ -14,10 +15,12 @@ namespace aZero
 			DescriptorHeap() = default;
 			DescriptorHeap(ID3D12DeviceX* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible);
 
-			void Init(ID3D12DeviceX* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible);
+			// Note - All created descriptors need to have their destructor called before the instance is moved
+			// TODO: Change this since its very bad designed and will lead to annoying crashes
+			DescriptorHeap(DescriptorHeap&& other) noexcept;
+			DescriptorHeap& operator=(DescriptorHeap&& other) noexcept;
 
 			Descriptor CreateDescriptor();
-			void DestroyDescriptor(Descriptor& descriptor);
 
 			uint32_t GetMaxDescriptors() const;
 			uint32_t GetDescriptorSize() const;

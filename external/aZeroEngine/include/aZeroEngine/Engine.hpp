@@ -13,7 +13,7 @@ namespace aZero
 		Engine& operator=(Engine&&) noexcept = default;
 		~Engine();
 
-		IDxcCompilerX& GetCompiler() const { return *m_Compiler.p; }
+		IDxcCompilerX& GetCompiler() const { return *m_Compiler.Get(); }
 
 		Rendering::Renderer& GetRenderer() const { return *m_Renderer.get(); }
 
@@ -32,7 +32,7 @@ namespace aZero
 
 	private:
 		Microsoft::WRL::ComPtr<ID3D12DeviceX> m_Device;
-		CComPtr<IDxcCompilerX> m_Compiler;
+		Microsoft::WRL::ComPtr<IDxcCompilerX> m_Compiler;
 
 		// todo Replace with a better file system/handling implementation (perhaps a project file or something reads the path)
 		std::string m_ProjectDirectory;

@@ -2,14 +2,20 @@
 #include "misc/HelperFunctions.hpp"
 #include <filesystem>
 
-void aZero::Pipeline::Shader::Reset()
+aZero::Pipeline::Shader::Shader(Shader&& other) noexcept
 {
-	m_CompiledShader = nullptr;
-	m_ResourceNameToInformation.clear();
-	m_RootParameters.clear();
+	*this = std::move(other);
 }
 
-bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::string& path, const std::string& targetSM, CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils)
+aZero::Pipeline::Shader& aZero::Pipeline::Shader::operator=(Shader&& other) noexcept
+{
+	std::swap(m_CompiledShader, other.m_CompiledShader);
+	std::swap(m_ResourceNameToInformation, other.m_ResourceNameToInformation);
+	std::swap(m_RootParameters, other.m_RootParameters);
+	return *this;
+}
+
+bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::string& path, const std::string& targetSM, Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils)
 {
 	std::vector<LPCWSTR> compilationArgs;
 
@@ -45,7 +51,7 @@ bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::st
 
 	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&utils));
 
-	CComPtr<IDxcBlobEncoding> blob = nullptr;
+	Microsoft::WRL::ComPtr<IDxcBlobEncoding> blob = nullptr;
 	const HRESULT fileLoadRes = utils->LoadFile(filePathWStr.c_str(), nullptr, &blob);
 	if (FAILED(fileLoadRes))
 	{
@@ -58,10 +64,10 @@ bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::st
 	source.Size = blob->GetBufferSize();
 	source.Encoding = DXC_CP_ACP;
 
-	CComPtr<IDxcIncludeHandler> includeHandler;
+	Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler;
 	utils->CreateDefaultIncludeHandler(&includeHandler);
 
-	compiler.Compile(&source, compilationArgs.data(), compilationArgs.size(), includeHandler, IID_PPV_ARGS(&compilationResult));
+	compiler.Compile(&source, compilationArgs.data(), compilationArgs.size(), includeHandler.Get(), IID_PPV_ARGS(&compilationResult));
 
 	HRESULT compilationStatus;
 	compilationResult->GetStatus(&compilationStatus);
@@ -78,7 +84,7 @@ bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::st
 		return false;
 	}
 
-	CComPtr<IDxcBlob> shaderBinary = nullptr;
+	Microsoft::WRL::ComPtr<IDxcBlob> shaderBinary = nullptr;
 	const HRESULT shaderBinaryOutputRes = compilationResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBinary), nullptr);
 	if (FAILED(shaderBinaryOutputRes))
 	{
@@ -114,10 +120,10 @@ bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::st
 	return true;
 }
 
-bool aZero::Pipeline::Shader::ReflectImpl(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils, D3D12_SHADER_VISIBILITY shaderVisibility, Microsoft::WRL::ComPtr<ID3D12ShaderReflection>& reflection)
+bool aZero::Pipeline::Shader::ReflectImpl(Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils, D3D12_SHADER_VISIBILITY shaderVisibility, Microsoft::WRL::ComPtr<ID3D12ShaderReflection>& reflection)
 {
-	CComPtr<IDxcBlob> reflectionData = nullptr;
-	const HRESULT reflectionDataOutputRes = compilationResult.p->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&reflectionData), nullptr);
+	Microsoft::WRL::ComPtr<IDxcBlob> reflectionData = nullptr;
+	const HRESULT reflectionDataOutputRes = compilationResult->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(reflectionData.GetAddressOf()), nullptr);
 
 	if (FAILED(reflectionDataOutputRes))
 	{

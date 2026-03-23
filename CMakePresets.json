@@ -35,6 +35,27 @@
           "autoFormat": true
         }
       }
+    },
+    {
+      "name": "windows-msvc-v1451-base",
+      "description": "Base preset for MSVC v14.51",
+      "hidden": true,
+      "inherits": "debug",
+      "toolset": {
+        "value": "v145,host=x64,version=14.51"
+      }
+    },
+    {
+      "name": "x64-debug-msvc-v1451-preview",
+      "displayName": "x64 Debug (MSVC v14.51 Preview)",
+      "inherits": "windows-msvc-v1451-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
     }
   ]
 }

@@ -1,41 +1,7 @@
 #include "Buffer.hpp"
 
-void aZero::RenderAPI::Buffer::Move(Buffer& other)
+D3D12_RESOURCE_DESC CreateDesc(const aZero::RenderAPI::Buffer::Desc& desc)
 {
-	ResourceBase::operator=(std::move(other));
-	m_MappedPtr = other.m_MappedPtr;
-	other.m_MappedPtr = nullptr;
-}
-
-aZero::RenderAPI::Buffer::Buffer(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler)
-{
-	this->Init(device, desc, opt_diResourceRecycler);
-}
-
-aZero::RenderAPI::Buffer::Buffer(Buffer&& other) noexcept
-{
-	this->Move(other);
-}
-
-aZero::RenderAPI::Buffer& aZero::RenderAPI::Buffer::operator=(Buffer&& other) noexcept
-{
-	if (this != &other)
-	{
-		this->Move(other);
-	}
-	return *this;
-}
-
-void aZero::RenderAPI::Buffer::Init(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler)
-{
-	if (!this->IsDescValid(desc))
-	{
-		DEBUG_PRINT("Invalid buffer description.");
-		return;
-	}
-
-	this->Reset();
-
 	D3D12_RESOURCE_DESC resourceDesc;
 	ZeroMemory(&resourceDesc, sizeof(D3D12_RESOURCE_DESC));
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -49,19 +15,28 @@ void aZero::RenderAPI::Buffer::Init(ID3D12DeviceX* device, const Desc& desc, std
 	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+	return resourceDesc;
+}
 
-	ResourceBase::Init(device, opt_diResourceRecycler.has_value() ? opt_diResourceRecycler.value() : nullptr, resourceDesc, desc.AccessType, nullptr);
-
+aZero::RenderAPI::Buffer::Buffer(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler)
+	:ResourceBase(device, opt_diResourceRecycler.has_value() ? opt_diResourceRecycler.value() : nullptr, CreateDesc(desc), desc.AccessType, nullptr)
+{
 	if (desc.AccessType == D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD || desc.AccessType == D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_READBACK || desc.AccessType == D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_GPU_UPLOAD)
 	{
 		m_Resource->Map(0, nullptr, reinterpret_cast<void**>(&m_MappedPtr));
 	}
 }
 
-void aZero::RenderAPI::Buffer::Reset()
+aZero::RenderAPI::Buffer::Buffer(Buffer&& other) noexcept
 {
-	m_MappedPtr = nullptr;
-	ResourceBase::Reset();
+	*this = std::move(other);
+}
+
+aZero::RenderAPI::Buffer& aZero::RenderAPI::Buffer::operator=(Buffer&& other) noexcept
+{
+	ResourceBase::operator=(std::move(other));
+	std::swap(m_MappedPtr, other.m_MappedPtr);
+	return *this;
 }
 
 bool aZero::RenderAPI::Buffer::IsDescValid(const Desc& desc)

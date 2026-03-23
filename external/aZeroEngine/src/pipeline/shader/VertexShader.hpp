@@ -17,14 +17,16 @@ namespace aZero
 			static constexpr const char* m_TargetSM = "vs_6_6";
 			static constexpr const char* m_ShaderExtension = ".vs.hlsl";
 
-			void Reset();
 			bool ValidateShaderTypeFromFilepath(const std::string& path) override;
 			DXGI_FORMAT ReflectionMaskToDXGIFormat(BYTE Mask);
-			bool Reflect(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils);
+			bool Reflect(Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils);
 
 		public:
 			VertexShader() = default;
 			VertexShader(IDxcCompilerX& compiler, const std::string& path);
+			VertexShader(VertexShader&& other) noexcept;
+			VertexShader& operator=(VertexShader&& other) noexcept;
+
 			bool CompileFromFile(IDxcCompilerX& compiler, const std::string& path) override;
 		};
 	}

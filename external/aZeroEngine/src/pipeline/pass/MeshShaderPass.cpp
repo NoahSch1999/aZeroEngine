@@ -1,5 +1,17 @@
 #include "MeshShaderPass.hpp"
 
+aZero::Pipeline::MeshShaderPass::MeshShaderPass(MeshShaderPass&& other) noexcept
+{
+	*this = std::move(other);
+}
+
+aZero::Pipeline::MeshShaderPass& aZero::Pipeline::MeshShaderPass::operator=(MeshShaderPass&& other) noexcept
+{
+	MultiShaderPass::operator=(std::move(other));
+	std::swap(m_MSThreadGroups, other.m_MSThreadGroups);
+	return *this;
+}
+
 bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const
 {
 	// todo Implement with AS and PS

@@ -1,45 +1,7 @@
 #include "Texture2D.hpp"
 
-void aZero::RenderAPI::Texture2D::Move(Texture2D& other)
+D3D12_RESOURCE_DESC CreateDesc(const aZero::RenderAPI::Texture2D::Desc& desc)
 {
-	ResourceBase::operator=(std::move(other));
-	m_CurrentResourceState = other.m_CurrentResourceState;
-	m_OptClearValue = other.m_OptClearValue;
-	other.m_OptClearValue = std::optional<D3D12_CLEAR_VALUE>{};
-}
-
-aZero::RenderAPI::Texture2D::Texture2D(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler, std::optional<D3D12_CLEAR_VALUE> optClearValue)
-{
-	this->Init(device, desc, opt_diResourceRecycler, optClearValue);
-}
-
-aZero::RenderAPI::Texture2D::Texture2D(Texture2D&& other) noexcept
-{
-	this->Move(other);
-}
-
-aZero::RenderAPI::Texture2D& aZero::RenderAPI::Texture2D::operator=(Texture2D&& other) noexcept
-{
-	if (this != &other)
-	{
-		this->Move(other);
-	}
-	return *this;
-}
-
-void aZero::RenderAPI::Texture2D::Init(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler, std::optional<D3D12_CLEAR_VALUE> optClearValue)
-{
-	if (!this->IsDescValid(desc))
-	{
-		DEBUG_PRINT("Invalid texture description.");
-		return;
-	}
-
-	this->Reset();
-
-	m_OptClearValue = optClearValue;
-	const D3D12_CLEAR_VALUE* clearValue = optClearValue.has_value() ? &optClearValue.value() : nullptr;
-
 	D3D12_RESOURCE_DESC resourceDesc;
 	ZeroMemory(&resourceDesc, sizeof(D3D12_RESOURCE_DESC));
 	resourceDesc.Format = desc.Format;
@@ -53,36 +15,24 @@ void aZero::RenderAPI::Texture2D::Init(ID3D12DeviceX* device, const Desc& desc, 
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resourceDesc.Flags = desc.Flags;
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
-	m_CurrentState = D3D12_RESOURCE_STATE_COMMON;
-
-	ResourceBase::Init(device, opt_diResourceRecycler.has_value() ? opt_diResourceRecycler.value() : nullptr, resourceDesc, D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT, clearValue);
+	return resourceDesc;
 }
 
-D3D12_TEXTURE_BARRIER aZero::RenderAPI::Texture2D::CreateTransition(D3D12_BARRIER_SYNC newSync, D3D12_BARRIER_ACCESS newAccess, D3D12_BARRIER_LAYOUT newLayout)
+aZero::RenderAPI::Texture2D::Texture2D(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler, std::optional<D3D12_CLEAR_VALUE> optClearValue)
+	:ResourceBase(device, opt_diResourceRecycler.has_value() ? opt_diResourceRecycler.value() : nullptr, CreateDesc(desc), D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT, optClearValue.has_value() ? &optClearValue.value() : nullptr),
+	m_OptClearValue(optClearValue), m_CurrentState(D3D12_RESOURCE_STATE_COMMON){}
+
+aZero::RenderAPI::Texture2D::Texture2D(Texture2D&& other) noexcept
 {
-	D3D12_TEXTURE_BARRIER barrier;
-	barrier.SyncBefore = m_CurrentResourceState.Sync;
-	barrier.SyncAfter = newSync;
-	barrier.AccessBefore = m_CurrentResourceState.Access;
-	barrier.AccessAfter = newAccess;
-	barrier.LayoutBefore = m_CurrentResourceState.Layout;
-	barrier.LayoutAfter = newLayout;
-	barrier.pResource = m_Resource.Get();
-	barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
-	// todo ????
-	barrier.Subresources.FirstArraySlice = 0;
-	barrier.Subresources.FirstPlane = 0;
-	barrier.Subresources.IndexOrFirstMipLevel = 0;
-	barrier.Subresources.NumArraySlices = 1;
-	barrier.Subresources.NumMipLevels = 1;
-	barrier.Subresources.NumPlanes = 1;
+	*this = std::move(other);
+}
 
-	m_CurrentResourceState.Sync = newSync;
-	m_CurrentResourceState.Access = newAccess;
-	m_CurrentResourceState.Layout = newLayout;
-
-	return barrier;
+aZero::RenderAPI::Texture2D& aZero::RenderAPI::Texture2D::operator=(Texture2D&& other) noexcept
+{
+	ResourceBase::operator=(std::move(other));
+	std::swap(m_OptClearValue, other.m_OptClearValue);
+	std::swap(m_CurrentState, other.m_CurrentState);
+	return *this;
 }
 
 D3D12_RESOURCE_BARRIER aZero::RenderAPI::Texture2D::CreateTransition(D3D12_RESOURCE_STATES newState)
@@ -98,22 +48,4 @@ D3D12_RESOURCE_BARRIER aZero::RenderAPI::Texture2D::CreateTransition(D3D12_RESOU
 
 	m_CurrentState = newState;
 	return barrier;
-}
-
-void aZero::RenderAPI::Texture2D::Reset()
-{
-	m_OptClearValue = std::optional<D3D12_CLEAR_VALUE>{};
-	m_CurrentResourceState = ResourceState();
-	m_CurrentState = D3D12_RESOURCE_STATE_COMMON;
-	ResourceBase::Reset();
-}
-
-bool aZero::RenderAPI::Texture2D::IsDescValid(const Desc& desc) const
-{
-	if (desc.Width > 0 && desc.Height > 0 && desc.MipLevels > 0 && desc.Format != DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
-	{
-		return true;
-	}
-
-	return false;
 }

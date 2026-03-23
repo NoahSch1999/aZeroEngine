@@ -102,15 +102,15 @@ namespace aZero
 			{
 				const uint32_t frameBufferSize = 1000000;
 				const RenderAPI::Buffer::Desc frameBufferDesc(frameBufferSize, D3D12_HEAP_TYPE_UPLOAD);
-				m_FrameBuffer.Init(device, frameBufferDesc, &recycler);
+				m_FrameBuffer = RenderAPI::Buffer(device, frameBufferDesc, &recycler);
 				m_FrameAllocator = LinearAllocator<>((std::byte*)m_FrameBuffer.GetCPUAccessibleMemory(), frameBufferSize);
 
 				const uint32_t primitiveBufferSize = 1000000;
 				const RenderAPI::Buffer::Desc primitiveBufferDesc(primitiveBufferSize, D3D12_HEAP_TYPE_UPLOAD);
-				m_StaticMeshBuffer.Init(device, primitiveBufferDesc, &recycler);
-				m_PointLightBuffer.Init(device, primitiveBufferDesc, &recycler);
-				m_SpotLightBuffer.Init(device, primitiveBufferDesc, &recycler);
-				m_DirectionalLightBuffer.Init(device, primitiveBufferDesc, &recycler);
+				m_StaticMeshBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
+				m_PointLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
+				m_SpotLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
+				m_DirectionalLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 
 				m_StaticMeshDescriptor = resourceHeap.CreateDescriptor();
 				m_PointLightDescriptor = resourceHeap.CreateDescriptor();

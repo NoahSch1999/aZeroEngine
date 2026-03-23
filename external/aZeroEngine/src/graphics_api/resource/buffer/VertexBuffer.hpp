@@ -22,7 +22,7 @@ namespace aZero
 				void Init(ID3D12DeviceX* device, DescriptorHeap& heap, ResourceRecycler& resourceRecycler, const std::vector<T>& data, RenderAPI::CommandList& stagingCmdList)
 				{
 					Buffer::Desc desc(data.size() * sizeof(T), D3D12_HEAP_TYPE_DEFAULT);
-					m_Buffer.Init(device, desc, &resourceRecycler); 
+					m_Buffer = Buffer(device, desc, &resourceRecycler); 
 					
 					desc.AccessType = D3D12_HEAP_TYPE_UPLOAD;
 					Buffer uploadBuffer(device, desc, &resourceRecycler);

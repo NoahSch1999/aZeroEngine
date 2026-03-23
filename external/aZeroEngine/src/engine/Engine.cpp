@@ -12,13 +12,13 @@ namespace aZero
 			throw std::runtime_error("Engine() => Failed to create ID3D12DeviceX");
 		}
 
-		hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_Compiler));
+		hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(m_Compiler.GetAddressOf()));
 		if (FAILED(hr))
 		{
 			throw std::runtime_error("Engine() => Failed to create compiler");
 		}
 
-		m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_Compiler.p);
+		m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_Compiler.Get());
 	}
 
 	Engine::~Engine()

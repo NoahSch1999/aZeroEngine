@@ -13,7 +13,7 @@ namespace aZero
 	{
 		// todo Flytta in shaderparams i samtliga descriptions
 		// todo Check if input shaders are compiled
-		class ShaderPassBase
+		class ShaderPassBase : public NonCopyable
 		{
 		public:
 			// Currently not supporting CBV since we can't differentiate them from constants when reflecting. The performance of SRV is pretty much the same on modern hardware anyways.
@@ -115,6 +115,8 @@ namespace aZero
 			};
 
 			ShaderPassBase() = default;
+			ShaderPassBase(ShaderPassBase&& other) noexcept;
+			ShaderPassBase& operator=(ShaderPassBase&& other) noexcept;
 
 			bool IsCompiled() const { return m_PipelineState != nullptr; }
 
@@ -137,16 +139,6 @@ namespace aZero
 			}
 
 		protected:
-			// !note Reuse partially
-			void Reset()
-			{
-				m_PipelineState = nullptr;
-				m_RootSignature = nullptr;
-				m_BufferBindings.m_Bindings.clear();
-				m_BufferBindings.m_Name_To_Binding.clear();
-				m_ConstantBindings.m_Bindings.clear();
-				m_ConstantBindings.m_Name_To_Binding.clear();
-			}
 
 			void Bind(RenderAPI::CommandList& cmdList) const
 			{

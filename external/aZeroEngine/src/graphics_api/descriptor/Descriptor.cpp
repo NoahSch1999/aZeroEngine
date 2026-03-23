@@ -6,16 +6,6 @@ aZero::RenderAPI::Descriptor::Descriptor(const D3D12_CPU_DESCRIPTOR_HANDLE CpuHa
 	const DescriptorIndex HeapIndex, DescriptorHeap* OwningHeap)
 	:m_CpuHandle(CpuHandle), m_GpuHandle(GpuHandle), m_HeapIndex(HeapIndex), m_diOwningHeap(OwningHeap) {}
 
-void aZero::RenderAPI::Descriptor::Move(Descriptor& other)
-{
-	m_CpuHandle = other.m_CpuHandle;
-	m_GpuHandle = other.m_GpuHandle;
-	m_HeapIndex = other.m_HeapIndex;
-	m_diOwningHeap = other.m_diOwningHeap;
-	other.m_HeapIndex = Descriptor::InvalidDescriptorIndex;
-	other.m_diOwningHeap = nullptr;
-}
-
 aZero::RenderAPI::Descriptor::Descriptor()
 	:m_diOwningHeap(nullptr), m_HeapIndex(Descriptor::InvalidDescriptorIndex) {
 }
@@ -30,24 +20,14 @@ aZero::RenderAPI::Descriptor::~Descriptor()
 
 aZero::RenderAPI::Descriptor::Descriptor(Descriptor&& other) noexcept
 {
-	m_CpuHandle = other.m_CpuHandle;
-	m_GpuHandle = other.m_GpuHandle;
-	m_HeapIndex = other.m_HeapIndex;
-	m_diOwningHeap = other.m_diOwningHeap;
-
-	other.m_diOwningHeap = nullptr;
+	*this = std::move(other);
 }
 
 aZero::RenderAPI::Descriptor& aZero::RenderAPI::Descriptor::operator=(Descriptor&& other) noexcept
 {
-	if (this != &other)
-	{
-		m_CpuHandle = other.m_CpuHandle;
-		m_GpuHandle = other.m_GpuHandle;
-		m_HeapIndex = other.m_HeapIndex;
-		m_diOwningHeap = other.m_diOwningHeap;
-
-		other.m_diOwningHeap = nullptr;
-	}
+	std::swap(m_CpuHandle, other.m_CpuHandle);
+	std::swap(m_GpuHandle, other.m_GpuHandle);
+	std::swap(m_HeapIndex, other.m_HeapIndex);
+	std::swap(m_diOwningHeap, other.m_diOwningHeap);
 	return *this;
 }

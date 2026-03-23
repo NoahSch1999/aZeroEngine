@@ -1,5 +1,18 @@
 #include "MultiShaderPass.hpp"
 
+aZero::Pipeline::MultiShaderPass::MultiShaderPass(MultiShaderPass&& other) noexcept
+{
+	*this = std::move(other);
+}
+
+aZero::Pipeline::MultiShaderPass& aZero::Pipeline::MultiShaderPass::operator=(MultiShaderPass&& other) noexcept
+{
+	ShaderPassBase::operator=(std::move(other));
+	std::swap(m_RenderTargets, other.m_RenderTargets);
+	std::swap(m_DepthStencilTarget, other.m_DepthStencilTarget);
+	return *this;
+}
+
 void aZero::Pipeline::MultiShaderPass::Bind(RenderAPI::CommandList& cmdList) const
 {
 	ShaderPassBase::Bind(cmdList);

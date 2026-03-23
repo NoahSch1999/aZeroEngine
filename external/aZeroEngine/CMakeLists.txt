@@ -5,52 +5,7 @@ project (aZeroEngine VERSION 1.0)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-#set(BUILD_DXTK12_EFFECTS OFF CACHE BOOL "" FORCE)
-#set(BUILD_DXTK12_AUDIO OFF CACHE BOOL "" FORCE)
-#set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-
 include(FetchContent)
-
-file(GLOB ENGINE_HEADERS
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/**/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.hpp"
-)
-
-add_library(aZeroEngine
-    "src/misc/HelperFunctions.cpp"
-    "src/misc/STBIHack.cpp"
-    "src/renderer/Renderer.cpp"
-    "src/assets/Mesh.cpp" 
-    "src/assets/Material.cpp" 
-    "src/assets/Texture.cpp"
-    "src/engine/Engine.cpp" 
-    "src/scene/Scene.cpp" 
-    "src/pipeline/shader/Shader.cpp" 
-    "src/pipeline/shader/VertexShader.cpp" 
-    "src/pipeline/shader/PixelShader.cpp" 
-    "src/pipeline/shader/ComputeShader.cpp"
-    "src/pipeline/shader/MeshShader.cpp" 
-    "src/pipeline/pass/ComputeShaderPass.cpp" 
-    "src/pipeline/pass/VertexShaderPass.cpp"
-    "src/pipeline/pass/MeshShaderPass.cpp"
-    "src/pipeline/pass/ShaderPassBase.cpp"  
-    "src/pipeline/pass/MultiShaderPass.cpp" 
-    "src/scene/SceneProxy.cpp" 
-    "src/graphics_api/resource/ResourceBase.cpp"
-    "src/graphics_api/resource/buffer/Buffer.cpp" 
-    "src/graphics_api/resource/texture/Texture2D.cpp"
-    "src/graphics_api/command_recording/CommandList.cpp"
-    "src/graphics_api/command_recording/CommandQueue.cpp"
-    "src/graphics_api/descriptor/Descriptor.cpp"
-    "src/graphics_api/descriptor/DescriptorHeap.cpp"
-    "src/graphics_api/SwapChain.cpp")
-
-target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
-
-# PRE-PROCESSOR SETTINGS
-target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
 
 # Assimp
 FetchContent_Declare(Assimp
@@ -109,13 +64,12 @@ FetchContent_MakeAvailable(AgilitySDK)
 #
 
 # miniaudio
-FetchContent_Declare(
-    miniaudio
-    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
-    GIT_TAG        "master"
-)
-FetchContent_MakeAvailable(miniaudio)
-#
+#FetchContent_Declare(
+#    miniaudio
+#    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+#    GIT_TAG        "master"
+#)
+#FetchContent_MakeAvailable(miniaudio)
 
 # YAML-CPP
 FetchContent_Declare(
@@ -144,24 +98,53 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(aZero-Linear-Allocator)
 
 
+file(GLOB ENGINE_HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/**/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.hpp"
+)
+
+add_library(aZeroEngine
+    "src/misc/HelperFunctions.cpp"
+    "src/misc/STBIHack.cpp"
+    "src/renderer/Renderer.cpp"
+    "src/assets/Mesh.cpp" 
+    "src/assets/Material.cpp" 
+    "src/assets/Texture.cpp"
+    "src/engine/Engine.cpp" 
+    "src/scene/Scene.cpp" 
+    "src/pipeline/shader/Shader.cpp" 
+    "src/pipeline/shader/VertexShader.cpp" 
+    "src/pipeline/shader/PixelShader.cpp" 
+    "src/pipeline/shader/ComputeShader.cpp"
+    "src/pipeline/shader/MeshShader.cpp" 
+    "src/pipeline/pass/ComputeShaderPass.cpp" 
+    "src/pipeline/pass/VertexShaderPass.cpp"
+    "src/pipeline/pass/MeshShaderPass.cpp"
+    "src/pipeline/pass/ShaderPassBase.cpp"  
+    "src/pipeline/pass/MultiShaderPass.cpp" 
+    "src/scene/SceneProxy.cpp" 
+    "src/graphics_api/resource/ResourceBase.cpp"
+    "src/graphics_api/resource/buffer/Buffer.cpp" 
+    "src/graphics_api/resource/texture/Texture2D.cpp"
+    "src/graphics_api/command_recording/CommandList.cpp"
+    "src/graphics_api/command_recording/CommandQueue.cpp"
+    "src/graphics_api/descriptor/Descriptor.cpp"
+    "src/graphics_api/descriptor/DescriptorHeap.cpp"
+    "src/graphics_api/SwapChain.cpp")
+
+target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
+
+# PRE-PROCESSOR SETTINGS
+target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
+
 target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
-	PUBLIC ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/inc
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/directx-headers-src/include
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/directxtk12-src/Inc
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-build/include
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-src/include
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/yaml-cpp-src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-sparse-set-src/src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/miniaudio-src
-)
-
-target_link_directories(aZeroEngine
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-build/lib
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/assimp-build/contrib/zlib
-    PUBLIC ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/lib/x64
+    #PUBLIC ${CMAKE_BINARY_DIR}/_deps/miniaudio-src
 )
 
 # Linking
@@ -173,15 +156,14 @@ target_link_libraries(aZeroEngine
     PUBLIC DirectXTK12
     PUBLIC DXCompiler
     PUBLIC assimp
-    PUBLIC zlibstaticd
     PUBLIC yaml-cpp
-    PUBLIC miniaudio
+    #PUBLIC miniaudio
     #PUBLIC DXGIDebug.dll
 )
 #
 
 target_precompile_headers(aZeroEngine PUBLIC
-    <${CMAKE_BINARY_DIR}/_deps/miniaudio-src/miniaudio.h>
+    #<${CMAKE_BINARY_DIR}/_deps/miniaudio-src/miniaudio.h>
     <${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include/LinearAllocator.hpp>
 )
 

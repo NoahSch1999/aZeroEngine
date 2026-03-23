@@ -5,10 +5,16 @@ aZero::Pipeline::PixelShader::PixelShader(IDxcCompilerX& compiler, const std::st
 	this->CompileFromFile(compiler, path);
 }
 
-void aZero::Pipeline::PixelShader::Reset()
+aZero::Pipeline::PixelShader::PixelShader(PixelShader&& other) noexcept
 {
-	Shader::Reset();
-	m_RenderTargetMasks.clear();
+	*this = std::move(other);
+}
+
+aZero::Pipeline::PixelShader& aZero::Pipeline::PixelShader::operator=(PixelShader&& other) noexcept
+{
+	Shader::operator=(std::move(other));
+	std::swap(m_RenderTargetMasks, other.m_RenderTargetMasks);
+	return *this;
 }
 
 bool aZero::Pipeline::PixelShader::ValidateShaderTypeFromFilepath(const std::string& path)
@@ -42,7 +48,7 @@ aZero::Pipeline::PixelShader::NUM_RTV_CHANNELS aZero::Pipeline::PixelShader::Ref
 	return NUM_RTV_CHANNELS::R;
 }
 
-bool aZero::Pipeline::PixelShader::Reflect(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils)
+bool aZero::Pipeline::PixelShader::Reflect(Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils)
 {
 	Microsoft::WRL::ComPtr<ID3D12ShaderReflection> reflection;
 	if (!Shader::ReflectImpl(compilationResult, utils, D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_PIXEL, reflection))
@@ -124,19 +130,15 @@ bool aZero::Pipeline::PixelShader::CompileFromFile(IDxcCompilerX& compiler, cons
 		return false;
 	}
 
-	this->Reset();
-
-	CComPtr<IDxcResult> compilationResult;
-	CComPtr<IDxcUtils> utils;
+	Microsoft::WRL::ComPtr<IDxcResult> compilationResult;
+	Microsoft::WRL::ComPtr<IDxcUtils> utils;
 	if (!Shader::CompileImpl(compiler, path, m_TargetSM, compilationResult, utils))
 	{
-		this->Reset();
 		return false;
 	}
 
 	if (!this->Reflect(compilationResult, utils))
 	{
-		this->Reset();
 		return false;
 	}
 

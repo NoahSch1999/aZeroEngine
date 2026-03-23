@@ -5,10 +5,16 @@ aZero::Pipeline::ComputeShader::ComputeShader(IDxcCompilerX& compiler, const std
 	this->CompileFromFile(compiler, path);
 }
 
-void aZero::Pipeline::ComputeShader::Reset()
+aZero::Pipeline::ComputeShader::ComputeShader(ComputeShader&& other) noexcept
 {
-	Shader::Reset();
-	m_ThreadGroupCount = ThreadGroup();
+	*this = std::move(other);
+}
+
+aZero::Pipeline::ComputeShader& aZero::Pipeline::ComputeShader::operator=(ComputeShader&& other) noexcept
+{
+	Shader::operator=(std::move(other));
+	std::swap(m_ThreadGroupCount, other.m_ThreadGroupCount);
+	return *this;
 }
 
 bool aZero::Pipeline::ComputeShader::ValidateShaderTypeFromFilepath(const std::string& path)
@@ -16,7 +22,7 @@ bool aZero::Pipeline::ComputeShader::ValidateShaderTypeFromFilepath(const std::s
 	return path.ends_with(m_ShaderExtension);
 }
 
-bool aZero::Pipeline::ComputeShader::Reflect(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils)
+bool aZero::Pipeline::ComputeShader::Reflect(Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils)
 {
 	Microsoft::WRL::ComPtr<ID3D12ShaderReflection> reflection;
 	if (!Shader::ReflectImpl(compilationResult, utils, D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_ALL, reflection))
@@ -37,19 +43,15 @@ bool aZero::Pipeline::ComputeShader::CompileFromFile(IDxcCompilerX& compiler, co
 		return false;
 	}
 
-	this->Reset();
-
-	CComPtr<IDxcResult> compilationResult;
-	CComPtr<IDxcUtils> utils;
+	Microsoft::WRL::ComPtr<IDxcResult> compilationResult;
+	Microsoft::WRL::ComPtr<IDxcUtils> utils;
 	if (!Shader::CompileImpl(compiler, path, m_TargetSM, compilationResult, utils))
 	{
-		this->Reset();
 		return false;
 	}
 
 	if (!this->Reflect(compilationResult, utils))
 	{
-		this->Reset();
 		return false;
 	}
 

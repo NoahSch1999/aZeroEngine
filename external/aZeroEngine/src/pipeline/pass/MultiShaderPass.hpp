@@ -26,15 +26,16 @@ namespace aZero
 
 		class MultiShaderPass : public ShaderPassBase
 		{
+		public:
+			MultiShaderPass() = default;
+			MultiShaderPass(MultiShaderPass&& other) noexcept;
+			MultiShaderPass& operator=(MultiShaderPass&& other) noexcept;
+
+			void Bind(RenderAPI::CommandList& cmdList) const;
+
 		protected:
 			DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*> m_RenderTargets;
 			std::optional<RenderAPI::Descriptor*> m_DepthStencilTarget;
-
-			void Reset()
-			{
-				m_RenderTargets = DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*>();
-				m_DepthStencilTarget.reset();
-			}
 
 			template<typename ShaderType, typename DescriptionType>
 			void GenerateBindings(BindingCombo<BufferBinding>& bufferBindings,
@@ -133,11 +134,6 @@ namespace aZero
 
 				return true;
 			}
-
-		public:
-			MultiShaderPass() = default;
-
-			void Bind(RenderAPI::CommandList& cmdList) const;
 		};
 	}
 }

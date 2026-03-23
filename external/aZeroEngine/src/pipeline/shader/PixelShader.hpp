@@ -14,6 +14,16 @@ namespace aZero
 			friend class NewRenderPass;
 			friend class VertexShaderPass;
 			friend class MeshShaderPass;
+		public:
+			PixelShader() = default;
+			PixelShader(IDxcCompilerX& compiler, const std::string& path);
+			PixelShader(PixelShader&& other) noexcept;
+			PixelShader& operator=(PixelShader&& other) noexcept;
+
+			bool CompileFromFile(IDxcCompilerX& compiler, const std::string& path) override;
+			uint32_t NumRenderTargets() const { return m_RenderTargetMasks.size(); }
+			bool ValidateRenderTargetDXGIs(std::span<DXGI_FORMAT> formats);
+
 		private:
 			enum NUM_RTV_CHANNELS { R = 1, RG = 2, RGB = 3, RGBA = 4 };
 
@@ -26,22 +36,14 @@ namespace aZero
 			static constexpr const char* m_TargetSM = "ps_6_6";
 			static constexpr const char* m_ShaderExtension = ".ps.hlsl";
 
-			void Reset();
-
 			bool ValidateShaderTypeFromFilepath(const std::string& path) override;
 
 			NUM_RTV_CHANNELS ReflectionMaskToNumComponents(BYTE channelMask);
 
-			bool Reflect(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils);
+			bool Reflect(Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils);
 
 			bool ValidateFormatWithMask(DXGI_FORMAT format, NUM_RTV_CHANNELS numRtvComponents);
 
-		public:
-			PixelShader() = default;
-			PixelShader(IDxcCompilerX& compiler, const std::string& path);
-			bool CompileFromFile(IDxcCompilerX& compiler, const std::string& path) override;
-			uint32_t NumRenderTargets() const { return m_RenderTargetMasks.size(); }
-			bool ValidateRenderTargetDXGIs(std::span<DXGI_FORMAT> formats);
 		};
 	}
 }

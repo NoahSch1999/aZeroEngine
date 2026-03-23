@@ -11,7 +11,6 @@ namespace aZero
 	{
 		using DescriptorIndex = uint32_t;
 
-		// todo Make option to update by creating a version that is stored in a staging buffer and then copied using a command list
 		class Descriptor : public NonCopyable
 		{
 			friend class DescriptorHeap;
@@ -29,13 +28,13 @@ namespace aZero
 			bool IsValid() const { return m_HeapIndex != Descriptor::InvalidDescriptorIndex; }
 
 		private:
+			// TODO: Change so it's not a raw ptr. It needs to be valid if the heap is moved
 			DescriptorHeap* m_diOwningHeap = nullptr;
 			DescriptorIndex m_HeapIndex = Descriptor::InvalidDescriptorIndex;
 			D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
 			D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle;
 
 			Descriptor(const D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle, const D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle, const DescriptorIndex HeapIndex, DescriptorHeap* OwningHeap);
-			void Move(Descriptor& other);
 		};
 	}
 }

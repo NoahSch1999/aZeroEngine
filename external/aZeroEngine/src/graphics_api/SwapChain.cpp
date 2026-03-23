@@ -1,6 +1,6 @@
 #include "SwapChain.hpp"
 
-void aZero::RenderAPI::SwapChain::Init(HWND wndHandle, RenderAPI::CommandQueue& cmdQueue, const DXM::Vector2& backBufferDimensions, uint32_t numBackBuffers, DXGI_FORMAT format)
+aZero::RenderAPI::SwapChain::SwapChain(HWND wndHandle, RenderAPI::CommandQueue& cmdQueue, const DXM::Vector2& backBufferDimensions, uint32_t numBackBuffers, DXGI_FORMAT format)
 {
 	// If it already was enable we sync to enable reinit without having to worry about the backbuffers being in use.
 	// We also don't create the factory since it can be reused.
@@ -58,7 +58,31 @@ void aZero::RenderAPI::SwapChain::Init(HWND wndHandle, RenderAPI::CommandQueue& 
 
 	this->PopulateBackBuffers();
 
-	di_CmdQueue = &cmdQueue;
+	m_diCmdQueue = &cmdQueue;
+}
+
+aZero::RenderAPI::SwapChain::~SwapChain()
+{
+	// Note - This might be dangerous... might change this later...
+	if (m_diCmdQueue)
+	{
+		m_diCmdQueue->SignalAndFlush();
+	}
+}
+
+aZero::RenderAPI::SwapChain::SwapChain(SwapChain&& other) noexcept
+{
+	*this = std::move(other);
+}
+
+aZero::RenderAPI::SwapChain& aZero::RenderAPI::SwapChain::operator=(SwapChain&& other) noexcept
+{
+	std::swap(m_SwapChain, other.m_SwapChain);
+	std::swap(m_Factory, other.m_Factory);
+	std::swap(m_diCmdQueue, other.m_diCmdQueue);
+	std::swap(m_BackBuffers, other.m_BackBuffers);
+	std::swap(m_NextBackBuffer, other.m_NextBackBuffer);
+	return *this;
 }
 
 void aZero::RenderAPI::SwapChain::Resize(RenderAPI::CommandQueue& cmdQueue, const DXM::Vector2& backBufferDimensions)

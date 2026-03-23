@@ -6,55 +6,47 @@
 
 #include "graphics_api/D3D12Include.hpp"
 #include "misc/RelativePathMacros.hpp"
+#include "misc/NonCopyable.hpp"
 
 // todo Make all shaders not get changed if compilation fails (similar to how passes are implemented when compiling them)
 namespace aZero
 {
 	namespace Pipeline
 	{
-		class Shader
+		class Shader : public NonCopyable
 		{
 			friend class ShaderPassBase;
 			friend class MultiShaderPass;
 			friend class VertexShaderPass;
 			friend class MeshShaderPass;
 			friend class ComputeShaderPass;
-		private:
-			CComPtr<IDxcBlob> m_CompiledShader;
-
+		public:
 			struct ShaderResourceInfo
 			{
 				uint32_t m_RootIndex;
 				D3D12_ROOT_PARAMETER_TYPE m_ResourceType;
 				uint32_t m_Num32BitConstants = 0;
 			};
-			std::unordered_map<std::string, ShaderResourceInfo> m_ResourceNameToInformation;
-			std::vector<D3D12_ROOT_PARAMETER> m_RootParameters;
-
-		protected:
-			void Reset();
-
-			bool CompileImpl(IDxcCompilerX& compiler, const std::string& path, const std::string& targetSM, CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils);
-
-			bool ReflectImpl(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils, D3D12_SHADER_VISIBILITY shaderVisibility, Microsoft::WRL::ComPtr<ID3D12ShaderReflection>& reflection);
-
-			virtual bool ValidateShaderTypeFromFilepath(const std::string& path) = 0;
-		public:
 
 			Shader() = default;
+			Shader(Shader&& other) noexcept;
+			Shader& operator=(Shader&& other) noexcept;
+
 			virtual ~Shader() {}
 
 			virtual bool CompileFromFile(IDxcCompilerX& compiler, const std::string& path) = 0;
 			const std::unordered_map<std::string, ShaderResourceInfo>& GetResourceBindings() const { return m_ResourceNameToInformation; }
 			const std::vector<D3D12_ROOT_PARAMETER>& GetRootParameters() const { return m_RootParameters; }
 
-		public:
-			struct ThreadGroup
-			{
-				uint32_t x = 0;
-				uint32_t y = 0;
-				uint32_t z = 0;
-			};
+		private:
+			Microsoft::WRL::ComPtr<IDxcBlob> m_CompiledShader;
+			std::unordered_map<std::string, ShaderResourceInfo> m_ResourceNameToInformation;
+			std::vector<D3D12_ROOT_PARAMETER> m_RootParameters;
+
+		protected:
+			bool CompileImpl(IDxcCompilerX& compiler, const std::string& path, const std::string& targetSM, Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils);
+			bool ReflectImpl(Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils, D3D12_SHADER_VISIBILITY shaderVisibility, Microsoft::WRL::ComPtr<ID3D12ShaderReflection>& reflection);
+			virtual bool ValidateShaderTypeFromFilepath(const std::string& path) = 0;
 		};
 	}
 }

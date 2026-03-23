@@ -1,5 +1,17 @@
 #include "VertexShaderPass.hpp"
 
+aZero::Pipeline::VertexShaderPass::VertexShaderPass(VertexShaderPass&& other) noexcept
+{
+	*this = std::move(other);
+}
+
+aZero::Pipeline::VertexShaderPass& aZero::Pipeline::VertexShaderPass::operator=(VertexShaderPass&& other) noexcept
+{
+	MultiShaderPass::operator=(std::move(other));
+	std::swap(m_TopologyType, other.m_TopologyType);
+	return *this;
+}
+
 bool aZero::Pipeline::VertexShaderPass::CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc;

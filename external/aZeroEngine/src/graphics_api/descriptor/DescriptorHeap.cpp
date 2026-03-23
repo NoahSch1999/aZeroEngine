@@ -15,39 +15,47 @@ void aZero::RenderAPI::DescriptorHeap::OnDescriptorDestructor(Descriptor& descri
 
 aZero::RenderAPI::DescriptorHeap::DescriptorHeap(ID3D12DeviceX* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible)
 {
-	this->Init(device, diCallbackExecutor, type, numDescriptors, gpuVisible);
+	D3D12_DESCRIPTOR_HEAP_DESC desc;
+	desc.NumDescriptors = numDescriptors;
+	desc.Type = type;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	desc.NodeMask = 0;
+
+	if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV || type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+	{
+		desc.Flags = gpuVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	}
+
+	const HRESULT res = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(m_Heap.GetAddressOf()));
+	if (FAILED(res))
+	{
+		throw std::invalid_argument("DescriptorHeap::Init() => Failed to create heap");
+	}
+
+	m_CpuHeapStart = m_Heap->GetCPUDescriptorHandleForHeapStart();
+	if (desc.Flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
+	{
+		m_GpuHeapStart = m_Heap->GetGPUDescriptorHandleForHeapStart();
+	}
+
+	m_DescriptorSize = device->GetDescriptorHandleIncrementSize(type);
+	m_diCallbackExecutor = &diCallbackExecutor;
 }
 
-void aZero::RenderAPI::DescriptorHeap::Init(ID3D12DeviceX* device, CallbackExecutor& diCallbackExecutor, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, const bool gpuVisible)
+aZero::RenderAPI::DescriptorHeap::DescriptorHeap(DescriptorHeap&& other) noexcept
 {
-	if (!m_Heap)
-	{
-		D3D12_DESCRIPTOR_HEAP_DESC desc;
-		desc.NumDescriptors = numDescriptors;
-		desc.Type = type;
-		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		desc.NodeMask = 0;
+	*this = std::move(other);
+}
 
-		if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV || type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
-		{
-			desc.Flags = gpuVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		}
-
-		const HRESULT res = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(m_Heap.GetAddressOf()));
-		if (FAILED(res))
-		{
-			throw std::invalid_argument("DescriptorHeap::Init() => Failed to create heap");
-		}
-
-		m_CpuHeapStart = m_Heap->GetCPUDescriptorHandleForHeapStart();
-		if (desc.Flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
-		{
-			m_GpuHeapStart = m_Heap->GetGPUDescriptorHandleForHeapStart();
-		}
-
-		m_DescriptorSize = device->GetDescriptorHandleIncrementSize(type);
-		m_diCallbackExecutor = &diCallbackExecutor;
-	}
+aZero::RenderAPI::DescriptorHeap& aZero::RenderAPI::DescriptorHeap::operator=(DescriptorHeap&& other) noexcept
+{
+	std::swap(m_Heap, other.m_Heap);
+	std::swap(m_Freelist, other.m_Freelist);
+	std::swap(m_diCallbackExecutor, other.m_diCallbackExecutor);
+	std::swap(m_DescriptorSize, other.m_DescriptorSize);
+	std::swap(m_CpuHeapStart, other.m_CpuHeapStart);
+	std::swap(m_GpuHeapStart, other.m_GpuHeapStart);
+	return *this;
 }
 
 aZero::RenderAPI::Descriptor aZero::RenderAPI::DescriptorHeap::CreateDescriptor()
@@ -70,14 +78,6 @@ aZero::RenderAPI::Descriptor aZero::RenderAPI::DescriptorHeap::CreateDescriptor(
 	return Descriptor(cpuHandle, gpuHandle, descriptorIndex, this);
 }
 
-void aZero::RenderAPI::DescriptorHeap::DestroyDescriptor(Descriptor& descriptor)
-{
-	if (descriptor.m_diOwningHeap == this)
-	{
-		descriptor = Descriptor();
-	}
-}
-
 D3D12_DESCRIPTOR_HEAP_TYPE aZero::RenderAPI::DescriptorHeap::GetType() const
 {
 	const D3D12_DESCRIPTOR_HEAP_DESC desc = m_Heap->GetDesc();
@@ -98,11 +98,5 @@ bool aZero::RenderAPI::DescriptorHeap::IsGpuVisible() const
 
 uint32_t aZero::RenderAPI::DescriptorHeap::GetDescriptorSize() const
 {
-	ID3D12DeviceX* device;
-	const HRESULT getDeviceRes = m_Heap->GetDevice(IID_PPV_ARGS(&device));
-	if (FAILED(getDeviceRes))
-	{
-		throw std::invalid_argument("Failed to get descriptor heap device.");
-	}
-	return device->GetDescriptorHandleIncrementSize(this->GetType());
+	return m_DescriptorSize;
 }

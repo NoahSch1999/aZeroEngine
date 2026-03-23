@@ -2,34 +2,20 @@
 
 aZero::RenderAPI::CommandList::CommandList(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type)
 {
-	if (!m_Allocator && !m_CommandList)
+	const HRESULT commandAllocRes = device->CreateCommandAllocator(type, IID_PPV_ARGS(m_Allocator.GetAddressOf()));
+	if (FAILED(commandAllocRes))
 	{
-		const HRESULT commandAllocRes = device->CreateCommandAllocator(type, IID_PPV_ARGS(m_Allocator.GetAddressOf()));
-		if (FAILED(commandAllocRes))
-		{
-			throw std::invalid_argument("Failed to create command allocator");
-		}
-
-		m_Type = type;
-
-		const HRESULT commandListRes = device->CreateCommandList(0, m_Type, m_Allocator.Get(), nullptr, IID_PPV_ARGS(&m_CommandList));
-		if (FAILED(commandListRes))
-		{
-			throw std::invalid_argument("Failed to create command list");
-		}
+		throw std::invalid_argument("Failed to create command allocator");
 	}
-}
 
-void aZero::RenderAPI::CommandList::Move(CommandList& other)
-{
-	m_CommandList = other.m_CommandList;
-	m_Allocator = other.m_Allocator;
-	m_IsRecording = other.m_IsRecording;
-	m_Type = other.m_Type;
-	other.m_CommandList = nullptr;
-	other.m_Allocator = nullptr;
-	other.m_IsRecording = false;
-	other.m_Type = D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_NONE;
+
+	const HRESULT commandListRes = device->CreateCommandList(0, type, m_Allocator.Get(), nullptr, IID_PPV_ARGS(m_CommandList.GetAddressOf()));
+	if (FAILED(commandListRes))
+	{
+		throw std::invalid_argument("Failed to create command list");
+	}
+
+	m_Type = type;
 }
 
 void aZero::RenderAPI::CommandList::StartRecording()
@@ -52,15 +38,15 @@ void aZero::RenderAPI::CommandList::StopRecording()
 
 aZero::RenderAPI::CommandList::CommandList(CommandList&& other) noexcept
 {
-	this->Move(other);
+	*this = std::move(other);
 }
 
 aZero::RenderAPI::CommandList& aZero::RenderAPI::CommandList::operator=(CommandList&& other) noexcept
 {
-	if (this != &other)
-	{
-		this->Move(other);
-	}
+	std::swap(m_CommandList, other.m_CommandList);
+	std::swap(m_Allocator, other.m_Allocator);
+	std::swap(m_IsRecording, other.m_IsRecording);
+	std::swap(m_Type, other.m_Type);
 	return *this;
 }
 

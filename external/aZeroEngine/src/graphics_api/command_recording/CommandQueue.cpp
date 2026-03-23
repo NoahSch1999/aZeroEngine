@@ -2,33 +2,37 @@
 
 aZero::RenderAPI::CommandQueue::CommandQueue(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type)
 {
-	this->Init(device, type);
+	D3D12_COMMAND_QUEUE_DESC desc;
+	desc.Type = type;
+	desc.NodeMask = 0;
+	desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+
+	const HRESULT commandQueueRes = device->CreateCommandQueue(&desc, IID_PPV_ARGS(m_Queue.GetAddressOf()));
+	if (FAILED(commandQueueRes))
+	{
+		throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue");
+	}
+
+	const HRESULT fenceRes = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_Fence.GetAddressOf()));
+	if (FAILED(fenceRes))
+	{
+		throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue fence");
+	}
 }
 
-void aZero::RenderAPI::CommandQueue::Init(ID3D12DeviceX* device, D3D12_COMMAND_LIST_TYPE type)
+aZero::RenderAPI::CommandQueue::CommandQueue(CommandQueue&& other) noexcept
 {
-	if (!m_Queue)
-	{
-		D3D12_COMMAND_QUEUE_DESC desc;
-		desc.Type = type;
-		desc.NodeMask = 0;
-		desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-		desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	*this = std::move(other);
+}
 
-		const HRESULT commandQueueRes = device->CreateCommandQueue(&desc, IID_PPV_ARGS(m_Queue.GetAddressOf()));
-		if (FAILED(commandQueueRes))
-		{
-			throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue");
-		}
-
-		const HRESULT fenceRes = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_Fence.GetAddressOf()));
-		if (FAILED(fenceRes))
-		{
-			throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue fence");
-		}
-
-		m_Type = type;
-	}
+aZero::RenderAPI::CommandQueue& aZero::RenderAPI::CommandQueue::operator=(CommandQueue&& other) noexcept
+{
+	std::swap(m_Queue, other.m_Queue);
+	std::swap(m_Fence, other.m_Fence);
+	std::swap(m_LatestFenceValue, other.m_LatestFenceValue);
+	std::swap(m_NextFenceValue, other.m_NextFenceValue);
+	return *this;
 }
 
 uint64_t aZero::RenderAPI::CommandQueue::Signal()

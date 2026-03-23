@@ -5,11 +5,17 @@ aZero::Pipeline::VertexShader::VertexShader(IDxcCompilerX& compiler, const std::
 	this->CompileFromFile(compiler, path);
 }
 
-void aZero::Pipeline::VertexShader::Reset()
+aZero::Pipeline::VertexShader::VertexShader(VertexShader&& other) noexcept
 {
-	Shader::Reset();
-	m_InputElementDescs.clear();
-	m_InputElementSemanticNames.clear();
+	*this = std::move(other);
+}
+
+aZero::Pipeline::VertexShader& aZero::Pipeline::VertexShader::operator=(VertexShader&& other) noexcept
+{
+	Shader::operator=(std::move(other));
+	std::swap(m_InputElementDescs, other.m_InputElementDescs);
+	std::swap(m_InputElementSemanticNames, other.m_InputElementSemanticNames);
+	return *this;
 }
 
 bool aZero::Pipeline::VertexShader::ValidateShaderTypeFromFilepath(const std::string& path)
@@ -44,7 +50,7 @@ DXGI_FORMAT aZero::Pipeline::VertexShader::ReflectionMaskToDXGIFormat(BYTE Mask)
 	return Format;
 }
 
-bool aZero::Pipeline::VertexShader::Reflect(CComPtr<IDxcResult>& compilationResult, CComPtr<IDxcUtils>& utils)
+bool aZero::Pipeline::VertexShader::Reflect(Microsoft::WRL::ComPtr<IDxcResult>& compilationResult, Microsoft::WRL::ComPtr<IDxcUtils>& utils)
 {
 	Microsoft::WRL::ComPtr<ID3D12ShaderReflection> reflection;
 	if (!Shader::ReflectImpl(compilationResult, utils, D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_VERTEX, reflection))
@@ -87,19 +93,15 @@ bool aZero::Pipeline::VertexShader::CompileFromFile(IDxcCompilerX& compiler, con
 		return false;
 	}
 
-	this->Reset();
-
-	CComPtr<IDxcResult> compilationResult;
-	CComPtr<IDxcUtils> utils;
+	Microsoft::WRL::ComPtr<IDxcResult> compilationResult;
+	Microsoft::WRL::ComPtr<IDxcUtils> utils;
 	if (!Shader::CompileImpl(compiler, path, m_TargetSM, compilationResult, utils))
 	{
-		this->Reset();
 		return false;
 	}
 
 	if (!this->Reflect(compilationResult, utils))
 	{
-		this->Reset();
 		return false;
 	}
 

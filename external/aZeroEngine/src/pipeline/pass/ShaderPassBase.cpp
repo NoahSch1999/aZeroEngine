@@ -1,5 +1,19 @@
 #include "ShaderPassBase.hpp"
 
+aZero::Pipeline::ShaderPassBase::ShaderPassBase(ShaderPassBase&& other) noexcept
+{
+	*this = std::move(other);
+}
+
+aZero::Pipeline::ShaderPassBase& aZero::Pipeline::ShaderPassBase::operator=(ShaderPassBase&& other) noexcept
+{
+	std::swap(m_PipelineState, other.m_PipelineState);
+	std::swap(m_RootSignature, other.m_RootSignature);
+	std::swap(m_BufferBindings, other.m_BufferBindings);
+	std::swap(m_ConstantBindings, other.m_ConstantBindings);
+	return *this;
+}
+
 bool aZero::Pipeline::ShaderPassBase::CreateRootSignatureImpl(ID3D12DeviceX* device, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature, const std::vector<D3D12_ROOT_PARAMETER>& rootParams) const
 {
 	// todo Fill in?
