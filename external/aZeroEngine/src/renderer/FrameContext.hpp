@@ -4,7 +4,9 @@
 #include "graphics_api/descriptor/DescriptorHeap.hpp"
 #include "graphics_api/command_recording/CommandList.hpp"
 #include "graphics_api/command_recording/CommandQueue.hpp"
-#include "LinearAllocator.hpp"
+#include "LinearFrameAllocator.hpp"
+#include "graphics_api/descriptor/ResourceView.hpp"
+#include "scene/SceneRenderData.hpp"
 
 namespace aZero
 {
@@ -19,16 +21,19 @@ namespace aZero
 			//		Then there needs to be a dedicated vram-only buffer, per primitive, that the compute shader writes to.
 			// todo Create shader resource views for them and access them bindlessly in the shaders
 			RenderAPI::Buffer m_StaticMeshBuffer;
-			RenderAPI::Descriptor m_StaticMeshDescriptor;
+			RenderAPI::ShaderResourceView m_StaticMeshDescriptor;
 
 			RenderAPI::Buffer m_PointLightBuffer;
-			RenderAPI::Descriptor m_PointLightDescriptor;
+			RenderAPI::ShaderResourceView m_PointLightDescriptor;
 
 			RenderAPI::Buffer m_SpotLightBuffer;
-			RenderAPI::Descriptor m_SpotLightDescriptor;
+			RenderAPI::ShaderResourceView m_SpotLightDescriptor;
 
 			RenderAPI::Buffer m_DirectionalLightBuffer;
-			RenderAPI::Descriptor m_DirectionalLightDescriptor;
+			RenderAPI::ShaderResourceView m_DirectionalLightDescriptor;
+
+			RenderAPI::Buffer m_CameraBuffer;
+			RenderAPI::ShaderResourceView m_CameraDescriptor;
 			//
 
 			// Commandlist stuff
@@ -38,40 +43,23 @@ namespace aZero
 			//
 
 			// Per-frame linear staging allocator that stores allocations and can record them at a later point
-			LinearAllocator<> m_FrameAllocator;
-
-			struct FrameAllocation
-			{
-				// TODO: Make it so LinearAllocator has the option to allocate without using templates for the handle 
-				//				This is to allow arbitrary allocation sizes that can be stored inside std::vector<FrameAllocation> m_FrameAllocations;
-				LinearAllocator<>::Handle<int> allocation;
-				uint32_t dstOffset;
-				RenderAPI::Buffer* buffer;
-			};
-			std::vector<FrameAllocation> m_FrameAllocations;
-			RenderAPI::Buffer m_FrameBuffer;
+			LinearFrameAllocator m_FrameAllocator;
 
 			template<typename T>
 			void AddAllocation(const T& data, RenderAPI::Buffer& buffer, uint32_t dstOffset)
 			{
-				FrameAllocation allocation;
-				//allocation.allocation = m_FrameAllocator.Allocate(sizeof(T));
-				allocation.buffer = &buffer;
-				allocation.dstOffset = dstOffset;
-				m_FrameAllocations.emplace_back(allocation);
+				m_FrameAllocator.AddAllocation(&data, &buffer, dstOffset, sizeof(T));
 			}
 
 			// !note To be executed before rendering a scene since it might contain asset upload data and other things
 			void RecordFrameAllocations(RenderAPI::CommandList& cmdList)
 			{
-				for (const FrameAllocation& allocation : m_FrameAllocations)
-				{
-					//cmdList->CopyBufferRegion(allocation.buffer->GetResource(), allocation.dstOffset, m_FrameBuffer.GetResource(), allocation.allocation, allocation.allocation.Size);
-				}
+				m_FrameAllocator.RecordAllocations(cmdList);
 			}
 			//
 
-			uint64_t m_FrameCompleteSignal; // Latest signal that is related to the context - Should be used to find when the frame context is available again
+			// TODO: Is this OK?
+			uint64_t m_FrameCompleteSignal = 0; // Latest signal that is related to the context - Should be used to find when the frame context is available again
 
 			// Update with this for each new commandlist that is executed during the frame
 			void SetLatestSignal(uint64_t signal)
@@ -101,31 +89,38 @@ namespace aZero
 			void Init(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
 			{
 				const uint32_t frameBufferSize = 1000000;
-				const RenderAPI::Buffer::Desc frameBufferDesc(frameBufferSize, D3D12_HEAP_TYPE_UPLOAD);
-				m_FrameBuffer = RenderAPI::Buffer(device, frameBufferDesc, &recycler);
-				m_FrameAllocator = LinearAllocator<>((std::byte*)m_FrameBuffer.GetCPUAccessibleMemory(), frameBufferSize);
+				m_FrameAllocator = LinearFrameAllocator(device, frameBufferSize, recycler);
 
-				const uint32_t primitiveBufferSize = 1000000;
-				const RenderAPI::Buffer::Desc primitiveBufferDesc(primitiveBufferSize, D3D12_HEAP_TYPE_UPLOAD);
+				RenderAPI::Buffer::Desc primitiveBufferDesc(0, D3D12_HEAP_TYPE_UPLOAD);
+				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::StaticMesh) * 1000;
 				m_StaticMeshBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
+				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::PointLight) * 1000;
 				m_PointLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
+				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::SpotLight) * 1000;
 				m_SpotLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
+				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::DirectionalLight) * 100;
 				m_DirectionalLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 
-				m_StaticMeshDescriptor = resourceHeap.CreateDescriptor();
-				m_PointLightDescriptor = resourceHeap.CreateDescriptor();
-				m_SpotLightDescriptor = resourceHeap.CreateDescriptor();
-				m_DirectionalLightDescriptor = resourceHeap.CreateDescriptor();
+				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::Camera) * 100;
+				m_CameraBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 
 				m_DirectCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 				m_CopyCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COPY);
 				m_ComputeCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
+
+				m_StaticMeshDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_StaticMeshBuffer, 1000, sizeof(Scene::RenderData::StaticMesh), 0);
+				m_CameraDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_CameraBuffer, 100, sizeof(Scene::RenderData::Camera), 0);
+
+#ifdef USE_DEBUG
+				m_StaticMeshBuffer.GetResource()->SetName(L"m_StaticMeshBuffer");
+				m_CameraBuffer.GetResource()->SetName(L"m_CameraBuffer");
+#endif
 			};
 
 			// Used on engine frame beginning
 			void Begin()
 			{
-				//m_FrameAllocator.Reset();
+				m_FrameAllocator.Reset();
 				m_DirectCmdList.ClearCommandBuffer();
 				m_CopyCmdList.ClearCommandBuffer();
 				m_ComputeCmdList.ClearCommandBuffer();

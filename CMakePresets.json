@@ -13,7 +13,9 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
-        "USE_DEBUG": true
+        "USE_DEBUG": true,
+        "RUN_TESTS": true,
+        "CMAKE_BUILD_TYPE": "Debug"
       },
       "vendor": {
         "https://sites.google.com/view/noah-schierenbeck/start": {
@@ -28,7 +30,8 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
-        "USE_DEBUG": false
+        "USE_DEBUG": false,
+        "CMAKE_BUILD_TYPE": "Release"
       },
       "vendor": {
         "https://sites.google.com/view/noah-schierenbeck/start": {

@@ -25,6 +25,11 @@ namespace aZero
 
 			bool IsDescValid(const Desc& desc);
 			void* GetCPUAccessibleMemory() const { return m_MappedPtr; }
+
+			void Write(const void* data, size_t size, size_t offset)
+			{
+				memcpy((char*)m_MappedPtr + offset, data, size);
+			}
 		private:
 			void* m_MappedPtr = nullptr; // Will point to the cpu accessible memory unless the D3D12_HEAP_TYPE is D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT, in which case it will be nullptr.
 		};

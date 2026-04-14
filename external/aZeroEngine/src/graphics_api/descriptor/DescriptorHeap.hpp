@@ -32,7 +32,12 @@ namespace aZero
 			ID3D12DescriptorHeap* Get() const { return m_Heap.Get(); }
 			bool IsGpuVisible() const;
 			bool IsInitiated() const { return m_Heap != nullptr; }
-			ID3D12DeviceX* GetDevice() const;
+			ID3D12DeviceX* GetDevice() const 
+			{
+				ID3D12DeviceX* device;
+				m_Heap->GetDevice(IID_PPV_ARGS(&device));
+				return device;
+			}
 
 		private:
 			uint32_t m_DescriptorSize;

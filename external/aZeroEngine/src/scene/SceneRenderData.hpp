@@ -1,5 +1,6 @@
 #pragma once
 #include "ecs/aZeroECS.hpp"
+#include "misc/HelperFunctions.hpp"
 
 namespace aZero
 {
@@ -7,13 +8,13 @@ namespace aZero
 	{
 		struct RenderData
 		{
+			using BatchID = uint32_t;
+			constexpr static BatchID InvalidBatchID = std::numeric_limits<BatchID>::max();
+
 			struct StaticMesh
 			{
-				DXM::Matrix m_Transform = DXM::Matrix::Identity;
-				Asset::RenderID m_MeshIndex = Asset::InvalidRenderID;
-				Asset::RenderID  m_MaterialIndex = Asset::InvalidRenderID;
-				DirectX::BoundingSphere m_BoundingSphere;
-				uint32_t m_NumVertices = 0;
+				DXM::Matrix Transform;
+				uint32_t BatchID;
 
 				StaticMesh() = default;
 				StaticMesh(const ECS::TransformComponent& transform, const ECS::StaticMeshComponent& staticMesh)
@@ -25,27 +26,14 @@ namespace aZero
 						&& mesh->GetRenderID() != std::numeric_limits<Asset::RenderID>::max()
 						&& material->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
 					{
-						m_MeshIndex = mesh->GetRenderID();
-						m_MaterialIndex = material->GetRenderID();
-						m_Transform = transform.GetTransform();
-						m_NumVertices = mesh->m_VertexData.Positions.size();
-
-						// TODO: Change this
-						const float XAxisScale = m_Transform.m[0][0];
-						const float YAxisScale = m_Transform.m[1][1];
-						const float ZAxisScale = m_Transform.m[2][2];
-						const float MaxScaleAxis = std::max(abs(XAxisScale), std::max(abs(YAxisScale), abs(ZAxisScale)));
-						m_BoundingSphere = DirectX::BoundingSphere(
-							{ m_Transform.Translation().x, m_Transform.Translation().y, m_Transform.Translation().z },
-							mesh->m_BoundingSphereRadius * MaxScaleAxis
-						);
-						//
+						Transform = transform.GetTransform();
+						BatchID = Helper::Pack16To32(staticMesh.GetMesh()->GetRenderID(), staticMesh.GetMaterial()->GetRenderID());
 					}
 				}
 
 				bool IsRenderReady() const
 				{
-					return m_MeshIndex != Asset::InvalidRenderID && m_MaterialIndex != Asset::InvalidRenderID;
+					return BatchID != InvalidBatchID;
 				}
 			};
 

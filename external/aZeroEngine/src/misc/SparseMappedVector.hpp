@@ -41,6 +41,29 @@ namespace aZero
 				}
 			}
 
+			void AddOrUpdate(IDType ID, const Type& Primitive)
+			{
+				if (auto Index = m_ID_To_Index.find(ID); Index != m_ID_To_Index.end())
+				{
+					m_Data.at(Index->second) = Primitive;
+				}
+				else
+				{
+					m_ID_To_Index[ID] = m_CurrentLastIndex;
+					m_Index_To_ID[m_CurrentLastIndex] = ID;
+
+					if (m_Data.size() > m_CurrentLastIndex)
+					{
+						m_Data.at(m_CurrentLastIndex) = Primitive;
+					}
+					else
+					{
+						m_Data.emplace_back(Primitive);
+					}
+					m_CurrentLastIndex++;
+				}
+			}
+
 			void Remove(IDType ID)
 			{
 				if (auto Index = m_ID_To_Index.find(ID); Index != m_ID_To_Index.end())
@@ -83,7 +106,7 @@ namespace aZero
 				}
 			}
 
-			const std::span<const Type> GetData() const { return std::span{ m_Data }; }
+			const std::vector<Type>& GetData() const { return m_Data; }
 
 			bool Contains(const IDType& ID) const { return m_ID_To_Index.contains(ID); }
 		};

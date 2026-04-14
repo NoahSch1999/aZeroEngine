@@ -1,50 +1,181 @@
 #pragma once
+#include <bitset>
 #include "SceneProxy.hpp"
 #include "misc/HelperFunctions.hpp"
+#include "misc/SparseSet.hpp"
 
 namespace aZero
 {
 	namespace Scene
 	{
-		class Scene
+		class SceneNew
 		{
 		public:
-			Scene();
+			enum class ComponentFlag
+			{
+				Transform = 0,
+				StaticMesh = 1,
+				DirectionalLight = 2,
+				PointLight = 3,
+				SpotLight = 4,
+				Camera = 5,
 
-			void RenameEntity(ECS::Entity entity, const std::string& newName);
+				All = 1337,
+				None = 1338
+			};
 
-			ECS::Entity CreateEntity();
+			SceneProxy* GetProxy() const { return m_Proxy.get(); }
 
-			void DeleteEntity(const std::string& name);
+			SceneNew()
+				:m_Proxy(std::make_unique<SceneProxy>())
+			{
+				m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(100);
+				m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(100);
+				m_ComponentManager.GetComponentArray<ECS::PointLightComponent>().Init(100);
+				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(100);
+				m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(100);
+				m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(100);
+			}
 
-			void DeleteEntity(ECS::Entity entity);
+			ECS::Entity AddEntity()
+			{
+				ECS::Entity entity = m_EntityManager.CreateEntity();
+				std::string newName = Helper::HandleNameCollision(this->GenerateEntityName(), m_Entities);
+				m_Entities[newName] = entity;
+				m_Entity_To_Name[entity.GetID()] = newName;
 
-			void UpdateRenderState(ECS::Entity entity);
+				return entity;
+			}
+
+			void RemoveEntity(const std::string& entity)
+			{
+				this->RemoveEntity(m_Entities.at(entity));
+			}
+
+			void RemoveEntity(const ECS::Entity& entity)
+			{
+
+			}
+
+			template<typename ComponentType>
+			void AddComponent(const ECS::Entity& entity, ComponentType&& component)
+			{
+				// Add the component to ecs
+				
+				// Remove the component if the entity is in m_DirtyEntities and the component is flagged in m_RemovedFlag
+				
+			}
+
+			template<typename ComponentType>
+			void RemoveComponent(const ECS::Entity& entity)
+			{
+				// Remove the component from ecs
+				
+				// Add entity to m_DirtyEntities and modify the component flag in m_RemovedFlag
+				
+			}
+
+			template<typename ComponentType>
+			void HasComponent(const ECS::Entity& entity) const
+			{
+				return m_ComponentManager.HasComponent<ComponentType>(entity);
+			}
+
+			void MarkRenderStateDirty(const ECS::Entity& entity, ComponentFlag flag)
+			{
+				ECS::TransformComponent* transformComp = m_ComponentManager.GetComponent<ECS::TransformComponent>(entity);
+
+				// NOTE: When we have SkeletalMeshComp we will make this if-statement be one or the other
+				ECS::EntityID id = entity.GetID();
+
+				ECS::StaticMeshComponent* staticMeshComp = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity);
+				m_Proxy->UpdateStaticMesh(id, transformComp, staticMeshComp);
+
+				ECS::PointLightComponent* pointLightComp = m_ComponentManager.GetComponent<ECS::PointLightComponent>(entity);
+				m_Proxy->UpdatePointLight(id, pointLightComp);
+
+				ECS::SpotLightComponent* spotLightComp = m_ComponentManager.GetComponent<ECS::SpotLightComponent>(entity);
+				m_Proxy->UpdateSpotLight(id, spotLightComp);
+
+				ECS::CameraComponent* cameraComp = m_ComponentManager.GetComponent<ECS::CameraComponent>(entity);
+				m_Proxy->UpdateCamera(id, cameraComp);
+
+				ECS::DirectionalLightComponent* DirLightComp = m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(entity);
+				m_Proxy->UpdateDirectionalLight(id, DirLightComp);
+
+				
+
+				//if (!m_DirtyEntities.Exists(entity.GetID()))
+				//{
+				//	m_DirtyEntities.Add(entity.GetID(), ComponentUpdateInfo());
+				//}
+
+				//// TODO: How to handle if components removed and then flagged as dirty?
+				//// Answer: When fetching the data simply act based on if the components actually exist or not
+				//auto& dirtyInfo = m_DirtyEntities.Get(entity.GetID());
+				//if (flag == ComponentFlag::All)
+				//{
+				//	dirtyInfo.m_UpdateFlag.set();
+				//}
+				//else if (flag == ComponentFlag::None)
+				//{
+				//	dirtyInfo.m_UpdateFlag.reset();
+				//}
+				//else
+				//{
+				//	dirtyInfo.m_UpdateFlag.set(static_cast<int32_t>(flag));
+				//}
+			}
+
+			void RenameEntity(ECS::Entity entity, const std::string& newName)
+			{
+				std::string entityName = Helper::HandleNameCollision(newName, m_Entities);
+				m_Entities[entityName] = entity;
+				m_Entities.erase(m_Entity_To_Name.at(entity.GetID()));
+				m_Entity_To_Name[entity.GetID()] = entityName;
+			}
 
 			std::optional<ECS::Entity> GetEntity(const std::string& name) { return m_Entities.count(name) == 1 ? m_Entities.at(name) : std::optional<ECS::Entity>{}; }
 			const std::unordered_map<std::string, ECS::Entity>& GetEntities() const { return m_Entities; }
-			
-			// TODO: Change how a scene's entities are modified
-			ECS::ComponentManagerDecl& GetComponentManager() { return m_ComponentManager; }
-			const ECS::ComponentManagerDecl& GetComponentManager() const { return m_ComponentManager; }
 
-		private:
-			SceneProxy m_Proxy;
-			std::unordered_map<std::string, ECS::Entity> m_Entities;
-			std::unordered_map<ECS::EntityID, std::string> m_Entity_To_Name;
+			ECS::ComponentManager<
+				ECS::TransformComponent,
+				ECS::StaticMeshComponent,
+				ECS::DirectionalLightComponent,
+				ECS::PointLightComponent,
+				ECS::SpotLightComponent,
+				ECS::CameraComponent> m_ComponentManager;
+
 			ECS::EntityManager m_EntityManager;
-			ECS::ComponentManagerDecl m_ComponentManager;
-
+		private:
 			std::string GenerateEntityName()
 			{
 				static uint32_t nameDummy = 0;
 				return "Entity_" + std::to_string(nameDummy++);
 			}
 
-			bool IsNameTaken(const std::string& Name)
+			/*void OnDestroy(){}
+			void CreateRenderUpdates(){}
+			void ClearRenderUpdates(){}*/
+
+			// More mem than necessary, but quick add/remove + itteration
+			/*DS::SparseSet<ECS::EntityID, ECS::EntityID> m_NewEntities;
+			DS::SparseSet<ECS::EntityID, ECS::EntityID> m_RemovedEntities;
+
+			struct ComponentUpdateInfo
 			{
-				return m_Entities.count(Name) == 1;
-			}
+				std::bitset<sizeof(int32_t)> m_UpdateFlag;
+				std::bitset<sizeof(int32_t)> m_RemovedFlag;
+			};
+			DS::SparseSet<ECS::EntityID, ComponentUpdateInfo> m_DirtyEntities;*/
+			//
+
+			std::unique_ptr<SceneProxy> m_Proxy;
+
+			std::unordered_map<std::string, ECS::Entity> m_Entities;
+			std::unordered_map<ECS::EntityID, std::string> m_Entity_To_Name;
+
+
 		};
 	}
 }

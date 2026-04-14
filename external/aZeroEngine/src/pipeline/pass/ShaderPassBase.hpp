@@ -20,18 +20,9 @@ namespace aZero
 			enum class BindingType { SRV = D3D12_ROOT_PARAMETER_TYPE_SRV, UAV = D3D12_ROOT_PARAMETER_TYPE_UAV, CONSTANT = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS };
 			using RootIndex = uint32_t;
 
-			// todo Support texture transitions?
-			struct TextureTransitions
-			{
-				RenderAPI::Texture2D* m_Texture = nullptr;
-				D3D12_RESOURCE_STATES m_InOutState;
-				D3D12_RESOURCE_STATES m_AccessState;
-			};
-			std::unordered_map<uint32_t, TextureTransitions> m_TextureTransitions;
-
 			class BindingBase
 			{
-				friend ShaderPassBase;
+				friend class ShaderPassBase;
 				friend class MultiShaderPass;
 				friend class ComputeShaderPass;
 			private:
@@ -43,6 +34,8 @@ namespace aZero
 				{
 
 				}
+
+				RootIndex GetRootIndex() const { return m_Index; }
 			};
 
 			class BufferBinding : public BindingBase
@@ -51,60 +44,33 @@ namespace aZero
 				friend class MultiShaderPass;
 				friend class ComputeShaderPass;
 			private:
-				RenderAPI::Buffer* m_Buffer = nullptr;
 				BindingType m_Type;
 
 			public:
 				BufferBinding() = default;
 				BufferBinding(BindingType type, RootIndex index)
 					:BindingBase(index), m_Type(type)
-				{
+				{ }
 
-				}
-
-				void SetBuffer(RenderAPI::Buffer& buffer)
-				{
-					m_Buffer = &buffer;
-				}
+				BindingType GetBindingType() const { return m_Type; }
 			};
 
-			class ConstantBinding : public BindingBase, public NonCopyable
+			class ConstantBinding : public BindingBase
 			{
 				friend ShaderPassBase;
 				friend class MultiShaderPass;
 				friend class ComputeShaderPass;
 			private:
-				uint32_t m_NumConstants;
-				// Workaround to enable unique_ptr to delete allocated memory thats referenced as a void*
-				std::unique_ptr<void, decltype(&std::free)> m_Data;
+				uint32_t m_NumConstants = std::numeric_limits<uint32_t>::max();
 
-				void* Alloc(int32_t numBytes)
-				{
-					return std::malloc(numBytes);
-				}
 			public:
 
-				ConstantBinding()
-					:m_Data(nullptr, &std::free) {
-				}
+				ConstantBinding() = default;
 
-				ConstantBinding(int32_t numConstants, RootIndex index)
-					:BindingBase(index), m_Data(this->Alloc(numConstants * sizeof(int32_t)), &std::free), m_NumConstants(numConstants)
-				{
+				ConstantBinding(uint32_t numConstants, RootIndex index)
+					:BindingBase(index), m_NumConstants(numConstants) { }
 
-				}
-
-				template<typename T>
-				void Write(const T& data, int32_t dstOffset) const
-				{
-					const std::size_t numConstants = sizeof(T) / sizeof(int32_t);
-					if (dstOffset + numConstants > m_NumConstants)
-					{
-						throw std::out_of_range("Tried to write out-of-bounds into root constant.");
-					}
-
-					memcpy(static_cast<int32_t*>(m_Data.get()) + dstOffset, &data, numConstants * sizeof(int32_t));
-				}
+				uint32_t GetNumConstants() const { return m_NumConstants; }
 			};
 
 			template<typename T>
@@ -120,27 +86,27 @@ namespace aZero
 
 			bool IsCompiled() const { return m_PipelineState != nullptr; }
 
-			BufferBinding* GetBufferBinding(const std::string& name)
+			BufferBinding GetBufferBindingIndex(const std::string& name)
 			{
 				if (auto ptr = m_BufferBindings.m_Name_To_Binding.find(name); ptr != m_BufferBindings.m_Name_To_Binding.end())
 				{
-					return &m_BufferBindings.m_Bindings.at(ptr->second);
+					return m_BufferBindings.m_Bindings[ptr->second];
 				}
-				return nullptr;
+				return BufferBinding();
 			}
 
-			ConstantBinding* GetConstantBinding(const std::string& name)
+			ConstantBinding GetConstantBindingIndex(const std::string& name)
 			{
 				if (auto ptr = m_ConstantBindings.m_Name_To_Binding.find(name); ptr != m_ConstantBindings.m_Name_To_Binding.end())
 				{
-					return &m_ConstantBindings.m_Bindings.at(ptr->second);
+					return m_ConstantBindings.m_Bindings[ptr->second];
 				}
-				return nullptr;
+				return ConstantBinding();
 			}
 
 		protected:
 
-			void Bind(RenderAPI::CommandList& cmdList) const
+			void Begin(RenderAPI::CommandList& cmdList) const
 			{
 				cmdList->SetPipelineState(m_PipelineState.Get());
 			}

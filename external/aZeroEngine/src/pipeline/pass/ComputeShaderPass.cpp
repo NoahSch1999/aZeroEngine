@@ -52,35 +52,8 @@ bool aZero::Pipeline::ComputeShaderPass::Compile(ID3D12DeviceX* device, const De
 	return true;
 }
 
-void aZero::Pipeline::ComputeShaderPass::Bind(RenderAPI::CommandList& cmdList) const
+void aZero::Pipeline::ComputeShaderPass::Begin(RenderAPI::CommandList& cmdList) const
 {
-	ShaderPassBase::Bind(cmdList);
+	ShaderPassBase::Begin(cmdList);
 	cmdList->SetComputeRootSignature(m_RootSignature.Get());
-
-	for (const BufferBinding& buffer : m_BufferBindings.m_Bindings)
-	{
-		// Skip binding bufferslot if no buffer was bound
-		if (!buffer.m_Buffer)
-		{
-			DEBUG_PRINT("A buffer wasn't bound to the pass.");
-			continue;
-		}
-
-		switch (buffer.m_Type)
-		{
-		case BindingType::SRV:
-			cmdList->SetComputeRootShaderResourceView(buffer.m_Index, buffer.m_Buffer->GetResource()->GetGPUVirtualAddress());
-			break;
-		case BindingType::UAV:
-			cmdList->SetComputeRootUnorderedAccessView(buffer.m_Index, buffer.m_Buffer->GetResource()->GetGPUVirtualAddress());
-			break;
-		default:
-			throw std::runtime_error("Bound buffer doesn't have a valid binding type.");
-		}
-	}
-
-	for (const ConstantBinding& constant : m_ConstantBindings.m_Bindings)
-	{
-		cmdList->SetComputeRoot32BitConstants(constant.m_Index, constant.m_NumConstants, constant.m_Data.get(), 0);
-	}
 }

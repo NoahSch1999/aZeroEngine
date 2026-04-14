@@ -5,6 +5,8 @@ project (aZeroEngine VERSION 1.0)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+set(PROJECT_DIRECTORY "${CMAKE_SOURCE_DIR}" CACHE STRING "Project directory path")
+
 include(FetchContent)
 
 # Assimp
@@ -63,13 +65,23 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(AgilitySDK)
 #
 
-# miniaudio
-#FetchContent_Declare(
-#    miniaudio
-#    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
-#    GIT_TAG        "master"
-#)
-#FetchContent_MakeAvailable(miniaudio)
+# Meshoptimizer
+FetchContent_Declare(
+    meshoptimizer
+    GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
+    GIT_TAG        "master"
+)
+FetchContent_MakeAvailable(meshoptimizer)
+#
+
+# aZero Audio
+FetchContent_Declare(
+    aZeroAudio
+    GIT_REPOSITORY https://github.com/NoahSch1999/aZero-Audio.git
+    GIT_TAG        "main"
+)
+FetchContent_MakeAvailable(aZeroAudio)
+#
 
 # YAML-CPP
 FetchContent_Declare(
@@ -96,7 +108,6 @@ FetchContent_Declare(
    GIT_TAG        "master"
 )
 FetchContent_MakeAvailable(aZero-Linear-Allocator)
-
 
 file(GLOB ENGINE_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
@@ -132,19 +143,28 @@ add_library(aZeroEngine
     "src/graphics_api/command_recording/CommandQueue.cpp"
     "src/graphics_api/descriptor/Descriptor.cpp"
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
-    "src/graphics_api/SwapChain.cpp")
+    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp")
 
 target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
+    target_compile_options(aZeroEngine PRIVATE -O0 -g)   # Disable optimization, enable debug info
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_options(aZeroEngine PRIVATE -O3)      # Full optimization
+endif()
+
 # PRE-PROCESSOR SETTINGS
-target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
+target_compile_definitions(aZeroEngine PUBLIC 
+    PROJECT_DIRECTORY="${PROJECT_DIRECTORY}"
+    NOMINMAX
+)
 
 target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-sparse-set-src/src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include
-    #PUBLIC ${CMAKE_BINARY_DIR}/_deps/miniaudio-src
 )
 
 # Linking
@@ -157,13 +177,13 @@ target_link_libraries(aZeroEngine
     PUBLIC DXCompiler
     PUBLIC assimp
     PUBLIC yaml-cpp
-    #PUBLIC miniaudio
+    PUBLIC aZeroAudio
+    PUBLIC meshoptimizer
     #PUBLIC DXGIDebug.dll
 )
 #
 
 target_precompile_headers(aZeroEngine PUBLIC
-    #<${CMAKE_BINARY_DIR}/_deps/miniaudio-src/miniaudio.h>
     <${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include/LinearAllocator.hpp>
 )
 

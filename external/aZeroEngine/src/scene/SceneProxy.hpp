@@ -6,6 +6,7 @@ namespace aZero
 {
 	namespace Scene
 	{
+
 		class SceneProxy
 		{
 		public:
@@ -17,7 +18,6 @@ namespace aZero
 			void UpdatePointLight(ECS::EntityID id, const ECS::PointLightComponent* lightComponent);
 			void UpdateSpotLight(ECS::EntityID id, const ECS::SpotLightComponent* lightComponent);
 
-		private:
 			/*
 			NOTE:
 				If we move to a fully gpu-driven rendering pipeline this data need to have a mirrored version in vram.
@@ -30,6 +30,8 @@ namespace aZero
 			DataStructures::SparseMappedVector<ECS::EntityID, RenderData::DirectionalLight> m_DirectionalLights;
 			DataStructures::SparseMappedVector<ECS::EntityID, RenderData::PointLight> m_PointLights;
 			DataStructures::SparseMappedVector<ECS::EntityID, RenderData::SpotLight> m_SpotLights;
+
+		private:
 		};
 	}
 }

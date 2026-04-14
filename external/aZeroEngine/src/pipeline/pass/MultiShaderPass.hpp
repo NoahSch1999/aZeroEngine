@@ -31,15 +31,13 @@ namespace aZero
 			MultiShaderPass(MultiShaderPass&& other) noexcept;
 			MultiShaderPass& operator=(MultiShaderPass&& other) noexcept;
 
-			void Bind(RenderAPI::CommandList& cmdList) const;
+			void Begin(RenderAPI::CommandList& cmdList, const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap, const std::vector<RenderAPI::Descriptor*>& renderTargets, const std::optional<RenderAPI::Descriptor*>& depthStencilTarget) const;
 
 		protected:
-			DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*> m_RenderTargets;
-			std::optional<RenderAPI::Descriptor*> m_DepthStencilTarget;
 
 			template<typename ShaderType, typename DescriptionType>
 			void GenerateBindings(BindingCombo<BufferBinding>& bufferBindings,
-				BindingCombo<ConstantBinding>& constantBindings, DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*>& renderTargets, const DescriptionType& description,
+				BindingCombo<ConstantBinding>& constantBindings, const DescriptionType& description,
 				const ShaderType& vertexGenerationShader, std::optional<Pipeline::PixelShader*> pixelShader) const
 			{
 				if (pixelShader.has_value())
@@ -51,11 +49,9 @@ namespace aZero
 				{
 					ShaderPassBase::GenerateBindings(bufferBindings, constantBindings, vertexGenerationShader);
 				}
-
-				this->GenerateOutputBindings<MultiShaderPassDesc::RenderTarget>(description, renderTargets);
 			}
 
-			void PostCompile(DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*>&& renderTargets,
+			void PostCompile(
 				Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState,
 				Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature,
 				BindingCombo<BufferBinding>&& bufferBindings,
@@ -68,51 +64,15 @@ namespace aZero
 					std::move(bufferBindings),
 					std::move(constantBindings)
 				);
-				m_RenderTargets = std::move(renderTargets);
-				m_DepthStencilTarget.reset();
 			}
 
-			template<typename T, typename DescriptionType>
-			bool GenerateOutputBindings(const DescriptionType& description, DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*>& outTargets) const
+			template<typename DescriptionType, typename ...Args>
+			bool CreateRootSignature(ID3D12DeviceX* device, const DescriptionType& description, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature, const Args&... args) const
 			{
-				for (int32_t rtvIndex = 0; rtvIndex < description.m_RenderTargets.size(); rtvIndex++)
+				if (!ShaderPassBase::CreateRootSignature(device, description, rootSignature, args...))
 				{
-					const T& rtv = description.m_RenderTargets.at(rtvIndex);
-					if (rtv.m_Name.empty())
-					{
-						DEBUG_PRINT("Render target at index " + std::to_string(rtvIndex) + " didn't have a name");
-						return false;
-					}
-					if (outTargets.Contains(rtv.m_Name))
-					{
-						DEBUG_PRINT("Render target at index " + std::to_string(rtvIndex) + " with name " + rtv.m_Name + " already exist.");
-						return false;
-					}
-
-					outTargets.AddOrUpdate(rtv.m_Name, nullptr);
-				}
-				return true;
-			}
-
-			template<typename ShaderType, typename DescriptionType>
-			bool CreateRootSignature(ID3D12DeviceX* device, const DescriptionType& description, const ShaderType& vertexGenerationShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const
-			{
-				if (pixelShader.has_value())
-				{
-					Pipeline::PixelShader& pixelShaderRef = *pixelShader.value();
-					if (!ShaderPassBase::CreateRootSignature(device, description, rootSignature, vertexGenerationShader, pixelShaderRef))
-					{
-						DEBUG_PRINT("Failed to create root signature.");
-						return false;
-					}
-				}
-				else
-				{
-					if (!ShaderPassBase::CreateRootSignature(device, description, rootSignature, vertexGenerationShader))
-					{
-						DEBUG_PRINT("Failed to create root signature.");
-						return false;
-					}
+					DEBUG_PRINT("Failed to create root signature.");
+					return false;
 				}
 				return true;
 			}

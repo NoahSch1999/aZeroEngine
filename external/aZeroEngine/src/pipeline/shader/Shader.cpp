@@ -41,11 +41,11 @@ bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::st
 #endif
 
 	compilationArgs.push_back(L"-Qstrip_debug");
-	compilationArgs.push_back(L"-Qstrip_reflect");
 
 	compilationArgs.push_back(L"-E");
 	compilationArgs.push_back(L"main");
 	compilationArgs.push_back(L"-T");
+
 	const std::wstring wStrTargetSM(targetSM.begin(), targetSM.end());
 	compilationArgs.push_back(wStrTargetSM.c_str());
 
@@ -66,6 +66,12 @@ bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::st
 
 	Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler;
 	utils->CreateDefaultIncludeHandler(&includeHandler);
+
+	// Adds "-I" is used to declare include directories
+	const std::string projectDir(PROJECT_DIRECTORY);
+	const std::wstring projectDirW(projectDir.begin(), projectDir.end());
+	const std::wstring shaderPathDir = L"-I " + projectDirW + L"shaderSource/";
+	compilationArgs.push_back(shaderPathDir.c_str());
 
 	compiler.Compile(&source, compilationArgs.data(), compilationArgs.size(), includeHandler.Get(), IID_PPV_ARGS(&compilationResult));
 

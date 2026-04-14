@@ -20,7 +20,7 @@ namespace aZero
 
 			bool Compile(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader);
 
-			void Bind(RenderAPI::CommandList& cmdList) const;
+			void Begin(RenderAPI::CommandList& cmdList) const;
 
 			[[nodiscard]] ComputeShader::ThreadGroup GetThreadGroups() const { return m_ThreadGroupCount; }
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "aZeroEngine/Engine.hpp"
+#include "graphics_api/resource/buffer/VertexBuffer.hpp"
 
 inline void LoadAssets(
 	aZero::Engine& engine, 
@@ -8,7 +9,7 @@ inline void LoadAssets(
 	aZero::Asset::Texture& albedo,
 	aZero::Asset::Texture& normalMap)
 {
-	mesh.Load(engine.GetProjectDirectory() + MESH_ASSET_RELATIVE_PATH + "goblin.fbx");
+	mesh.LoadFromFile("goblin.fbx");
 	engine.GetRenderer().UpdateRenderState(&mesh);
 
 	albedo.Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinAlbedo.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
@@ -23,26 +24,28 @@ inline void LoadAssets(
 }
 
 inline void CreateScene(
-	aZero::Scene::Scene& scene,
+	aZero::Scene::SceneNew& scene,
 	aZero::Asset::Mesh& mesh,
 	aZero::Asset::Material& material,
 	const DXM::Vector2& windowDimensions)
 {
-	aZero::ECS::ComponentManagerDecl& ecsManager = scene.GetComponentManager();
+	aZero::ECS::ComponentManagerDecl& ecsManager = scene.m_ComponentManager;
 
 	// Create mesh
-	aZero::ECS::Entity meshEntity = scene.CreateEntity();
+	aZero::ECS::Entity meshEntity = scene.AddEntity();
 	scene.RenameEntity(meshEntity, "MeshEntity");
+	ecsManager.AddComponent(meshEntity, aZero::ECS::TransformComponent());
+
 	ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 
 	ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
 		->SetTransform(DXM::Matrix::CreateScale(0.5) * 
 			DXM::Matrix::CreateRotationY(3.1415) * DXM::Matrix::CreateTranslation(0, -1.5, 5));
 
-	scene.UpdateRenderState(meshEntity);
+	scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
 
 	// Create camera
-	aZero::ECS::Entity cameraEntity = scene.CreateEntity();
+	aZero::ECS::Entity cameraEntity = scene.AddEntity();
 	scene.RenameEntity(cameraEntity, "CameraEntity");
 
 	aZero::ECS::CameraComponent cameraComponent;
@@ -52,8 +55,9 @@ inline void CreateScene(
 	cameraComponent.m_FarPlane = 1000.f;
 	cameraComponent.m_Fov = 3.14f / 2.f;
 	ecsManager.AddComponent(cameraEntity, cameraComponent);
+	ecsManager.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
 
-	scene.UpdateRenderState(cameraEntity);
+	scene.MarkRenderStateDirty(cameraEntity, aZero::Scene::SceneNew::ComponentFlag());
 }
 
 inline auto CreateRenderSurfaces(const aZero::Engine& engine, const DXM::Vector2& windowDimensions)

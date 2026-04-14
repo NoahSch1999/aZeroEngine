@@ -9,7 +9,8 @@ namespace aZero
 		class VertexShaderPass : public MultiShaderPass
 		{
 		public:
-			enum class TopologyType { INVALID = 0, POINT = 1, LINE = 2, TRIANGLE = 3 };
+			// Matches D3D12_PRIMITIVE_TOPOLOGY_TYPE
+			enum TopologyType { INVALID = 0, POINT = 1, LINE = 2, TRIANGLE = 3 };
 
 			struct Description : public MultiShaderPassDesc
 			{
@@ -21,6 +22,7 @@ namespace aZero
 			VertexShaderPass& operator=(VertexShaderPass&& other) noexcept;
 
 			bool Compile(ID3D12DeviceX* device, const Description& description, Pipeline::VertexShader& vertexShader, std::optional<Pipeline::PixelShader*> pixelShader);
+			void Begin(RenderAPI::CommandList& cmdList, const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap, const std::vector<RenderAPI::Descriptor*>& renderTargets, const std::optional<RenderAPI::Descriptor*>& depthStencilTarget);
 
 		private:
 			bool ValidatePassInputs(const Description& description) const

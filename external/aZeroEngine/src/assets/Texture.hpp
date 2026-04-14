@@ -23,8 +23,8 @@ namespace aZero
 			};
 
 			Texture() = default;
-			Texture(const std::string& name)
-				: AssetBase(name)
+			Texture(AssetID id)
+				: AssetBase(id)
 			{
 
 			}

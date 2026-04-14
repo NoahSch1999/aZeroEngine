@@ -2,9 +2,9 @@
 
 namespace aZero
 {
-	Engine::Engine(uint32_t bufferCount, const std::string& contentPath)
+	Engine::Engine(uint32_t bufferCount)
 	{
-		m_ProjectDirectory = contentPath;
+		m_ProjectDirectory = PROJECT_DIRECTORY;
 
 		HRESULT hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(m_Device.GetAddressOf()));
 		if (FAILED(hr))
@@ -19,6 +19,7 @@ namespace aZero
 		}
 
 		m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_Compiler.Get());
+		m_AudioEngine = std::make_unique<Audio::AudioEngine>();
 	}
 
 	Engine::~Engine()

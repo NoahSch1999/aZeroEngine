@@ -12,6 +12,7 @@
 #include "SamplerManager.hpp"
 #include "FrameContext.hpp"
 #include "scene/Scene.hpp"
+#include "ResourceManager.hpp"
 
 namespace aZero
 {
@@ -37,12 +38,19 @@ namespace aZero
 
 			size_t GetBufferingCount() const { return m_FrameContexts.size(); }
 			RenderAPI::CommandQueue& GetGraphicsCommandQueue() { return m_DirectCommandQueue; }
+			RenderAPI::ResourceRecycler& GetResourceRecycler() { return m_NewResourceRecycler; }
+			RenderAPI::DescriptorHeap& GetResourceHeap() { return m_ResourceHeapNew; }
+			RenderAPI::DescriptorHeap& GetSamplerHeap() { return m_SamplerHeapNew; }
+			RenderAPI::DescriptorHeap& GetRenderTargetHeap() { return m_RTVHeapNew; }
+			RenderAPI::DescriptorHeap& GetDepthTargetHeap() { return m_DSVHeapNew; }
 
-			bool NewFrame();
+			bool BeginFrame();
+			void EndFrame();
 
-			void Render(const Scene::Scene& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget);
+			void Render(const Scene::SceneNew& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget);
 
 			void CopyTextureToTexture(RenderAPI::Texture2D& dstTexture, RenderAPI::Texture2D& srcTexture);
+			void CopyTextureToTexture(ID3D12Resource* dstTexture, ID3D12Resource* srcTexture);
 
 			void FlushGPU();
 			uint64_t SignalGraphicsQueue() { return m_DirectCommandQueue.Signal(); }
@@ -57,42 +65,16 @@ namespace aZero
 		private:
 			FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
 
+			// Returns true if the frame context for the next frame has completed and is open for reuse
 			bool AdvanceFrameIfReady();
 
-			void Init(ID3D12DeviceX* device, uint32_t numFramesInFlight);
-
-			// Asset GPU-side data
-			struct MeshEntry
-			{
-				// Indices into the resource descriptor heap for each attribute
-				uint32_t PositionsIndex;
-				uint32_t UVsIndex;
-				uint32_t NormalsIndex;
-				uint32_t TangentsIndex;
-				uint32_t IndicesIndex;
-				uint32_t NumIndices;
-			};
-
-			struct MaterialData
-			{
-				DXM::Vector3 Color = DXM::Vector3::Zero;
-				int32_t AlbedoIndex;
-				int32_t NormalIndex;
-			};
-
-			struct GPUTexture2D
-			{
-				RenderAPI::Descriptor m_Srv;
-				RenderAPI::Texture2D m_Texture;
-			};
-			//
+			void InitPipeline();
 			
 			ID3D12DeviceX* m_diDevice;
 			uint32_t m_BufferCount;
 			uint32_t m_FrameIndex = 0;
 			uint64_t m_FrameCount = 0;
 
-			RenderAPI::ResourceRecycler m_NewResourceRecycler;
 
 			// todo Figure out how this should be used to defer destruction of descriptors so that they wont be used until their no longer in use
 			aZero::CallbackExecutor m_CallbackExecutor;
@@ -103,26 +85,22 @@ namespace aZero
 			RenderAPI::CommandQueue m_CopyCommandQueue;
 			RenderAPI::CommandQueue m_ComputeCommandQueue;
 
-			SamplerManager m_SamplerManager;
+			RenderAPI::ResourceRecycler m_NewResourceRecycler;
 			RenderAPI::DescriptorHeap m_ResourceHeapNew;
 			RenderAPI::DescriptorHeap m_SamplerHeapNew;
+
+			SamplerManager m_SamplerManager;
 			RenderAPI::DescriptorHeap m_RTVHeapNew;
 			RenderAPI::DescriptorHeap m_DSVHeapNew;
 
 			std::vector<FrameContext> m_FrameContexts;
 
-			RenderAPI::IndexedBuffer<MaterialData> m_NewMaterialBuffer;
-			std::unordered_map<Asset::RenderID, uint32_t> m_NewMaterialAllocMap;
+			Rendering::ResourceManager m_ResourceManager;
 
-			RenderAPI::IndexedBuffer<MeshEntry> m_MeshEntryBuffer;
-			std::unordered_map<Asset::RenderID, uint32_t> m_NewMeshEntryAllocMap;
-
-			std::unordered_map<Asset::RenderID, RenderAPI::VertexBuffer> m_GPUMeshes;
-			std::unordered_map<Asset::RenderID, GPUTexture2D> m_GPUTextures;
-
-			Pipeline::VertexShader m_NewBasePassVS;
-			Pipeline::PixelShader m_NewBasePassPS;
+			Pipeline::MeshShaderPass m_Pipeline;
+			Pipeline::AmplificationShader m_AmpShader;
+			Pipeline::MeshShader m_MeshShader;
+			Pipeline::PixelShader m_PixelShader;
 		};
-
 	}
 }

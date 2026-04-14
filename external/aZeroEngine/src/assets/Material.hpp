@@ -21,8 +21,8 @@ namespace aZero
 			};
 
 			Material() = default;
-			Material(const std::string& name)
-				:AssetBase(name) { }
+			Material(AssetID id)
+				:AssetBase(id) { }
 
 			bool Load(const std::string& filePath);
 

@@ -52,6 +52,7 @@ aZero::RenderAPI::CommandList& aZero::RenderAPI::CommandList::operator=(CommandL
 
 void aZero::RenderAPI::CommandList::ClearCommandBuffer()
 {
-	m_CommandList->Close();
+	this->StopRecording();
 	m_Allocator->Reset();
+	this->StartRecording();
 }

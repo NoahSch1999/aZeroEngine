@@ -106,8 +106,11 @@ void aZero::RenderAPI::SwapChain::PopulateBackBuffers()
 {
 	for (uint32_t i = 0; i < m_BackBuffers.size(); i++)
 	{
-		Microsoft::WRL::ComPtr<ID3D12Resource> NewResource;
 		m_SwapChain->GetBuffer(i, IID_PPV_ARGS(m_BackBuffers[i].GetAddressOf()));
+#ifdef USE_DEBUG
+		auto name = L"BB_Index: " + std::wstring(std::to_wstring(i));
+		m_BackBuffers[i]->SetName(name.c_str());
+#endif
 	}
 
 	m_NextBackBuffer = 0;

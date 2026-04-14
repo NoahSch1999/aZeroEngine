@@ -12,17 +12,16 @@ aZero::Pipeline::MeshShaderPass& aZero::Pipeline::MeshShaderPass::operator=(Mesh
 	return *this;
 }
 
-bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const
+bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device, const Description& description, std::optional<Pipeline::AmplificationShader*> amplificationShader, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const
 {
 	// todo Implement with AS and PS
 
 	struct PSO_STREAM
 	{
 		CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE RootSignature;
-		//CD3DX12_PIPELINE_STATE_STREAM_AS AS;
+		CD3DX12_PIPELINE_STATE_STREAM_AS AS;
 		CD3DX12_PIPELINE_STATE_STREAM_MS MS;
 		CD3DX12_PIPELINE_STATE_STREAM_PS PS;
-		//CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_DESC SampleDesc;
 		CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL DepthStencil;
 		CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DepthStencilFormat;
 		CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RenderTargets;
@@ -30,33 +29,42 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 		CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER RasterizerState;
 		CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_DESC SampleDesc;
 		CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_MASK SampleMask;
-	} stream;
+	} stream = {};
 
 	stream.RootSignature = rootSignature.Get();
+
+	if (amplificationShader.has_value())
+	{
+		Pipeline::AmplificationShader& as = *amplificationShader.value();
+		stream.AS = {
+		reinterpret_cast<BYTE*>(as.m_CompiledShader->GetBufferPointer()),
+		as.m_CompiledShader->GetBufferSize()
+		};
+	}
+
 	stream.MS = {
 		reinterpret_cast<BYTE*>(meshShader.m_CompiledShader->GetBufferPointer()),
 		meshShader.m_CompiledShader->GetBufferSize()
 	};
 
-	DXGI_SAMPLE_DESC sampleDesc{};
-	sampleDesc.Count = 1;
-	sampleDesc.Quality = 0;
-	stream.SampleDesc = sampleDesc;
+	stream.SampleDesc = { 1, 0 };
 
 	// todo Make this a setting
 	CD3DX12_RASTERIZER_DESC rasterDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	rasterDesc.FrontCounterClockwise = true;
+	rasterDesc.CullMode = D3D12_CULL_MODE_NONE;
 	stream.RasterizerState = rasterDesc;
 
 	// todo Make this a setting
-	CD3DX12_BLEND_DESC blendDesc = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	stream.BlendDesc = blendDesc;
+	stream.BlendDesc = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 
 	// todo Make this a setting
 	stream.SampleMask = std::numeric_limits<uint32_t>::max();
 
+
 	if (pixelShader.has_value())
 	{
+		stream.DepthStencil = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+
 		Pipeline::PixelShader& ps = *pixelShader.value();
 		stream.PS = {
 		reinterpret_cast<BYTE*>(ps.m_CompiledShader->GetBufferPointer()),
@@ -72,13 +80,16 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 			return false;
 		}
 
+		D3D12_RT_FORMAT_ARRAY rtvs = {};
+		rtvs.NumRenderTargets = description.m_RenderTargets.size();
+		
 		for (int i = 0; i < description.m_RenderTargets.size(); i++)
 		{
 			const UINT rtvNumComponents = D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetNumComponentsInFormat(description.m_RenderTargets.at(i).m_Format);
 			const uint32_t expectedNumComponents = ps.m_RenderTargetMasks.at(i);
 			if (expectedNumComponents == static_cast<uint32_t>(rtvNumComponents))
 			{
-				//pipelineStateDesc.RTVFormats[i] = description.m_RenderTargets.at(i).m_Format;
+				rtvs.RTFormats[i] = description.m_RenderTargets.at(i).m_Format;
 			}
 			else
 			{
@@ -87,6 +98,8 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 				return false;
 			}
 		}
+		stream.RenderTargets = rtvs;
+		stream.DepthStencilFormat = description.m_DepthStencil.m_Format;
 	}
 
 	// TODO: wrong usage of the depth
@@ -116,7 +129,7 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 	return true;
 }
 
-bool aZero::Pipeline::MeshShaderPass::Compile(ID3D12DeviceX* device, const Description& description, Pipeline::MeshShader& meshShader, /*todo Add amplification shader,*/ std::optional<Pipeline::PixelShader*> pixelShader)
+bool aZero::Pipeline::MeshShaderPass::Compile(ID3D12DeviceX* device, const Description& description, std::optional<Pipeline::AmplificationShader*> amplificationShader, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader)
 {
 	// todo Make part of engine init checks since we only support gpus that support mesh and amplification shaders
 	D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureData = {};
@@ -134,14 +147,43 @@ bool aZero::Pipeline::MeshShaderPass::Compile(ID3D12DeviceX* device, const Descr
 	}
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
-	if (!MultiShaderPass::CreateRootSignature(device, description, meshShader, pixelShader, rootSignature))
+
+	// TODO: Fix this, its garbage
+	if (!amplificationShader.has_value() && pixelShader.has_value())
 	{
-		DEBUG_PRINT("Failed to compile pass pipeline.");
-		return false;
+		if (!MultiShaderPass::CreateRootSignature(device, description, rootSignature, meshShader, *pixelShader.value()))
+		{
+			DEBUG_PRINT("Failed to compile pass pipeline.");
+			return false;
+		}
+	}
+	else if (amplificationShader.has_value() && !pixelShader.has_value())
+	{
+		if (!MultiShaderPass::CreateRootSignature(device, description, rootSignature, *amplificationShader.value(), meshShader))
+		{
+			DEBUG_PRINT("Failed to compile pass pipeline.");
+			return false;
+		}
+	}
+	else if (amplificationShader.has_value() && pixelShader.has_value())
+	{
+		if (!MultiShaderPass::CreateRootSignature(device, description, rootSignature, *amplificationShader.value(), meshShader, *pixelShader.value()))
+		{
+			DEBUG_PRINT("Failed to compile pass pipeline.");
+			return false;
+		}
+	}
+	else if (!amplificationShader.has_value() && !pixelShader.has_value())
+	{
+		if (!MultiShaderPass::CreateRootSignature(device, description, rootSignature, meshShader))
+		{
+			DEBUG_PRINT("Failed to compile pass pipeline.");
+			return false;
+		}
 	}
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState = nullptr;
-	if (!this->CreatePipelineState(device, description, meshShader, pixelShader, pipelineState, rootSignature))
+	if (!this->CreatePipelineState(device, description, amplificationShader, meshShader, pixelShader, pipelineState, rootSignature))
 	{
 		DEBUG_PRINT("Failed to compile pass pipeline state.");
 		return false;
@@ -149,12 +191,15 @@ bool aZero::Pipeline::MeshShaderPass::Compile(ID3D12DeviceX* device, const Descr
 
 	BindingCombo<BufferBinding> bufferBindings;
 	BindingCombo<ConstantBinding> constantBindings;
-	DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*> renderTargets;
-	MultiShaderPass::GenerateBindings(bufferBindings, constantBindings, renderTargets, description, meshShader, pixelShader);
+	MultiShaderPass::GenerateBindings(bufferBindings, constantBindings, description, meshShader, pixelShader);
 
-	MultiShaderPass::PostCompile(std::move(renderTargets), pipelineState, rootSignature, std::move(bufferBindings), std::move(constantBindings));
+	MultiShaderPass::PostCompile(pipelineState, rootSignature, std::move(bufferBindings), std::move(constantBindings));
 
 	m_MSThreadGroups = meshShader.GetThreadGroups();
+	if (amplificationShader.has_value())
+	{
+		m_ASThreadGroups = amplificationShader.value()->GetThreadGroups();
+	}
 
 	return true;
 }

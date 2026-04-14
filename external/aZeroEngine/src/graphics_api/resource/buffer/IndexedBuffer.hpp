@@ -19,6 +19,9 @@ namespace aZero
 				m_Buffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(T) * maxElements, D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT), opt_diResourceRecycler);
 			}
 
+			IndexedBuffer(IndexedBuffer&&) = default;
+			IndexedBuffer& operator=(IndexedBuffer&&) = default;
+
 			uint32_t Allocate()
 			{
 				return m_Freelist.New();

@@ -1,6 +1,5 @@
 #pragma once
 #include "Shader.hpp"
-#include <array>
 
 namespace aZero
 {

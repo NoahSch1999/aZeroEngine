@@ -31,5 +31,9 @@ namespace aZero
 
 			return name;
 		}
+
+		inline uint32_t Pack16To32(uint16_t low, uint16_t high) {
+			return (static_cast<uint32_t>(high) << 16) | low;
+		}
 	}
 }

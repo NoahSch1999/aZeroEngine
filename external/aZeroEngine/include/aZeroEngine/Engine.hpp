@@ -2,20 +2,23 @@
 #include <memory>
 #include "renderer/Renderer.hpp"
 #include "scene/Scene.hpp"
+#include "aZeroAudio.hpp"
 
 namespace aZero
 {
 	class Engine : public NonCopyable
 	{
 	public:
-		Engine(uint32_t bufferCount, const std::string& contentPath);
+		Engine(uint32_t bufferCount);
 		Engine(Engine&&) noexcept = default;
 		Engine& operator=(Engine&&) noexcept = default;
 		~Engine();
 
 		IDxcCompilerX& GetCompiler() const { return *m_Compiler.Get(); }
+		ID3D12DeviceX* GetDevice() const { return m_Device.Get(); }
 
 		Rendering::Renderer& GetRenderer() const { return *m_Renderer.get(); }
+		Audio::AudioEngine& GetAudioEngine() const { return *m_AudioEngine.get(); }
 
 		Rendering::RenderTarget CreateRenderTarget(const Rendering::RenderTargetDesc& desc, bool shouldClear) const
 		{
@@ -39,6 +42,7 @@ namespace aZero
 
 		// API Interfaces
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
+		std::unique_ptr<Audio::AudioEngine> m_AudioEngine;
 		//
 	};
 }

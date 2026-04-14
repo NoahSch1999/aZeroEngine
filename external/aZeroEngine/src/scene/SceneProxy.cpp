@@ -13,6 +13,7 @@ namespace aZero
 
 			RenderData::StaticMesh staticMesh(*transformComponent, *staticMeshComponent);
 			if (staticMesh.IsRenderReady()) {
+
 				m_StaticMeshes.AddOrUpdate(id, std::move(staticMesh));
 			}
 			else {

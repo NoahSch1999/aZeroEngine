@@ -13,33 +13,50 @@ namespace aZero
 	{
 		using VertexIndex = uint32_t;
 
+		struct Meshlet
+		{
+			uint32_t VerticesCount;
+			uint32_t VertexOffset;
+			uint32_t PrimitivesCount;
+			uint32_t PrimitiveOffset;
+			DirectX::BoundingSphere Bounds;
+		};
+
+		using VertexPosition = DXM::Vector3;
+
+		struct GenericVertexData
+		{
+			DXM::Vector2 UV;
+			DXM::Vector3 Normal;
+			DXM::Vector3 Tangent; // TODO: Omit and calc it in the shader
+		};
+
+		struct MeshletMeshData
+		{
+			std::string Name;
+			std::vector<Meshlet> Meshlets;
+			std::vector<VertexIndex> MeshletIndices;
+			std::vector<uint8_t> MeshletPrimitives;
+			std::vector<VertexPosition> Positions;
+			std::vector<GenericVertexData> GenericVertexData;
+			DirectX::BoundingSphere Bounds;
+		};
+
+		std::vector<MeshletMeshData> LoadFromFile(const std::string& filename);
+
 		class Mesh : public AssetBase
 		{
 			friend struct Scene::RenderData;
 		public:
-			struct Data
-			{
-				std::vector<DXM::Vector3> Positions;
-				std::vector<DXM::Vector2> UVs;
-				std::vector<DXM::Vector3> Normals;
-				std::vector<DXM::Vector3> Tangents;
-				std::vector<VertexIndex>  Indices;
-			};
-
 			Mesh() = default;
-			Mesh(const std::string& name)
-				:AssetBase(name) { }
+			Mesh(AssetID id)
+				:AssetBase(id) { }
 
-			bool Load(const std::string& filePath);
+			const MeshletMeshData& GetVertexData() const { return m_VertexData; }
 
-			void RemoveVertexData();
-
-			const Data& GetVertexData() const { return m_VertexData; }
-			float GetBoundingSphereRadius() const { return m_BoundingSphereRadius; }
-
+			bool LoadFromFile(const std::string& filename);
 		private:
-			Data m_VertexData;
-			float m_BoundingSphereRadius;
+			MeshletMeshData m_VertexData;
 		};
 	}
 }

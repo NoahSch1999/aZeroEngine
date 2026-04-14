@@ -115,10 +115,21 @@ bool aZero::Pipeline::VertexShaderPass::Compile(ID3D12DeviceX* device, const Des
 	}
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
-	if (!MultiShaderPass::CreateRootSignature(device, description, vertexShader, pixelShader, rootSignature))
+	if (pixelShader.has_value())
 	{
-		DEBUG_PRINT("Failed to compile pass root signature.");
-		return false;
+		if (!MultiShaderPass::CreateRootSignature(device, description, rootSignature, vertexShader, *pixelShader.value()))
+		{
+			DEBUG_PRINT("Failed to compile pass root signature.");
+			return false;
+		}
+	}
+	else if (!pixelShader.has_value())
+	{
+		if (!MultiShaderPass::CreateRootSignature(device, description, rootSignature, vertexShader))
+		{
+			DEBUG_PRINT("Failed to compile pass root signature.");
+			return false;
+		}
 	}
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState = nullptr;
@@ -130,12 +141,32 @@ bool aZero::Pipeline::VertexShaderPass::Compile(ID3D12DeviceX* device, const Des
 
 	BindingCombo<BufferBinding> bufferBindings;
 	BindingCombo<ConstantBinding> constantBindings;
-	DataStructures::SparseMappedVector<std::string, RenderAPI::Descriptor*> renderTargets;
-	MultiShaderPass::GenerateBindings(bufferBindings, constantBindings, renderTargets, description, vertexShader, pixelShader);
+	MultiShaderPass::GenerateBindings(bufferBindings, constantBindings, description, vertexShader, pixelShader);
 
-	MultiShaderPass::PostCompile(std::move(renderTargets), std::move(pipelineState), std::move(rootSignature), std::move(bufferBindings), std::move(constantBindings));
+	MultiShaderPass::PostCompile(std::move(pipelineState), std::move(rootSignature), std::move(bufferBindings), std::move(constantBindings));
 
 	m_TopologyType = description.m_TopologyType;
 
 	return true;
+}
+
+void aZero::Pipeline::VertexShaderPass::Begin(RenderAPI::CommandList& cmdList, const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap, const std::vector<RenderAPI::Descriptor*>& renderTargets, const std::optional<RenderAPI::Descriptor*>& depthStencilTarget)
+{
+	MultiShaderPass::Begin(cmdList, resourceHeap, samplerHeap, renderTargets, depthStencilTarget);
+	if (m_TopologyType == TopologyType::TRIANGLE)
+	{
+		cmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	}
+	else if (m_TopologyType == TopologyType::LINE)
+	{
+		cmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+	}
+	else if (m_TopologyType == TopologyType::POINT)
+	{
+		cmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+	}
+	else
+	{
+		DEBUG_PRINT("Invalid topology type.");
+	}
 }

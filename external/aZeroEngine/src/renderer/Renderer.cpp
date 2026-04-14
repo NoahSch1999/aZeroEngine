@@ -7,16 +7,17 @@ namespace aZero
 	namespace Rendering
 	{
 		Renderer::Renderer(ID3D12DeviceX* device, uint32_t bufferCount, IDxcCompilerX& compiler)
-			:m_Compiler(compiler)
+			:m_Compiler(compiler), m_diDevice(device), m_BufferCount(bufferCount)
 		{
-			m_diDevice = device;
-			m_BufferCount = bufferCount;
+			D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureData = {};
+			device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &featureData, sizeof(featureData));
 
-			this->Init(device, bufferCount);
-		}
+			if (featureData.MeshShaderTier == D3D12_MESH_SHADER_TIER_NOT_SUPPORTED) {
+				throw std::runtime_error("Device doesn't support mesh shaders.");
+			}
 
-		void Renderer::Init(ID3D12DeviceX* device, uint32_t numFramesInFlight)
-		{
+			m_NewResourceRecycler = RenderAPI::ResourceRecycler(bufferCount);
+
 			m_DirectCommandQueue = RenderAPI::CommandQueue(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 			m_CopyCommandQueue = RenderAPI::CommandQueue(device, D3D12_COMMAND_LIST_TYPE_COPY);
 			m_ComputeCommandQueue = RenderAPI::CommandQueue(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
@@ -25,19 +26,32 @@ namespace aZero
 			m_SamplerHeapNew = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 20, true);
 			m_RTVHeapNew = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 100, false);
 			m_DSVHeapNew = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 100, false);
-			
+
 			// TODO: DEFINE A MOVE-CONSTRUCTOR FOR FRAMECONTEXT
 			// OTHERWISE THIS WILL CRASH IF WE DONT RESERVE
-			m_FrameContexts.reserve(numFramesInFlight);
-			for (int32_t i = 0; i < numFramesInFlight; i++)
+			m_FrameContexts.reserve(bufferCount);
+			for (int32_t i = 0; i < bufferCount; i++)
 			{
 				m_FrameContexts.emplace_back(device, m_ResourceHeapNew, m_NewResourceRecycler);
 			}
 
 			m_SamplerManager = SamplerManager(device, m_SamplerHeapNew);
 
-			m_MeshEntryBuffer = RenderAPI::IndexedBuffer<MeshEntry>(device, 1000, &m_NewResourceRecycler);
-			m_NewMaterialBuffer = RenderAPI::IndexedBuffer<MaterialData>(device, 1000, &m_NewResourceRecycler);
+			m_ResourceManager = ResourceManager(device, &m_NewResourceRecycler, m_ResourceHeapNew);
+
+			this->InitPipeline();
+		}
+
+		void Renderer::InitPipeline()
+		{
+			m_AmpShader.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/AmpShader.as.hlsl"));
+			m_MeshShader.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshShader.ms.hlsl"));
+			m_PixelShader.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/PixelShader.ps.hlsl"));
+
+			Pipeline::MeshShaderPass::Description pipelineDesc;
+			pipelineDesc.m_RenderTargets.push_back({ DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, "ColorTarget" });
+			pipelineDesc.m_DepthStencil.m_Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+			m_Pipeline.Compile(m_diDevice, pipelineDesc, &m_AmpShader, m_MeshShader, &m_PixelShader);
 		}
 
 		bool Renderer::AdvanceFrameIfReady()
@@ -49,33 +63,87 @@ namespace aZero
 				return false;
 			}
 
-			this->GetCurrentContext().Begin();
+			m_FrameContexts.at(newPotentialFrameIndex).Begin();
 
 			return true;
 		}
 
-		bool Renderer::NewFrame()
+		bool Renderer::BeginFrame()
 		{
 			const bool hasNewFrameStarted = AdvanceFrameIfReady();
 			if (hasNewFrameStarted)
 			{
 				m_FrameIndex = static_cast<uint32_t>(m_FrameCount % m_FrameContexts.size());
 				m_FrameCount++;
+				m_NewResourceRecycler.SetFrameIndex(m_FrameIndex);
+				m_NewResourceRecycler.Clear();
 			}
 
 			return hasNewFrameStarted;
 		}
 
-		void Renderer::Render(const Scene::Scene& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget)
+		void Renderer::EndFrame()
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
+			frameContext.SetLatestSignal(m_DirectCommandQueue.GetLatestSignal());
+		}
+
+		void Renderer::Render(const Scene::SceneNew& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+
 			// Perform uploads for all updated/new assets and other stagings
 			frameContext.RecordFrameAllocations(frameContext.m_DirectCmdList);
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList);
 
 			// todo Do rendering
+			const auto& staticMeshInstances = scene.GetProxy()->m_StaticMeshes.GetData();
+			frameContext.m_StaticMeshBuffer.Write(staticMeshInstances.data(), staticMeshInstances.size() * sizeof(staticMeshInstances[0]), 0);
 
-			//
+			const auto& pointLights = scene.GetProxy()->m_PointLights.GetData();
+			frameContext.m_PointLightBuffer.Write(pointLights.data(), pointLights.size() * sizeof(pointLights[0]), 0);
+
+			const auto& spotLights = scene.GetProxy()->m_SpotLights.GetData();
+			frameContext.m_SpotLightBuffer.Write(spotLights.data(), spotLights.size() * sizeof(spotLights[0]), 0);
+
+			const auto& directionalLights = scene.GetProxy()->m_DirectionalLights.GetData();
+			frameContext.m_DirectionalLightBuffer.Write(directionalLights.data(), directionalLights.size() * sizeof(directionalLights[0]), 0);
+
+			const auto& cameras = scene.GetProxy()->m_Cameras.GetData();
+			frameContext.m_CameraBuffer.Write(cameras.data(), cameras.size() * sizeof(cameras[0]), 0);
+
+			auto rootConstants = m_Pipeline.GetConstantBindingIndex("Bindings");
+			auto rootIndex = rootConstants.GetRootIndex();
+			auto rootConstantsSize = rootConstants.GetNumConstants();
+
+			// TODO: Dispatch amp + mesh shaders
+			// Amp shader culls and produces work
+			for (uint32_t i = 0; i < cameras.size(); i++)
+			{
+				const auto& camera = cameras[i];
+				if (camera.m_IsActive)
+				{
+					struct BindingConstants
+					{
+						uint32_t InstanceBuffer;
+						uint32_t MeshBuffer;
+						uint32_t CameraBuffer;
+						uint32_t InstanceID;
+						uint32_t CameraID;
+					} constants;
+
+					constants.InstanceBuffer = frameContext.m_StaticMeshDescriptor.GetHeapIndex();
+					constants.MeshBuffer = m_ResourceManager.m_MeshBufferView.GetHeapIndex();
+					constants.CameraBuffer = frameContext.m_CameraDescriptor.GetHeapIndex();
+					constants.InstanceID = 0;
+					constants.CameraID = i;
+
+					m_Pipeline.Begin(frameContext.m_DirectCmdList, m_ResourceHeapNew, m_SamplerHeapNew, { &renderTarget.value()->GetTargetDescriptor() }, & depthTarget.value()->GetTargetDescriptor());
+					frameContext.m_DirectCmdList->SetGraphicsRoot32BitConstants(rootIndex, rootConstantsSize, &constants, 0);
+
+					frameContext.m_DirectCmdList->DispatchMesh(staticMeshInstances.size(), 1, 1); // ?
+				}
+			}
 		}
 
 		void Renderer::FlushGPU()
@@ -109,6 +177,27 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList);
 		}
 
+		void Renderer::CopyTextureToTexture(ID3D12Resource* dstResource, ID3D12Resource* srcResource)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+
+			std::vector<RenderAPI::ResourceTransitionBundles> preCopyBarriers;
+			preCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, dstResource });
+			preCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE, srcResource });
+
+			RenderAPI::TransitionResources(frameContext.m_DirectCmdList, preCopyBarriers);
+
+			frameContext.m_DirectCmdList->CopyResource(dstResource, srcResource);
+
+			std::vector<RenderAPI::ResourceTransitionBundles> postCopyBarriers;
+			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON, dstResource });
+			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON, srcResource });
+
+			RenderAPI::TransitionResources(frameContext.m_DirectCmdList, postCopyBarriers);
+
+			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList);
+		}
+
 		void Renderer::UpdateRenderState(Asset::Mesh* mesh)
 		{
 			if (!mesh)
@@ -117,52 +206,9 @@ namespace aZero
 				throw;
 			}
 
-			const Asset::Mesh::Data& vertexData = mesh->GetVertexData();
-			if (vertexData.Positions.empty())
-			{
-				return;
-			}
-
-			FrameContext& frameContext = this->GetCurrentContext();
-
-			// todo Handle re-create of the descriptors
-			if (mesh->GetRenderID() == std::numeric_limits<Asset::RenderID>::max())
-			{
-				m_GPUMeshes.emplace(mesh->GetRenderID(), RenderAPI::VertexBuffer(m_diDevice, frameContext.m_DirectCmdList, m_NewResourceRecycler, vertexData, m_ResourceHeapNew));
-
-				const auto& gpuMesh = m_GPUMeshes.at(mesh->GetRenderID());
-				MeshEntry meshHandle;
-				meshHandle.PositionsIndex = gpuMesh.m_Positions.m_Descriptor.GetHeapIndex();
-				meshHandle.UVsIndex = gpuMesh.m_UVs.m_Descriptor.GetHeapIndex();
-				meshHandle.NormalsIndex = gpuMesh.m_Normals.m_Descriptor.GetHeapIndex();
-				meshHandle.TangentsIndex = gpuMesh.m_Tangents.m_Descriptor.GetHeapIndex();
-				meshHandle.IndicesIndex = gpuMesh.m_Indices.m_Descriptor.GetHeapIndex();
-				meshHandle.NumIndices = static_cast<uint32_t>(vertexData.Indices.size());
-
-				const uint32_t index = m_MeshEntryBuffer.Allocate();
-				mesh->m_RenderID = index;
-
-				frameContext.AddAllocation(meshHandle, m_MeshEntryBuffer.GetBuffer(), m_MeshEntryBuffer.GetByteOffset(index));
-				m_NewMeshEntryAllocMap[mesh->GetRenderID()] = index;
-			}
-			else
-			{
-				const Asset::RenderID id = mesh->GetRenderID();
-				m_GPUMeshes.erase(id);
-
-				m_GPUMeshes.emplace(mesh->GetRenderID(), RenderAPI::VertexBuffer(m_diDevice, frameContext.m_DirectCmdList, m_NewResourceRecycler, vertexData, m_ResourceHeapNew));
-
-				const auto& gpuMesh = m_GPUMeshes.at(mesh->GetRenderID());
-				MeshEntry meshHandle;
-				meshHandle.PositionsIndex = gpuMesh.m_Positions.m_Descriptor.GetHeapIndex();
-				meshHandle.UVsIndex = gpuMesh.m_UVs.m_Descriptor.GetHeapIndex();
-				meshHandle.NormalsIndex = gpuMesh.m_Normals.m_Descriptor.GetHeapIndex();
-				meshHandle.TangentsIndex = gpuMesh.m_Tangents.m_Descriptor.GetHeapIndex();
-				meshHandle.IndicesIndex = gpuMesh.m_Indices.m_Descriptor.GetHeapIndex();
-				meshHandle.NumIndices = static_cast<uint32_t>(vertexData.Indices.size());
-
-				frameContext.AddAllocation(meshHandle, m_MeshEntryBuffer.GetBuffer(), m_MeshEntryBuffer.GetByteOffset(m_NewMeshEntryAllocMap[id]));
-			}
+			FrameContext& context = this->GetCurrentContext();
+			m_ResourceManager.UpdateRenderState(m_diDevice, context.m_DirectCmdList, context.m_FrameAllocator, m_NewResourceRecycler, m_ResourceHeapNew, *mesh);
+			m_DirectCommandQueue.ExecuteCommandList(context.m_DirectCmdList);
 		}
 
 		void Renderer::UpdateRenderState(Asset::Material* material)
@@ -173,39 +219,7 @@ namespace aZero
 				throw;
 			}
 
-			const Asset::Texture* albedoTexture = material->m_Data.AlbedoTexture;
-			const Asset::Texture* normalTexture = material->m_Data.NormalMap;
-			
-			MaterialData materialData;
-
-			if (albedoTexture == nullptr || (albedoTexture && albedoTexture->GetRenderID() == Asset::InvalidRenderID))
-			{
-				materialData.AlbedoIndex = -1;
-			}
-			else
-			{
-				materialData.AlbedoIndex = albedoTexture->GetRenderID();
-			}
-
-			if (normalTexture == nullptr || (normalTexture && normalTexture->GetRenderID() == Asset::InvalidRenderID))
-			{
-				materialData.NormalIndex = -1;
-			}
-			else
-			{
-				materialData.NormalIndex = normalTexture->GetRenderID();
-			}
-
-			if (material->GetRenderID() == Asset::InvalidRenderID)
-			{
-				const uint32_t index = m_NewMaterialBuffer.Allocate();
-				material->m_RenderID = index;
-
-				m_NewMaterialAllocMap[material->m_RenderID] = index;
-			}
-
-			FrameContext& frameContext = this->GetCurrentContext();
-			frameContext.AddAllocation(materialData, m_NewMaterialBuffer.GetBuffer(), m_NewMaterialBuffer.GetByteOffset(material->m_RenderID));
+			m_ResourceManager.UpdateRenderState(this->GetCurrentContext().m_FrameAllocator, m_NewResourceRecycler, m_ResourceHeapNew, *material);
 		}
 
 		void Renderer::UpdateRenderState(Asset::Texture* texture)
@@ -216,129 +230,22 @@ namespace aZero
 				throw;
 			}
 
-			if (texture->m_Data.TexelData.size()
-				!= texture->m_Data.Height * texture->m_Data.Width * texture->m_Data.NumChannels)
-			{
-				// todo How to handle textures where the format doesnt match the channel count
-				// todo Fix why this is triggered
-				// Maybe use dxtk texture loading functions?
-				DEBUG_PRINT("Texel data size doesn't match the Texture dimensions and channel count.");
-				//return;
-			}
-
-			FrameContext& frameContext = this->GetCurrentContext();
-
-			GPUTexture2D assetData;
-			RenderAPI::Texture2D::Desc desc;
-			desc.Format = texture->m_Data.Format;
-			desc.Width = texture->m_Data.Width;
-			desc.Height = texture->m_Data.Height;
-			desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
-			assetData.m_Texture = RenderAPI::Texture2D(m_diDevice, desc, &m_NewResourceRecycler);
-
-			// todo Make so that the old texture isnt accessed when/after the same descriptor index is reallocated
-				// We need to use the same descriptor index since we need to keep the renderID valid
-			assetData.m_Srv = m_ResourceHeapNew.CreateDescriptor();
-
-			D3D12_RESOURCE_DESC resourceDesc = assetData.m_Texture.GetResource()->GetDesc();
-
-			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
-			ZeroMemory(&srvDesc, sizeof(D3D12_SHADER_RESOURCE_VIEW_DESC));
-			srvDesc.Format = resourceDesc.Format;
-			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-
-			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-
-			// !note Rework once multiple mip-levels are supported
-			srvDesc.Texture2D.MipLevels = 1;
-			srvDesc.Texture2D.MostDetailedMip = 0;
-			srvDesc.Texture2D.PlaneSlice = 0;
-			srvDesc.Texture2D.ResourceMinLODClamp = static_cast<FLOAT>(0);
-
-			m_diDevice->CreateShaderResourceView(assetData.m_Texture.GetResource(), &srvDesc, assetData.m_Srv.GetCpuHandle());
-
-			if (texture->GetRenderID() == Asset::InvalidRenderID)
-			{
-				texture->m_RenderID = assetData.m_Srv.GetHeapIndex();
-			}
-
-			// UpdateRenderState texel data
-			const uint64_t stagingBufferSize = static_cast<uint64_t>(GetRequiredIntermediateSize(assetData.m_Texture.GetResource(), 0, 1));
-			RenderAPI::Buffer stagingBuffer(m_diDevice, RenderAPI::Buffer::Desc(stagingBufferSize, D3D12_HEAP_TYPE_UPLOAD), &m_NewResourceRecycler);
-
-			const D3D12_RESOURCE_BARRIER& preUploadBarrier = assetData.m_Texture.CreateTransition(D3D12_RESOURCE_STATE_COPY_DEST);
-
-			// todo Change to enhanced barrier
-			frameContext.m_DirectCmdList->ResourceBarrier(1, &preUploadBarrier);
-
-			D3D12_SUBRESOURCE_DATA subresourceData{};
-			subresourceData.pData = texture->m_Data.TexelData.data();
-			subresourceData.RowPitch = /*roundUp(*/texture->m_Data.Width * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/;
-			subresourceData.SlicePitch = subresourceData.RowPitch * texture->m_Data.Height;
-
-			UpdateSubresources(
-				frameContext.m_DirectCmdList.Get(),
-				assetData.m_Texture.GetResource(),
-				stagingBuffer.GetResource(),
-				0, 0, 1, &subresourceData);
-
-			// todo Change to enhanced barrier
-			const D3D12_RESOURCE_BARRIER& postUploadBarrier = assetData.m_Texture.CreateTransition(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			frameContext.m_DirectCmdList->ResourceBarrier(1, &postUploadBarrier);
-
-			frameContext.SetLatestSignal(m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList));
-
-			m_GPUTextures[texture->m_RenderID] = std::move(assetData);
+			m_ResourceManager.UpdateRenderState(m_NewResourceRecycler, m_ResourceHeapNew, *texture);
 		}
 
 		void Renderer::RemoveRenderState(Asset::Mesh* mesh)
 		{
-			if (mesh && mesh->GetRenderID() != Asset::InvalidRenderID)
-			{
-				// todo Remove it after its last usage so we dont create a new view with the same descriptor index while its still accessed on the gpu
-
-				const Asset::RenderID id = mesh->GetRenderID();
-
-				// Remove the vertex data
-				m_GPUMeshes.erase(id);
-
-				// Remove the mesh entry
-				const uint32_t meshEntryIndex = m_NewMeshEntryAllocMap.at(id);
-				m_MeshEntryBuffer.Deallocate(meshEntryIndex);
-				m_NewMeshEntryAllocMap.erase(id);
-
-				// Invalidate the assets render-resource reference id
-				mesh->m_RenderID = Asset::InvalidRenderID;
-			}
+			//m_ResourceManager.
 		}
 
 		void Renderer::RemoveRenderState(Asset::Material* material)
 		{
-			if (material && material->GetRenderID() != Asset::InvalidRenderID)
-			{
-
-				const Asset::RenderID id = material->GetRenderID();
-
-				// Remove the material
-				const uint32_t meshEntryIndex = m_NewMaterialAllocMap.at(id);
-				m_NewMaterialBuffer.Deallocate(meshEntryIndex);
-				m_NewMaterialAllocMap.erase(id);
-
-				// Invalidate the assets render-resource reference id
-				material->m_RenderID = Asset::InvalidRenderID;
-			}
+			//m_ResourceManager.
 		}
 
 		void Renderer::RemoveRenderState(Asset::Texture* texture)
 		{
-			if (texture && texture->GetRenderID() != Asset::InvalidRenderID)
-			{
-				// todo Remove it after its last usage so we dont create a new view with the same descriptor index while its still accessed on the gpu
-				m_GPUTextures.erase(texture->GetRenderID());
-
-				// Invalidate the assets render-resource reference id
-				texture->m_RenderID = Asset::InvalidRenderID;
-			}
+			//m_ResourceManager.
 		}
 	}
 }
