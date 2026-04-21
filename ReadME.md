@@ -7,7 +7,7 @@ It's a work-in-progress remake of my old game engine found here: https://github.
 
 The idea is that the API provides easy-to-use and flexible engine-functionalities. Then the user can do whatever they want with it.
 
-The API doesn't provide a build-in window-creation since the idea is to make it as flexible as possible. Instead of having a window class, the API provides functionality to copy a rendered frame to your swapchain.
+The API doesn't provide a build-in window-creation or input system since the idea is to make it as flexible as possible. Instead of having a window class, the API provides functionality to copy a rendered frame to your swapchain.
 
 ### Classes
 *Core classes*
@@ -42,17 +42,17 @@ Requires at least Windows Kits 10.0.22621.0. Try installing the most up-to-date 
 
 5. Run with F5 
 
-### Technical Features
-
- - Asset loading (mesh, texture, etc)
- - Dynamic amount of point, spot, and directional lights with frustrum culling for the first two
- - Per-batch instanced drawing that batches all draws based on unique materials and meshes
+### Implemented Features
+ - Fully gpu-driven rendering pipeline using compute shaders, mesh shaders and indirect drawing. Includes per-object and per-meshlet frustum culling.
  - Normal mapping
- - In-engine HLSL shader compilation and reflection enabling name-based pipeline binding
+ - Shader hot-reloading and reflection that enables binding by shader resource name
+ - Mesh and audio loading
+ - Integrated audio engine
+ - Entity-based scene configuration
 
-### Planned Features
-Already in my old project but has to be implemented here:
-
+### Features in the old engine that will be integrated in this
+ - Dynamic amount of point, spot, and directional lights with frustrum culling for the first two
+ - Asset loading (mesh, texture, materials, etc)
  - Deferred rendering (will probably be skipped for a more modern rendering technique)
  - Per-entity outlines (post process)
  - Color-based entity picking (optional)
@@ -61,12 +61,19 @@ Already in my old project but has to be implemented here:
  - Entity parenting
  - Directional shadow mapping
  - Scene and material editor (incl. material drag/drop)
- 
-Other:
  - PBR shading
- - Downsampled-style glow (such as Unity's)
- - Compute-based skeletal animation and relevant components
- - Rigidbody component
- - Audio source component
- - Octree culling
- - Render graph for a more automatic render pass configuration
+ - Toon shading
+ 
+### Planned features:
+ - Glow map materials using COD-style bloom
+ - Clustered shading
+ - Dedicated game and render thread
+ - Cascading shadow maps
+ - Omnidirectional shadow maps
+ - Integrated scripting system using Mono
+ - Texture mip map support, including in-engine generation
+ - Mesh lod support
+ - SMAA
+ - Compute-based skeletal animation
+ - Integrated physics system with rigidbody and collider components
+ - Interface to build render passes and configure the render graph
