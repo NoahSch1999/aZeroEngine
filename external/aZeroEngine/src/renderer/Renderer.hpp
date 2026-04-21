@@ -14,6 +14,9 @@
 #include "FrameContext.hpp"
 #include "scene/Scene.hpp"
 #include "ResourceManager.hpp"
+#include "graphics_api/resource/texture/DepthStencilTarget.hpp"
+#include "graphics_api/resource/texture/RenderTarget.hpp"
+#include "graphics_api/SwapChain.hpp"
 
 namespace aZero
 {
@@ -49,9 +52,10 @@ namespace aZero
 			void EndFrame();
 
 			void FlushFrameAllocations();
-			void Render(const Scene::SceneNew& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget);
 
-			void CopyTextureToTexture(ID3D12Resource* dstTexture, ID3D12Resource* srcTexture);
+			void Render(const Scene::SceneNew& scene);
+
+			void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, RenderingX::RenderTarget& renderTarget);
 
 			void FlushGPU();
 			uint64_t SignalGraphicsQueue() { return m_DirectCommandQueue.Signal(); }
@@ -62,6 +66,9 @@ namespace aZero
 			void RemoveRenderState(Asset::Mesh* mesh);
 			void RemoveRenderState(Asset::Material* material);
 			void RemoveRenderState(Asset::Texture* texture);
+
+			RenderingX::RenderTarget CreateRenderTarget(const RenderingX::RenderTarget::Desc& desc);
+			RenderingX::DepthStencilTarget CreateDepthStencilTarget(const RenderingX::DepthStencilTarget::Desc& desc);
 
 		private:
 			FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
@@ -74,7 +81,7 @@ namespace aZero
 			void InitMeshletCullPipeline();
 			void InitMeshletDrawPipeline();
 
-			
+			void ClearRenderSurfaces(const Scene::RenderData::Camera& camera);
 			
 			ID3D12DeviceX* m_diDevice;
 			uint32_t m_BufferCount;
@@ -114,7 +121,7 @@ namespace aZero
 			
 			void RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes);
 			void RecordMeshLetCullingPass(const BindingConstants& bindings);
-			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget);
+			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<RenderingX::RenderTarget*> renderTarget, std::optional<RenderingX::DepthStencilTarget*> depthStencilTarget);
 
 			uint32_t MAX_INSTANCES = 4000;
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;

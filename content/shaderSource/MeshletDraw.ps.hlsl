@@ -45,7 +45,7 @@ Output main(VertexOut pin)
     surfaceColor += ambient * lightColor;
     
     Output output;
-    //output.color = float4(surfaceColor, 1.f);
-    output.color = float4(pin.MeshletColor, 1.f);
+    output.color = float4(surfaceColor, 1.f);
+    //output.color = float4(pin.MeshletColor, 1.f);
     return output;
 }

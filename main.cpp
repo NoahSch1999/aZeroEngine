@@ -61,7 +61,8 @@ int main(int argc, char* argv[])
 
 		// Create render surfaces
 		auto [width, height] = window.GetClientDimensions();
-		auto [rtv, dsv] = CreateRenderSurfaces(engine, { (float)width, (float)height });
+		auto rtv = renderer.CreateRenderTarget(RenderingX::RenderTarget::Desc(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, { 0.3,0.3,0.3,1 }, true));
+		auto dsv = renderer.CreateDepthStencilTarget(RenderingX::DepthStencilTarget::Desc(width, height, 1, 0, true, true));
 		//
 
 		Asset::Mesh mesh(0);
@@ -81,6 +82,17 @@ int main(int argc, char* argv[])
 
 		ECS::Entity camEnt = scene.GetEntity("CameraEntity").value();
 		ECS::CameraComponent& cam = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt);
+		cam.m_RenderTarget = &rtv;
+		cam.m_DepthStencilTarget = &dsv;
+		scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
+
+		{
+			ECS::Entity camEnt2 = scene.GetEntity("CameraEntity2").value();
+			ECS::CameraComponent& cam2 = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt2);
+			cam2.m_RenderTarget = &rtv;
+			cam2.m_DepthStencilTarget = &dsv;
+			scene.MarkRenderStateDirty(camEnt2, aZero::Scene::SceneNew::ComponentFlag());
+		}
 
 		Input::KeyboardListener listener = window.GetDeviceManager().ListenKeyboard({
 			[&window, meshEntity, &tf, &scene](const SDL_Event& event, Input::Keyboard& keyboard) {
@@ -144,9 +156,9 @@ int main(int argc, char* argv[])
 			//
 
 			// Rendering the scene
-			renderer.Render(scene, &rtv, &dsv);
+			renderer.Render(scene);
 
-			renderer.CopyTextureToTexture(window.GetCurrentBackbuffer(), rtv.GetTexture().GetResource());
+			renderer.CopyRenderTargetToSwapChain(window.GetSwapChain(), rtv);
 
 			// Declares end of current frame
 			renderer.EndFrame();

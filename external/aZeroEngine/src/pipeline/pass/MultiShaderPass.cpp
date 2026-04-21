@@ -21,7 +21,7 @@ void aZero::Pipeline::MultiShaderPass::Begin(RenderAPI::CommandList& cmdList, co
 
 	cmdList->SetGraphicsRootSignature(m_RootSignature.Get());
 
-	std::array<D3D12_CPU_DESCRIPTOR_HANDLE, 8> outputTargets;
+	std::array<D3D12_CPU_DESCRIPTOR_HANDLE, 8> outputTargets = {};
 	for (uint32_t i = 0; i < renderTargets.size(); i++)
 	{
 		outputTargets[i] = renderTargets[i]->GetCpuHandle();
@@ -30,10 +30,10 @@ void aZero::Pipeline::MultiShaderPass::Begin(RenderAPI::CommandList& cmdList, co
 	if (depthStencilTarget.has_value())
 	{
 		D3D12_CPU_DESCRIPTOR_HANDLE dsvDescriptor = depthStencilTarget.value()->GetCpuHandle();
-		cmdList->OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), outputTargets.data(), 0, &dsvDescriptor);
+		cmdList->OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), outputTargets.size() > 0 ? outputTargets.data() : nullptr, 0, &dsvDescriptor);
 	}
 	else
 	{
-		cmdList->OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), outputTargets.data(), 0, nullptr);
+		cmdList->OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), outputTargets.size() > 0 ? outputTargets.data() : nullptr, 0, nullptr);
 	}
 }

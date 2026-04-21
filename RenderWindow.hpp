@@ -31,6 +31,7 @@ public:
 	aZero::Input::DeviceManager& GetDeviceManager() { return m_DeviceManager; }
 
 	ID3D12Resource* GetCurrentBackbuffer() { return m_SwapChain.GetFrameBackBuffer(); }
+	aZero::RenderAPI::SwapChain& GetSwapChain() { return m_SwapChain; }
 
 private:
 	void PollEventImpl(const SDL_Event& event) final {

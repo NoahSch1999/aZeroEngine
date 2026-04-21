@@ -61,19 +61,42 @@ inline void CreateScene(
 	}
 
 	// Create camera
-	aZero::ECS::Entity cameraEntity = scene.AddEntity();
-	scene.RenameEntity(cameraEntity, "CameraEntity");
+	{
+		aZero::ECS::Entity cameraEntity = scene.AddEntity();
+		scene.RenameEntity(cameraEntity, "CameraEntity");
 
-	aZero::ECS::CameraComponent cameraComponent;
-	cameraComponent.m_TopLeft = { 0,0 };
-	cameraComponent.m_Dimensions = windowDimensions;
-	cameraComponent.m_NearPlane = 0.001f;
-	cameraComponent.m_FarPlane = 1000.f;
-	cameraComponent.m_Fov = 3.14f / 2.f;
-	ecsManager.AddComponent(cameraEntity, cameraComponent);
-	ecsManager.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
+		aZero::ECS::CameraComponent cameraComponent;
+		cameraComponent.m_TopLeft = { 0,0 };
+		cameraComponent.m_Dimensions = { windowDimensions.x / 2.f, windowDimensions.y };
+		cameraComponent.m_NearPlane = 0.001f;
+		cameraComponent.m_FarPlane = 1000.f;
+		cameraComponent.m_Fov = 3.14f / 2.f;
+		cameraComponent.m_Layer = 1;
+		cameraComponent.m_ClearRenderTarget = false;
+		cameraComponent.m_ClearDepthTarget = false;
+		cameraComponent.m_ClearStencilTarget = false;
+		ecsManager.AddComponent(cameraEntity, cameraComponent);
+		ecsManager.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
 
-	scene.MarkRenderStateDirty(cameraEntity, aZero::Scene::SceneNew::ComponentFlag());
+		scene.MarkRenderStateDirty(cameraEntity, aZero::Scene::SceneNew::ComponentFlag());
+	}
+
+	{
+		aZero::ECS::Entity cameraEntity = scene.AddEntity();
+		scene.RenameEntity(cameraEntity, "CameraEntity2");
+
+		aZero::ECS::CameraComponent cameraComponent;
+		cameraComponent.m_TopLeft = { windowDimensions.x / 2.f, 0 };
+		cameraComponent.m_Dimensions = { windowDimensions.x / 2.f, windowDimensions.y };
+		cameraComponent.m_NearPlane = 0.001f;
+		cameraComponent.m_FarPlane = 1000.f;
+		cameraComponent.m_Fov = 3.14f / 2.f;
+		cameraComponent.m_Layer = 0;
+		ecsManager.AddComponent(cameraEntity, cameraComponent);
+		ecsManager.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
+
+		scene.MarkRenderStateDirty(cameraEntity, aZero::Scene::SceneNew::ComponentFlag());
+	}
 }
 
 inline auto CreateRenderSurfaces(const aZero::Engine& engine, const DXM::Vector2& windowDimensions)

@@ -1,5 +1,5 @@
 #pragma once
-#include "Descriptor.hpp"
+#include "DescriptorHeap.hpp"
 #include "graphics_api/resource/buffer/Buffer.hpp"
 #include "graphics_api/resource/texture/Texture2D.hpp"
 
@@ -14,6 +14,7 @@ namespace aZero
 			uint32_t GetHeapIndex() const { return m_Descriptor.GetHeapIndex(); }
 			D3D12_CPU_DESCRIPTOR_HANDLE GetCpuHandle() const { return m_Descriptor.GetCpuHandle(); }
 			D3D12_GPU_DESCRIPTOR_HANDLE GetGpuHandle() const { return m_Descriptor.GetGpuHandle(); }
+			RenderAPI::Descriptor& GetDescriptor() { return m_Descriptor; }
 		protected:
 			RenderAPI::Descriptor m_Descriptor;
 		};
@@ -61,6 +62,39 @@ namespace aZero
 				desc.Buffer.StructureByteStride = stride;
 				desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 				device->CreateUnorderedAccessView(resource.GetResource(), nullptr, &desc, m_Descriptor.GetCpuHandle());
+			}
+		};
+
+		class RenderTargetView : public ResourceView
+		{
+		public:
+			RenderTargetView() = default;
+			RenderTargetView(ID3D12DeviceX* device, DescriptorHeap& heap, const Texture2D& resource, DXGI_FORMAT format, uint32_t mipSlice = 0, uint32_t planeSlice = 0)
+			{
+				m_Descriptor = heap.CreateDescriptor();
+				D3D12_RENDER_TARGET_VIEW_DESC desc = {};
+				desc.Format = format;
+				desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+				desc.Texture2D.MipSlice = mipSlice;
+				desc.Texture2D.PlaneSlice = planeSlice;
+
+				device->CreateRenderTargetView(resource.GetResource(), &desc, m_Descriptor.GetCpuHandle());
+			}
+		};
+
+		class DepthStencilTargetView : public ResourceView
+		{
+		public:
+			DepthStencilTargetView() = default;
+			DepthStencilTargetView(ID3D12DeviceX* device, DescriptorHeap& heap, const Texture2D& resource, DXGI_FORMAT format, uint32_t mipSlice = 0)
+			{
+				m_Descriptor = heap.CreateDescriptor();
+				D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
+				desc.Format = format;
+				desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+				desc.Texture2D.MipSlice = mipSlice;
+
+				device->CreateDepthStencilView(resource.GetResource(), &desc, m_Descriptor.GetCpuHandle());
 			}
 		};
 	}

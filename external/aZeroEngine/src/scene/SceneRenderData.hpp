@@ -45,6 +45,12 @@ namespace aZero
 				D3D12_VIEWPORT m_Viewport;
 				D3D12_RECT m_ScizzorRect;
 				bool m_IsActive;
+				bool m_ClearRenderTarget = true;
+				bool m_ClearDepthTarget = true;
+				bool m_ClearStencilTarget = true;
+				uint32_t m_Layer = 0;
+				std::optional<RenderingX::RenderTarget*> m_RenderTarget;
+				std::optional<RenderingX::DepthStencilTarget*> m_DepthStencilTarget;
 
 				struct GPUVersion
 				{
@@ -62,6 +68,12 @@ namespace aZero
 					m_Projection = camera.GetProjectionMatrix();
 					m_Viewport = camera.GetViewport();
 					m_ScizzorRect = camera.GetScizzorRect();
+					m_ClearRenderTarget = camera.m_ClearRenderTarget;
+					m_ClearDepthTarget = camera.m_ClearDepthTarget;
+					m_ClearStencilTarget = camera.m_ClearStencilTarget;
+					m_RenderTarget = camera.m_RenderTarget;
+					m_DepthStencilTarget = camera.m_DepthStencilTarget;
+					m_Layer = camera.m_Layer;
 				}
 
 				GPUVersion CreateGPUVersion() const { return GPUVersion(*this); }

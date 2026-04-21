@@ -244,7 +244,59 @@ namespace aZero
 			cmdList->ExecuteIndirect(m_MeshObjectCullSignature.Get(), MAX_INSTANCES, m_MeshObjectCullingBuffer.GetResource(), 0, m_PassedMeshCountBuffer.GetResource(), 0);
 		}
 
-		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget)
+		void Renderer::ClearRenderSurfaces(const Scene::RenderData::Camera& camera)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+
+			std::array<ID3D12DescriptorHeap*, 2> heaps{ m_ResourceHeapNew.Get(), m_SamplerHeapNew.Get() };
+			frameContext.m_DirectCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
+
+			if (camera.m_RenderTarget.has_value())
+			{
+				if (camera.m_ClearRenderTarget)
+				{
+					auto& target = *camera.m_RenderTarget.value();
+					auto& texture = target.GetTexture();
+					if (texture.GetState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
+					{
+						auto barrier = texture.CreateTransition(D3D12_RESOURCE_STATE_RENDER_TARGET);
+						frameContext.m_DirectCmdList->ResourceBarrier(1, &barrier);
+					}
+					frameContext.m_DirectCmdList->ClearRenderTargetView(target.GetCpuHandle(), target.GetClearValue().Color, 0, nullptr);
+				}
+			}
+
+			if (camera.m_DepthStencilTarget.has_value())
+			{
+				D3D12_CLEAR_FLAGS clearFlags = static_cast<D3D12_CLEAR_FLAGS>(0);
+				if (camera.m_ClearDepthTarget)
+				{
+					clearFlags |= D3D12_CLEAR_FLAG_DEPTH;
+				}
+
+				if (camera.m_ClearStencilTarget)
+				{
+					clearFlags |= D3D12_CLEAR_FLAG_STENCIL;
+				}
+
+				if (clearFlags)
+				{
+					auto& target = *camera.m_DepthStencilTarget.value();
+					auto& texture = target.GetTexture();
+					if (texture.GetState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
+					{
+						auto barrier = texture.CreateTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
+						frameContext.m_DirectCmdList->ResourceBarrier(1, &barrier);
+					}
+					const auto value = target.GetClearValue().DepthStencil;
+					frameContext.m_DirectCmdList->ClearDepthStencilView(target.GetCpuHandle(), clearFlags, value.Depth, value.Stencil, 0, nullptr);
+				}
+			}
+
+			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
+		}
+
+		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<RenderingX::RenderTarget*> renderTarget, std::optional<RenderingX::DepthStencilTarget*> depthStencilTarget)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 			auto& cmdList = frameContext.m_DirectCmdList;
@@ -252,7 +304,13 @@ namespace aZero
 			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 			cmdList->ResourceBarrier(1, &barrier);
 
-			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew, { &renderTarget.value()->GetTargetDescriptor() }, &depthTarget.value()->GetTargetDescriptor());
+			std::vector<RenderAPI::Descriptor*> renderTargets;
+			if (renderTarget.has_value())
+			{
+				renderTargets.push_back(&renderTarget.value()->GetDescriptor());
+			}
+			RenderAPI::Descriptor* dsv = depthStencilTarget.has_value() ? &depthStencilTarget.value()->GetDescriptor() : nullptr;
+			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew, renderTargets, depthStencilTarget.has_value() ? dsv : std::optional<RenderAPI::Descriptor*>());
 
 			auto msBindings = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
 			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &bindings, 0);
@@ -275,26 +333,9 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 		}
 
-		void Renderer::Render(const Scene::SceneNew& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget)
+		void Renderer::Render(const Scene::SceneNew& scene)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-
-			std::array<ID3D12DescriptorHeap*, 2> heaps{ m_ResourceHeapNew.Get(), m_SamplerHeapNew.Get() };
-			frameContext.m_DirectCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
-
-			if (renderTarget.has_value())
-			{
-				const DXM::Vector4 rtvClearColor = renderTarget.value()->GetDesc().colorClearValue;
-				const FLOAT clearColor[4] = { rtvClearColor.x, rtvClearColor.y, rtvClearColor.z, rtvClearColor.w };
-				frameContext.m_DirectCmdList->ClearRenderTargetView(renderTarget.value()->GetTargetDescriptor().GetCpuHandle(), clearColor, 0, nullptr);
-			}
-
-			if (depthTarget.has_value())
-			{
-				frameContext.m_DirectCmdList->ClearDepthStencilView(depthTarget.value()->GetTargetDescriptor().GetCpuHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-					depthTarget.value()->GetDesc().depthClearValue,
-					depthTarget.value()->GetDesc().stencilClearValue, 0, nullptr);
-			}
 
 			// Perform uploads for all updated/new assets and other stagings
 			frameContext.RecordFrameAllocations(frameContext.m_DirectCmdList);
@@ -313,12 +354,16 @@ namespace aZero
 			const auto& directionalLights = scene.GetProxy()->m_DirectionalLights.GetData();
 			frameContext.m_DirectionalLightBuffer.Write(directionalLights.data(), directionalLights.size() * sizeof(directionalLights[0]), 0);
 
+
+			// Sort cameras based on layer
+			auto cameras = scene.GetProxy()->m_Cameras.GetData();
+			struct { bool operator()(const Scene::RenderData::Camera& a, const Scene::RenderData::Camera& b) const { return a.m_Layer < b.m_Layer; } } customLess;
+			std::sort(cameras.begin(), cameras.end(), customLess);
+
 			uint32_t lastCameraIndex = 0;
-			const auto& cameras = scene.GetProxy()->m_Cameras.GetData();
-			for (uint32_t i = 0; i < cameras.size(); i++)
+			for (const auto& camera : cameras)
 			{
-				const auto& camera = cameras[i];
-				if (camera.m_IsActive)
+				if (camera.m_IsActive && (camera.m_RenderTarget.has_value() || camera.m_DepthStencilTarget.has_value()))
 				{
 					BindingConstants constants;
 					constants.InstanceBuffer = frameContext.m_StaticMeshDescriptor.GetHeapIndex();
@@ -332,11 +377,13 @@ namespace aZero
 					frameContext.m_CameraBuffer.Write(&gpuCamera, sizeof(gpuCamera), sizeof(gpuCamera) * lastCameraIndex);
 					lastCameraIndex++;
 
+					this->ClearRenderSurfaces(camera);
+
 					this->RecordMeshObjectCullingPass(constants, staticMeshInstances.size());
 
 					this->RecordMeshLetCullingPass(constants);
 
-					this->RecordMeshDrawingPass(constants, camera, renderTarget, depthTarget);
+					this->RecordMeshDrawingPass(constants, camera, camera.m_RenderTarget, camera.m_DepthStencilTarget);
 				}
 			}
 		}
@@ -348,21 +395,23 @@ namespace aZero
 			// todo When we're also using other types of queues we need to add them here and do some other stuff
 		}
 
-		void Renderer::CopyTextureToTexture(ID3D12Resource* dstResource, ID3D12Resource* srcResource)
+		void Renderer::CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, RenderingX::RenderTarget& renderTarget)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 
 			std::vector<RenderAPI::ResourceTransitionBundles> preCopyBarriers;
-			preCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, dstResource });
-			preCopyBarriers.push_back({ D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE, srcResource });
+			preCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, swapChain.GetFrameBackBuffer()});
+			preCopyBarriers.push_back({ renderTarget.GetTexture().GetState(), D3D12_RESOURCE_STATE_COPY_SOURCE, renderTarget.GetTexture().GetResource()});
 
 			RenderAPI::TransitionResources(frameContext.m_DirectCmdList, preCopyBarriers);
 
-			frameContext.m_DirectCmdList->CopyResource(dstResource, srcResource);
+			// TODO: Handle up/down-scaling when missmatched resources
+			frameContext.m_DirectCmdList->CopyResource(swapChain.GetFrameBackBuffer(), renderTarget.GetTexture().GetResource());
 
 			std::vector<RenderAPI::ResourceTransitionBundles> postCopyBarriers;
-			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON, dstResource });
-			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, srcResource });
+			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON, swapChain.GetFrameBackBuffer() });
+			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, renderTarget.GetTexture().GetResource() });
+			renderTarget.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_RENDER_TARGET); // To update the internal state
 
 			RenderAPI::TransitionResources(frameContext.m_DirectCmdList, postCopyBarriers);
 
@@ -419,6 +468,16 @@ namespace aZero
 		void Renderer::RemoveRenderState(Asset::Texture* texture)
 		{
 			//m_ResourceManager.
+		}
+
+		RenderingX::RenderTarget Renderer::CreateRenderTarget(const RenderingX::RenderTarget::Desc& desc)
+		{
+			return RenderingX::RenderTarget(desc, m_diDevice, m_RTVHeapNew, &m_NewResourceRecycler);
+		}
+
+		RenderingX::DepthStencilTarget Renderer::CreateDepthStencilTarget(const RenderingX::DepthStencilTarget::Desc& desc)
+		{
+			return RenderingX::DepthStencilTarget(desc, m_diDevice, m_DSVHeapNew, &m_NewResourceRecycler);
 		}
 	}
 }

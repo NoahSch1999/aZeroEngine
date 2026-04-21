@@ -1,5 +1,7 @@
 #pragma once
 #include "graphics_api/D3D12Include.hpp"
+#include "graphics_api/resource/texture/RenderTarget.hpp"
+#include "graphics_api/resource/texture/DepthStencilTarget.hpp"
 
 namespace aZero
 {
@@ -22,6 +24,12 @@ namespace aZero
 			float m_FarPlane;
 			float m_Fov;
 			bool m_IsActive = true;
+			bool m_ClearRenderTarget = true;
+			bool m_ClearDepthTarget = true;
+			bool m_ClearStencilTarget = true;
+			uint32_t m_Layer = 0;
+			std::optional<RenderingX::RenderTarget*> m_RenderTarget;
+			std::optional<RenderingX::DepthStencilTarget*> m_DepthStencilTarget;
 
 			CameraComponent() = default;
 
