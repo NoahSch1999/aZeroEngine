@@ -56,7 +56,7 @@ struct BindingConstants
     uint MeshBuffer;
     uint CameraBuffer;
     uint CameraID;
-    uint IndirectArgumentBuffer;
+    uint IndirectArgumentMeshletCullingBuffer;
     uint MeshletInstanceBuffer;
 };
 

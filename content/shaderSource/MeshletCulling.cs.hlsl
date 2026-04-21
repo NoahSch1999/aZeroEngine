@@ -2,13 +2,18 @@
 #include "MeshDrawPassCommon.hlsli"
 
 ConstantBuffer<BindingConstants> Bindings : register(b0);
-ConstantBuffer<InstanceCulling_To_MeshletCulling_Data> PassedConstants : register(b1);
 
-[numthreads(64, 1, 1)]
+struct InstanceConstant
+{
+    uint ID;
+};
+ConstantBuffer<InstanceConstant> Instance : register(b1);
+
+[numthreads(THREADS_PER_X, 1, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
     const StructuredBuffer<InstanceData> instances = ResourceDescriptorHeap[Bindings.InstanceBuffer];
-    const InstanceData instance = instances[0/*PassedConstants.InstanceID*/];
+    const InstanceData instance = instances[Instance.ID];
     
     min16uint meshIndex, materialIndex;
     UnpackBatchID(instance.BatchID, meshIndex, materialIndex);
@@ -28,12 +33,12 @@ void main(uint3 dtid : SV_DispatchThreadID)
         const CameraData camera = cameraBuffer[Bindings.CameraID];
         if (true/*camera.BoundingFrustum.Intersects(bounds)*/)
         {
-            RWStructuredBuffer<IndirectArgument> indirectArgumentsBuffer = ResourceDescriptorHeap[Bindings.IndirectArgumentBuffer];
+            RWStructuredBuffer<MeshShaderIndirectArgs> indirectArgumentsBuffer = ResourceDescriptorHeap[Bindings.IndirectArgumentMeshletCullingBuffer];
             RWStructuredBuffer<MeshletCulling_To_MeshShader_Data> meshletInstanceBuffer = ResourceDescriptorHeap[Bindings.MeshletInstanceBuffer];
             uint meshletInstanceIndex;
             InterlockedAdd(indirectArgumentsBuffer[0].GroupsX, 1, meshletInstanceIndex);
 
-            meshletInstanceBuffer[meshletInstanceIndex].InstanceID = 0; //PassedConstants.InstanceID;
+            meshletInstanceBuffer[meshletInstanceIndex].InstanceID = Instance.ID;
             meshletInstanceBuffer[meshletInstanceIndex].LocalMeshletIndex = dtid.x;
         }
     }

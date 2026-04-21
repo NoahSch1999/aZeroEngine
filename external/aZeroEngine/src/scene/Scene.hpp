@@ -29,12 +29,12 @@ namespace aZero
 			SceneNew()
 				:m_Proxy(std::make_unique<SceneProxy>())
 			{
-				m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(100);
-				m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(100);
-				m_ComponentManager.GetComponentArray<ECS::PointLightComponent>().Init(100);
-				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(100);
-				m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(100);
-				m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(100);
+				m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(1000);
+				m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(1000);
+				m_ComponentManager.GetComponentArray<ECS::PointLightComponent>().Init(1000);
+				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(1000);
+				m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(1000);
+				m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(1000);
 			}
 
 			ECS::Entity AddEntity()

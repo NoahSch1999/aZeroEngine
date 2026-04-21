@@ -70,8 +70,11 @@ namespace aZero
 			bool AdvanceFrameIfReady();
 
 			void InitPipeline();
+			void InitMeshObjectCullPipeline();
 			void InitMeshletCullPipeline();
 			void InitMeshletDrawPipeline();
+
+			
 			
 			ID3D12DeviceX* m_diDevice;
 			uint32_t m_BufferCount;
@@ -99,6 +102,20 @@ namespace aZero
 
 			Rendering::ResourceManager m_ResourceManager;
 
+			struct BindingConstants
+			{
+				uint32_t InstanceBuffer;
+				uint32_t MeshBuffer;
+				uint32_t CameraBuffer;
+				uint32_t CameraID;
+				uint32_t IndirectArgumentMeshletCullingBuffer;
+				uint32_t MeshletInstanceBuffer;
+			};
+			
+			void RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes);
+			void RecordMeshLetCullingPass(const BindingConstants& bindings);
+			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget);
+
 			uint32_t MAX_INSTANCES = 4000;
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
 			RenderAPI::Buffer m_MeshletDrawArgumentBuffer;
@@ -112,7 +129,13 @@ namespace aZero
 			Pipeline::ComputeShaderPass m_MeshletCullingPass;
 			Pipeline::ComputeShader m_MeshletCullingCS;
 
-
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshObjectCullSignature;
+			Pipeline::ComputeShaderPass m_MeshObjectCullingPass;
+			Pipeline::ComputeShader m_MeshObjectCullingCS;
+			RenderAPI::Buffer m_MeshObjectCullingBuffer;
+			RenderAPI::UnorderedAccessView m_MeshObjectCullingUAV; 
+			RenderAPI::Buffer m_PassedMeshCountBuffer;
+			RenderAPI::UnorderedAccessView m_PassedMeshCountUAV;
 		};
 	}
 }

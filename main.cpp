@@ -56,6 +56,7 @@ int main(int argc, char* argv[])
 
 		// Create your own implemented window and swapchain + input system
 		RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,800,600/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
+		//RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,2560,1440 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
 		//
 
 		// Create render surfaces

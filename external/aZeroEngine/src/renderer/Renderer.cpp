@@ -44,8 +44,16 @@ namespace aZero
 
 		void Renderer::InitPipeline()
 		{
+			this->InitMeshObjectCullPipeline();
 			this->InitMeshletCullPipeline();
 			this->InitMeshletDrawPipeline();
+		}
+
+		void Renderer::InitMeshObjectCullPipeline()
+		{
+			m_MeshObjectCullingCS.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshObjectCulling.cs.hlsl"));
+			Pipeline::ComputeShaderPass::Description icDesc;
+			m_MeshObjectCullingPass.Compile(m_diDevice, icDesc, m_MeshObjectCullingCS);
 		}
 
 		void Renderer::InitMeshletCullPipeline()
@@ -53,13 +61,38 @@ namespace aZero
 			m_MeshletCullingCS.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshletCulling.cs.hlsl"));
 			Pipeline::ComputeShaderPass::Description icDesc;
 			m_MeshletCullingPass.Compile(m_diDevice, icDesc, m_MeshletCullingCS);
-		}
 
-		struct DummyToFix
-		{
-			D3D12_INDIRECT_ARGUMENT_TYPE Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
-			D3D12_DISPATCH_MESH_ARGUMENTS MeshShaderDispatchArgs = { 1,1,1 };
-		};
+			std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> indirectArgs;
+			indirectArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+			indirectArgs[0].Constant.RootParameterIndex = m_MeshletCullingPass.GetConstantBindingIndex("Instance").GetRootIndex();
+			indirectArgs[0].Constant.Num32BitValuesToSet = m_MeshletCullingPass.GetConstantBindingIndex("Instance").GetNumConstants();
+			indirectArgs[0].Constant.DestOffsetIn32BitValues = 0;
+			indirectArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+
+			struct IndirectCommand
+			{
+				uint32_t instanceID;
+				D3D12_DISPATCH_ARGUMENTS dispatchArgs;
+			};
+
+			D3D12_COMMAND_SIGNATURE_DESC indirectArgsDesc{};
+			indirectArgsDesc.pArgumentDescs = indirectArgs.data();
+			indirectArgsDesc.NumArgumentDescs = indirectArgs.size();
+			indirectArgsDesc.ByteStride = sizeof(IndirectCommand);
+
+			m_diDevice->CreateCommandSignature(&indirectArgsDesc, m_MeshletCullingPass.GetRootSignature(), IID_PPV_ARGS(m_MeshObjectCullSignature.GetAddressOf()));
+
+			m_MeshObjectCullingBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(IndirectCommand) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true));
+			m_MeshObjectCullingUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeapNew, m_MeshObjectCullingBuffer, MAX_INSTANCES, sizeof(IndirectCommand), 0);
+
+			m_PassedMeshCountBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(uint32_t), D3D12_HEAP_TYPE_DEFAULT, true, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT));
+			m_PassedMeshCountUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeapNew, m_PassedMeshCountBuffer, 1, sizeof(uint32_t), 0);
+
+#ifdef USE_DEBUG
+			m_MeshObjectCullingBuffer.GetResource()->SetName(L"m_MeshObjectCullingBuffer");
+			m_PassedMeshCountBuffer.GetResource()->SetName(L"m_PassedMeshCountBuffer");
+#endif
+		}
 
 		void Renderer::InitMeshletDrawPipeline()
 		{
@@ -72,14 +105,12 @@ namespace aZero
 			m_MeshletDrawPass.Compile(m_diDevice, pipelineDesc, {}, m_MeshletDrawMS, &m_MeshletDrawPS);
 
 			std::array<D3D12_INDIRECT_ARGUMENT_DESC, 1> meshletDrawArguments;
-
-			DummyToFix dispatchArgs;
-			memcpy(&meshletDrawArguments[0], (void*)&dispatchArgs, sizeof(dispatchArgs));
+			meshletDrawArguments[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
 
 			D3D12_COMMAND_SIGNATURE_DESC meshletDrawDesc{};
-			meshletDrawDesc.ByteStride = sizeof(D3D12_INDIRECT_ARGUMENT_DESC);
 			meshletDrawDesc.NumArgumentDescs = meshletDrawArguments.size();
 			meshletDrawDesc.pArgumentDescs = meshletDrawArguments.data();
+			meshletDrawDesc.ByteStride = sizeof(D3D12_DISPATCH_MESH_ARGUMENTS);
 
 			m_diDevice->CreateCommandSignature(&meshletDrawDesc, nullptr, IID_PPV_ARGS(m_MeshletDrawSignature.GetAddressOf()));
 
@@ -144,6 +175,105 @@ namespace aZero
 			frameContext.SetLatestSignal(m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, true));
 			frameContext.m_FrameAllocator.ClearQueuedAllocations();
 		}
+		
+		void Renderer::RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+			auto& cmdList = frameContext.m_DirectCmdList;
+
+			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_PassedMeshCountBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+			cmdList->ResourceBarrier(1, &barrier);
+
+			uint32_t count = 0;
+			frameContext.AddAllocation(count, m_PassedMeshCountBuffer, 0);
+			frameContext.m_FrameAllocator.RecordAllocations(cmdList);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_PassedMeshCountBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			cmdList->ResourceBarrier(1, &barrier);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshObjectCullingBuffer.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			cmdList->ResourceBarrier(1, &barrier);
+
+			m_MeshObjectCullingPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew);
+
+			struct MeshObjectCullingConstants
+			{
+				uint32_t NumMeshObjects;
+				uint32_t IndirectArgumentMeshCullingBuffer;
+				uint32_t PassedMeshesCounterBuffer;
+			} passConstants;
+
+			passConstants.NumMeshObjects = numStaticMeshes;
+			passConstants.IndirectArgumentMeshCullingBuffer = m_MeshObjectCullingUAV.GetHeapIndex();
+			passConstants.PassedMeshesCounterBuffer = m_PassedMeshCountUAV.GetHeapIndex();
+
+			auto bindingsBinding = m_MeshObjectCullingPass.GetConstantBindingIndex("Bindings");
+			cmdList.SetComputeRoot32BitConstantsSafe(bindingsBinding.GetRootIndex(), bindingsBinding.GetNumConstants(), &bindings, 0);
+
+			auto passConstantsBinding = m_MeshObjectCullingPass.GetConstantBindingIndex("PassConstants");
+			cmdList.SetComputeRoot32BitConstantsSafe(passConstantsBinding.GetRootIndex(), passConstantsBinding.GetNumConstants(), &passConstants, 0);
+			cmdList->Dispatch(std::ceil(numStaticMeshes / 64.f), 1, 1);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshObjectCullingBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+			cmdList->ResourceBarrier(1, &barrier);
+		}
+
+		void Renderer::RecordMeshLetCullingPass(const BindingConstants& bindings)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+			auto& cmdList = frameContext.m_DirectCmdList;
+
+			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_COPY_DEST);
+			frameContext.m_DirectCmdList->ResourceBarrier(1, &barrier);
+
+			D3D12_DISPATCH_MESH_ARGUMENTS meshShaderDispatchArgs = { 0,1,1 };
+			frameContext.AddAllocation(meshShaderDispatchArgs, m_MeshletDrawArgumentBuffer, 0);
+			frameContext.m_FrameAllocator.RecordAllocations(cmdList);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			cmdList->ResourceBarrier(1, &barrier);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_PassedMeshCountBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+			cmdList->ResourceBarrier(1, &barrier);
+
+			auto bindingsBinding = m_MeshletCullingPass.GetConstantBindingIndex("Bindings");
+			m_MeshletCullingPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew);
+			cmdList.SetComputeRoot32BitConstantsSafe(bindingsBinding.GetRootIndex(), bindingsBinding.GetNumConstants(), &bindings, 0);
+
+			// TODO: Handle so we only dispatch up to the number of meshes that passed the first pass
+			cmdList->ExecuteIndirect(m_MeshObjectCullSignature.Get(), MAX_INSTANCES, m_MeshObjectCullingBuffer.GetResource(), 0, m_PassedMeshCountBuffer.GetResource(), 0);
+		}
+
+		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+			auto& cmdList = frameContext.m_DirectCmdList;
+
+			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+			cmdList->ResourceBarrier(1, &barrier);
+
+			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew, { &renderTarget.value()->GetTargetDescriptor() }, &depthTarget.value()->GetTargetDescriptor());
+
+			auto msBindings = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
+			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &bindings, 0);
+
+			struct Pixelbindings
+			{
+				uint32_t SamplerIndex;
+				uint32_t MaterialBuffer;
+			} pixelbindings;
+			pixelbindings.SamplerIndex = m_SamplerManager.GetSampler(aZero::Rendering::SamplerManager::Anisotropic_8x_Wrap).GetHeapIndex();
+			pixelbindings.MaterialBuffer = m_ResourceManager.m_MaterialBufferView.GetHeapIndex();
+
+			auto psConstants = m_MeshletDrawPass.GetConstantBindingIndex("PixelShaderConstants");
+			cmdList.SetGraphicsRoot32BitConstantsSafe(psConstants.GetRootIndex(), psConstants.GetNumConstants(), &pixelbindings, 0);
+
+			cmdList->RSSetScissorRects(1, &camera.m_ScizzorRect);
+			cmdList->RSSetViewports(1, &camera.m_Viewport);
+
+			cmdList->ExecuteIndirect(m_MeshletDrawSignature.Get(), 1, m_MeshletDrawArgumentBuffer.GetResource(), 0, nullptr, 0);
+			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
+		}
 
 		void Renderer::Render(const Scene::SceneNew& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget)
 		{
@@ -183,21 +313,6 @@ namespace aZero
 			const auto& directionalLights = scene.GetProxy()->m_DirectionalLights.GetData();
 			frameContext.m_DirectionalLightBuffer.Write(directionalLights.data(), directionalLights.size() * sizeof(directionalLights[0]), 0);
 
-			auto rootConstants = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
-			auto rootIndex = rootConstants.GetRootIndex();
-			auto rootConstantsSize = rootConstants.GetNumConstants();
-
-			struct Pixelbindings
-			{
-				uint32_t SamplerIndex;
-				uint32_t MaterialBuffer;
-			} pixelbindings;
-			auto pixelbindingsRoot = m_MeshletDrawPass.GetConstantBindingIndex("PixelShaderConstants");
-			pixelbindings.SamplerIndex = m_SamplerManager.GetSampler(aZero::Rendering::SamplerManager::Anisotropic_8x_Wrap).GetHeapIndex();
-			pixelbindings.MaterialBuffer = m_ResourceManager.m_MaterialBufferView.GetHeapIndex();
-
-			auto meshletCullingCS_Bindings = m_MeshletCullingPass.GetConstantBindingIndex("Bindings");
-
 			uint32_t lastCameraIndex = 0;
 			const auto& cameras = scene.GetProxy()->m_Cameras.GetData();
 			for (uint32_t i = 0; i < cameras.size(); i++)
@@ -205,55 +320,23 @@ namespace aZero
 				const auto& camera = cameras[i];
 				if (camera.m_IsActive)
 				{
-					struct BindingConstants
-					{
-						uint32_t InstanceBuffer;
-						uint32_t MeshBuffer;
-						uint32_t CameraBuffer;
-						uint32_t CameraID;
-						uint32_t IndirectArgumentBuffer;
-						uint32_t MeshletInstanceBuffer;
-					} constants;
-
-					D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_COPY_DEST);
-					frameContext.m_DirectCmdList->ResourceBarrier(1, &barrier);
-
-					D3D12_DISPATCH_MESH_ARGUMENTS meshShaderDispatchArgs = { 0,1,1 };
-					frameContext.AddAllocation(meshShaderDispatchArgs, m_MeshletDrawArgumentBuffer, 0);
-					frameContext.m_FrameAllocator.RecordAllocations(frameContext.m_DirectCmdList);
-
-					const auto gpuCamera = camera.CreateGPUVersion();
-					frameContext.m_CameraBuffer.Write(&gpuCamera, sizeof(gpuCamera), sizeof(gpuCamera) * lastCameraIndex);
-
+					BindingConstants constants;
 					constants.InstanceBuffer = frameContext.m_StaticMeshDescriptor.GetHeapIndex();
 					constants.MeshBuffer = m_ResourceManager.m_MeshBufferView.GetHeapIndex();
 					constants.CameraBuffer = frameContext.m_CameraDescriptor.GetHeapIndex();
 					constants.CameraID = lastCameraIndex;
-					constants.IndirectArgumentBuffer = m_MeshletDrawArgumentUAV.GetHeapIndex();
+					constants.IndirectArgumentMeshletCullingBuffer = m_MeshletDrawArgumentUAV.GetHeapIndex();
 					constants.MeshletInstanceBuffer = m_MeshletInstanceUAV.GetHeapIndex();
+
+					const auto gpuCamera = camera.CreateGPUVersion();
+					frameContext.m_CameraBuffer.Write(&gpuCamera, sizeof(gpuCamera), sizeof(gpuCamera) * lastCameraIndex);
 					lastCameraIndex++;
 
-					barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-					frameContext.m_DirectCmdList->ResourceBarrier(1, &barrier);
+					this->RecordMeshObjectCullingPass(constants, staticMeshInstances.size());
 
-					m_MeshletCullingPass.Begin(frameContext.m_DirectCmdList, m_ResourceHeapNew, m_SamplerHeapNew);
-					frameContext.m_DirectCmdList.SetComputeRoot32BitConstantsSafe(meshletCullingCS_Bindings.GetRootIndex(), meshletCullingCS_Bindings.GetNumConstants(), &constants, 0);
-					//frameContext.m_DirectCmdList->Dispatch(2, 1, 1);
-					frameContext.m_DirectCmdList->Dispatch(473, 1, 1);
+					this->RecordMeshLetCullingPass(constants);
 
-
-					barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-					frameContext.m_DirectCmdList->ResourceBarrier(1, &barrier);
-
-					m_MeshletDrawPass.Begin(frameContext.m_DirectCmdList, m_ResourceHeapNew, m_SamplerHeapNew, { &renderTarget.value()->GetTargetDescriptor() }, &depthTarget.value()->GetTargetDescriptor());
-					frameContext.m_DirectCmdList.SetGraphicsRoot32BitConstantsSafe(rootIndex, rootConstantsSize, &constants, 0);
-					frameContext.m_DirectCmdList.SetGraphicsRoot32BitConstantsSafe(pixelbindingsRoot.GetRootIndex(), pixelbindingsRoot.GetNumConstants(), &pixelbindings, 0);
-					
-					frameContext.m_DirectCmdList->RSSetScissorRects(1, &camera.m_ScizzorRect);
-					frameContext.m_DirectCmdList->RSSetViewports(1, &camera.m_Viewport);
-
-					frameContext.m_DirectCmdList->ExecuteIndirect(m_MeshletDrawSignature.Get(), 1, m_MeshletDrawArgumentBuffer.GetResource(), 0, nullptr, 0);
-					m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
+					this->RecordMeshDrawingPass(constants, camera, renderTarget, depthTarget);
 				}
 			}
 		}

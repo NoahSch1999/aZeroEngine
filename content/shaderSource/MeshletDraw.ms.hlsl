@@ -2,7 +2,6 @@
 #include "MeshDrawPassCommon.hlsli"
 
 ConstantBuffer<BindingConstants> Bindings : register(b0);
- 
 
 uint3 GetPrimitive(Meshlet meshlet, uint localIndex, StructuredBuffer<uint> primitives)
 {

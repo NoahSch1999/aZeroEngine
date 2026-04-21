@@ -32,16 +32,33 @@ inline void CreateScene(
 	aZero::ECS::ComponentManagerDecl& ecsManager = scene.m_ComponentManager;
 
 	// Create mesh
-	aZero::ECS::Entity meshEntity = scene.AddEntity();
-	scene.RenameEntity(meshEntity, "MeshEntity");
-	ecsManager.AddComponent(meshEntity, aZero::ECS::TransformComponent());
+	{
+		aZero::ECS::Entity meshEntity = scene.AddEntity();
+		scene.RenameEntity(meshEntity, "MeshEntity");
+		ecsManager.AddComponent(meshEntity, aZero::ECS::TransformComponent());
 
-	ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
+		ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 
-	ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
-		->SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(0, -2, 4));
+		ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
+			->SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(0, -2, 4));
 
-	scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
+		scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
+	}
+
+	{
+		for (int i = 0; i < 1; i++)
+		{
+			aZero::ECS::Entity meshEntity = scene.AddEntity();
+			ecsManager.AddComponent(meshEntity, aZero::ECS::TransformComponent());
+
+			ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
+
+			ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
+				->SetTransform(DXM::Matrix::CreateRotationY(i / 3.14) * DXM::Matrix::CreateTranslation(1, 0, 0));
+
+			scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
+		}
+	}
 
 	// Create camera
 	aZero::ECS::Entity cameraEntity = scene.AddEntity();
