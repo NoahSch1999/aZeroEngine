@@ -11,7 +11,7 @@ D3D12_RESOURCE_DESC CreateDesc(const aZero::RenderAPI::Buffer::Desc& desc)
 	resourceDesc.Width = desc.NumBytes;
 	resourceDesc.SampleDesc.Count = 1;
 	resourceDesc.SampleDesc.Quality = 0;
-	resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	resourceDesc.Flags = desc.AllowUAV ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE;
 	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -19,7 +19,7 @@ D3D12_RESOURCE_DESC CreateDesc(const aZero::RenderAPI::Buffer::Desc& desc)
 }
 
 aZero::RenderAPI::Buffer::Buffer(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler)
-	:ResourceBase(device, opt_diResourceRecycler.has_value() ? opt_diResourceRecycler.value() : nullptr, CreateDesc(desc), desc.AccessType, nullptr)
+	:ResourceBase(device, opt_diResourceRecycler.has_value() ? opt_diResourceRecycler.value() : nullptr, CreateDesc(desc), desc.AccessType, nullptr, desc.StartState)
 {
 	if (desc.AccessType == D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD || desc.AccessType == D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_READBACK || desc.AccessType == D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_GPU_UPLOAD)
 	{

@@ -9,7 +9,7 @@ inline void LoadAssets(
 	aZero::Asset::Texture& albedo,
 	aZero::Asset::Texture& normalMap)
 {
-	mesh.LoadFromFile("goblin.fbx");
+	mesh.LoadFromFile("Goblin.fbx");
 	engine.GetRenderer().UpdateRenderState(&mesh);
 
 	albedo.Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinAlbedo.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
@@ -39,8 +39,7 @@ inline void CreateScene(
 	ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 
 	ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
-		->SetTransform(DXM::Matrix::CreateScale(0.5) * 
-			DXM::Matrix::CreateRotationY(3.1415) * DXM::Matrix::CreateTranslation(0, -1.5, 5));
+		->SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(0, -2, 4));
 
 	scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
 
@@ -69,7 +68,7 @@ inline auto CreateRenderSurfaces(const aZero::Engine& engine, const DXM::Vector2
 
 	aZero::Rendering::DepthTarget::Desc dsvDesc;
 	dsvDesc.stencilClearValue = 0;
-	dsvDesc.depthClearValue = 0;
+	dsvDesc.depthClearValue = 1;
 	dsvDesc.dimensions = windowDimensions;
 	dsvDesc.format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	return std::make_tuple(engine.CreateRenderTarget(rtvDesc, true), engine.CreateDepthStencilTarget(dsvDesc, true));

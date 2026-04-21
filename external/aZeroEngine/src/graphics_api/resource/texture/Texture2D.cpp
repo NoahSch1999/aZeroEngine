@@ -19,8 +19,8 @@ D3D12_RESOURCE_DESC CreateDesc(const aZero::RenderAPI::Texture2D::Desc& desc)
 }
 
 aZero::RenderAPI::Texture2D::Texture2D(ID3D12DeviceX* device, const Desc& desc, std::optional<ResourceRecycler*> opt_diResourceRecycler, std::optional<D3D12_CLEAR_VALUE> optClearValue)
-	:ResourceBase(device, opt_diResourceRecycler.has_value() ? opt_diResourceRecycler.value() : nullptr, CreateDesc(desc), D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT, optClearValue.has_value() ? &optClearValue.value() : nullptr),
-	m_OptClearValue(optClearValue), m_CurrentState(D3D12_RESOURCE_STATE_COMMON){}
+	:ResourceBase(device, opt_diResourceRecycler.has_value() ? opt_diResourceRecycler.value() : nullptr, CreateDesc(desc), D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT, optClearValue.has_value() ? &optClearValue.value() : nullptr, desc.StartState),
+	m_OptClearValue(optClearValue), m_CurrentState(desc.StartState){}
 
 aZero::RenderAPI::Texture2D::Texture2D(Texture2D&& other) noexcept
 {

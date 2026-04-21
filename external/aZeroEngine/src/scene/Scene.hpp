@@ -102,29 +102,6 @@ namespace aZero
 
 				ECS::DirectionalLightComponent* DirLightComp = m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(entity);
 				m_Proxy->UpdateDirectionalLight(id, DirLightComp);
-
-				
-
-				//if (!m_DirtyEntities.Exists(entity.GetID()))
-				//{
-				//	m_DirtyEntities.Add(entity.GetID(), ComponentUpdateInfo());
-				//}
-
-				//// TODO: How to handle if components removed and then flagged as dirty?
-				//// Answer: When fetching the data simply act based on if the components actually exist or not
-				//auto& dirtyInfo = m_DirtyEntities.Get(entity.GetID());
-				//if (flag == ComponentFlag::All)
-				//{
-				//	dirtyInfo.m_UpdateFlag.set();
-				//}
-				//else if (flag == ComponentFlag::None)
-				//{
-				//	dirtyInfo.m_UpdateFlag.reset();
-				//}
-				//else
-				//{
-				//	dirtyInfo.m_UpdateFlag.set(static_cast<int32_t>(flag));
-				//}
 			}
 
 			void RenameEntity(ECS::Entity entity, const std::string& newName)

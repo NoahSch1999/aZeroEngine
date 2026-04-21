@@ -14,8 +14,6 @@ aZero::Pipeline::MeshShaderPass& aZero::Pipeline::MeshShaderPass::operator=(Mesh
 
 bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device, const Description& description, std::optional<Pipeline::AmplificationShader*> amplificationShader, Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSignature) const
 {
-	// todo Implement with AS and PS
-
 	struct PSO_STREAM
 	{
 		CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE RootSignature;
@@ -71,9 +69,6 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 		ps.m_CompiledShader->GetBufferSize()
 		};
 
-		// todo Impl
-		//pipelineStateDesc.NumRenderTargets = description.m_RenderTargets.size();
-
 		if (ps.NumRenderTargets() != description.m_RenderTargets.size())
 		{
 			DEBUG_PRINT("Pixel shaders number of render targets doesn't match the descriptions.");
@@ -101,19 +96,6 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 		stream.RenderTargets = rtvs;
 		stream.DepthStencilFormat = description.m_DepthStencil.m_Format;
 	}
-
-	// TODO: wrong usage of the depth
-	/*CD3DX12_DEPTH_STENCIL_DESC depthStencilDesc{};
-	depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	if (description.m_DepthStencil.m_Format == DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
-	{
-		depthStencilDesc.DepthEnable = false;
-	}
-	else
-	{
-		pipelineStateDesc.DepthStencilState = depthStencilDesc;
-		pipelineStateDesc.DSVFormat = description.m_DepthStencil.m_Format;
-	}*/
 
 	D3D12_PIPELINE_STATE_STREAM_DESC streamDesc = {};
 	streamDesc.pPipelineStateSubobjectStream = &stream;
@@ -148,7 +130,7 @@ bool aZero::Pipeline::MeshShaderPass::Compile(ID3D12DeviceX* device, const Descr
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
 
-	// TODO: Fix this, its garbage
+	// TODO: Refactor this, its terrible...
 	if (!amplificationShader.has_value() && pixelShader.has_value())
 	{
 		if (!MultiShaderPass::CreateRootSignature(device, description, rootSignature, meshShader, *pixelShader.value()))

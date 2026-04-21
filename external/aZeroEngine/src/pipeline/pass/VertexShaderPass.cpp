@@ -77,8 +77,7 @@ bool aZero::Pipeline::VertexShaderPass::CreatePipelineState(ID3D12DeviceX* devic
 		};
 	}
 
-	// TODO: wrong usage of the depth
-	//throw;
+	// TODO: wrong usage of the depth?
 	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
 	depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	if (description.m_DepthStencil.m_Format == DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)

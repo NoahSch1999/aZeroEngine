@@ -4,11 +4,12 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 #include "meshoptimizer.h"
+#include "misc/HelperFunctions.hpp"
 
 aZero::Asset::MeshletMeshData GenerateMeshletData(
 	const std::string& name, 
-	std::vector<aZero::Asset::VertexPosition>& positions, 
-	std::vector<aZero::Asset::GenericVertexData>& genericVertexData, 
+	const std::vector<aZero::Asset::VertexPosition>& positions, 
+	const std::vector<aZero::Asset::GenericVertexData>& genericVertexData, 
 	std::vector<aZero::Asset::VertexIndex>& meshIndices,
 	const DirectX::BoundingSphere& bounds
 )
@@ -19,9 +20,27 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 	const size_t max_meshlets = meshopt_buildMeshletsBound(
 		positions.size(), max_vertices, max_triangles);
 
+	// TODO: Take a look if there's any unneccessary ops
 	meshopt_optimizeVertexCache(meshIndices.data(), meshIndices.data(), meshIndices.size(), positions.size());
 	meshopt_optimizeOverdraw(meshIndices.data(), meshIndices.data(), meshIndices.size(), &positions[0].x, positions.size(), sizeof(aZero::Asset::VertexPosition), 1.05f);
-	meshopt_optimizeVertexFetch(positions.data(), meshIndices.data(), meshIndices.size(), positions.data(), positions.size(), sizeof(aZero::Asset::VertexPosition));
+	
+	std::vector<unsigned int> remap(positions.size());
+
+	meshopt_optimizeVertexFetchRemap(
+		remap.data(),
+		meshIndices.data(),
+		meshIndices.size(),
+		positions.size()
+	);
+
+	std::vector<aZero::Asset::VertexPosition> newPositions(positions.size());
+	meshopt_remapVertexBuffer(newPositions.data(), positions.data(), positions.size(), sizeof(aZero::Asset::VertexPosition), remap.data());
+
+	std::vector<aZero::Asset::GenericVertexData> newGeneric(genericVertexData.size());
+	meshopt_remapVertexBuffer(newGeneric.data(), genericVertexData.data(), genericVertexData.size(), sizeof(aZero::Asset::GenericVertexData), remap.data());
+
+
+	meshopt_remapIndexBuffer(meshIndices.data(), meshIndices.data(), meshIndices.size(), remap.data());
 
 	std::vector<meshopt_Meshlet> tempMeshlets;
 	std::vector<aZero::Asset::VertexIndex> local_indices;
@@ -29,7 +48,7 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 	tempMeshlets.resize(max_meshlets);
 	local_indices.resize(max_meshlets * max_vertices);
 	primitives.resize(max_meshlets * max_triangles * 3);
-	size_t meshlet_count = meshopt_buildMeshlets(tempMeshlets.data(), local_indices.data(), primitives.data(), meshIndices.data(), meshIndices.size(), &positions[0].x, positions.size(), sizeof(aZero::Asset::VertexPosition), max_vertices, max_triangles, 0.f);
+	size_t meshlet_count = meshopt_buildMeshlets(tempMeshlets.data(), local_indices.data(), primitives.data(), meshIndices.data(), meshIndices.size(), &newPositions[0].x, newPositions.size(), sizeof(aZero::Asset::VertexPosition), max_vertices, max_triangles, 0.f);
 
 	const meshopt_Meshlet& last = tempMeshlets[meshlet_count - 1];
 
@@ -43,17 +62,38 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 	{
 		meshopt_optimizeMeshlet(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset], meshlet.triangle_count, meshlet.vertex_count);
 		meshopt_Bounds bounds = meshopt_computeMeshletBounds(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset],
-			meshlet.triangle_count, &positions[0].x, positions.size(), sizeof(aZero::Asset::VertexPosition));
-		finalMeshlets.emplace_back(meshlet.vertex_count, meshlet.vertex_offset, meshlet.triangle_count, meshlet.triangle_offset, DirectX::BoundingSphere(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius));
+			meshlet.triangle_count, &newPositions[0].x, newPositions.size(), sizeof(aZero::Asset::VertexPosition));
+
+		// Divide meshlet.triangle_offset with 3 since we pack the primitive indices in a 32bit uint
+		finalMeshlets.emplace_back(meshlet.vertex_count, meshlet.vertex_offset, meshlet.triangle_count, meshlet.triangle_offset / 3, DirectX::BoundingSphere(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius));
+	}
+
+	std::vector<uint32_t> newPrims;
+	newPrims.reserve(primitives.size() + primitives.size() / 3);
+	for (int i = 0; i < primitives.size(); i += 3)
+	{
+		newPrims.emplace_back(aZero::Helper::Pack8To32(primitives[i], primitives[i + 1], primitives[i + 2], 0));
+	}
+
+	std::vector<uint8_t> newPrimsa;
+	newPrimsa.reserve(primitives.size() + primitives.size() / 3);
+
+	for (int i = 0; i < primitives.size(); i++)
+	{
+		newPrimsa.emplace_back(primitives[i]);
+		if ((i + 1) % 3 == 0)
+		{
+			newPrimsa.emplace_back(0);
+		}
 	}
 
 	return {
 		.Name = name,
 		.Meshlets = std::move(finalMeshlets),
 		.MeshletIndices = std::move(local_indices),
-		.MeshletPrimitives = std::move(primitives),
-		.Positions = std::move(positions),
-		.GenericVertexData = std::move(genericVertexData),
+		.MeshletPrimitives = std::move(newPrims),
+		.Positions = std::move(newPositions),
+		.GenericVertexData = std::move(newGeneric),
 		.Bounds = bounds
 	};
 }
@@ -127,6 +167,7 @@ std::vector<aZero::Asset::MeshletMeshData> LoadFBX(const std::string& path)
 	if (scene->mNumMeshes > 0)
 	{
 		output.reserve(scene->mNumMeshes);
+
 		for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++)
 		{
 			const aiMesh* const mesh = scene->mMeshes[meshIndex];
@@ -134,15 +175,13 @@ std::vector<aZero::Asset::MeshletMeshData> LoadFBX(const std::string& path)
 			std::vector<aZero::Asset::VertexPosition> positions;
 			std::vector<aZero::Asset::GenericVertexData> genericVertexData;
 			std::vector<aZero::Asset::VertexIndex> indices;
-			float bounds = 0.f; // TODO: Fix
 
 			positions.reserve(mesh->mNumVertices);
 			genericVertexData.reserve(mesh->mNumVertices);
 
 			for (int i = 0; i < mesh->mNumVertices; i++)
 			{
-				aiVector3D tempData;
-				tempData = mesh->mVertices[i];
+				aiVector3D tempData = mesh->mVertices[i];
 				positions.emplace_back(tempData.x, tempData.y, tempData.z);
 				genericVertexData.emplace_back();
 
@@ -165,7 +204,6 @@ std::vector<aZero::Asset::MeshletMeshData> LoadFBX(const std::string& path)
 					tempData.Normalize();
 					genericVertexData[genericVertexData.size() - 1].Tangent = { tempData.x, tempData.y, tempData.z };
 				}
-
 			}
 
 			indices.reserve(mesh->mNumFaces * 3);
@@ -205,6 +243,7 @@ bool aZero::Asset::Mesh::LoadFromFile(const std::string& filename)
 	const auto& meshes = Asset::LoadFromFile(filename);
 	if (meshes.size())
 	{
+
 		m_VertexData = meshes[0];
 	}
 

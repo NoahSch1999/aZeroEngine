@@ -12,10 +12,11 @@ namespace aZero
 			{
 				uint64_t NumBytes;
 				D3D12_HEAP_TYPE AccessType;
+				bool AllowUAV = false;
+				D3D12_RESOURCE_STATES StartState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON;
 				Desc() = default;
-				Desc(uint64_t numBytes, D3D12_HEAP_TYPE accessType)
-					:NumBytes(numBytes), AccessType(accessType) {
-				}
+				Desc(uint64_t numBytes, D3D12_HEAP_TYPE accessType, bool allowUAV = false, D3D12_RESOURCE_STATES startState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON)
+					:NumBytes(numBytes), AccessType(accessType), AllowUAV(allowUAV), StartState(startState) { }
 			};
 
 			Buffer() = default;

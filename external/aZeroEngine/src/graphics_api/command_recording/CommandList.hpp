@@ -27,6 +27,23 @@ namespace aZero
 			ID3D12GraphicsCommandListX* Get() const { return m_CommandList.Get(); }
 			bool IsInitiated() const { return m_Allocator != nullptr; }
 			bool IsRecording() const { return m_IsRecording; }
+
+			void SetGraphicsRoot32BitConstantsSafe(uint32_t rootParameterIndex, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues)
+			{
+				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())
+				{
+					m_CommandList->SetGraphicsRoot32BitConstants(rootParameterIndex, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+				}
+			}
+
+			void SetComputeRoot32BitConstantsSafe(uint32_t rootParameterIndex, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues)
+			{
+				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())
+				{
+					m_CommandList->SetComputeRoot32BitConstants(rootParameterIndex, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+				}
+			}
+
 		private:
 			Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_Allocator = nullptr;
 			Microsoft::WRL::ComPtr<ID3D12GraphicsCommandListX> m_CommandList = nullptr;

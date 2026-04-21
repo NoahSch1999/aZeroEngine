@@ -24,6 +24,7 @@ public:
 	bool WaitOnSwapchain() { return WaitForSingleObject(m_WaitableHandle, 0) == WAIT_OBJECT_0; }
 	void Present() { m_SwapChain.Present(); }
 	void Update() { 
+		m_DeviceManager.UpdateDeviceStates();
 		this->PollEvents();
 	}
 

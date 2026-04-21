@@ -19,7 +19,7 @@ namespace aZero
 
 			IDXGISwapChainX* Get() { return m_SwapChain.Get(); }
 			ID3D12Resource* GetFrameBackBuffer() { return m_BackBuffers.at(m_NextBackBuffer % m_BackBuffers.size()).Get(); }
-			void Present() { m_SwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING); m_NextBackBuffer++; m_diCmdQueue->Signal(); }
+			void Present() { m_diCmdQueue->Signal(); m_SwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING); m_NextBackBuffer++; }
 			void Resize(RenderAPI::CommandQueue& cmdQueue, const DXM::Vector2& backBufferDimensions);
 		private:
 			void PopulateBackBuffers();

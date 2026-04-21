@@ -22,7 +22,7 @@ namespace aZero
 		{
 		public:
 			ResourceBase() = default;
-			ResourceBase(ID3D12DeviceX* device, aZero::RenderAPI::ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue);
+			ResourceBase(ID3D12DeviceX* device, aZero::RenderAPI::ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue, D3D12_RESOURCE_STATES initState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
 			~ResourceBase();
 			ResourceBase(ResourceBase&& other) noexcept;
 			ResourceBase& operator=(ResourceBase&& other) noexcept;
@@ -36,7 +36,6 @@ namespace aZero
 			void OnDestroy();
 		};
 
-		// todo Remove once enhanced barriers are used
 		struct ResourceTransitionBundles
 		{
 			D3D12_RESOURCE_STATES StateBefore, StateAfter;

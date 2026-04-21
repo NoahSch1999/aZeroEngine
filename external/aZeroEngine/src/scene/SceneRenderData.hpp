@@ -40,18 +40,31 @@ namespace aZero
 			struct Camera
 			{
 				DirectX::BoundingFrustum m_Frustrum;
-				DXM::Matrix m_ViewProjectionMatrix;
+				DXM::Matrix m_View;
+				DXM::Matrix m_Projection;
 				D3D12_VIEWPORT m_Viewport;
 				D3D12_RECT m_ScizzorRect;
 				bool m_IsActive;
 
+				struct GPUVersion
+				{
+					DXM::Matrix View;
+					DXM::Matrix Projection;
+					DirectX::BoundingFrustum Frustrum;
+					GPUVersion(const Camera& camera)
+						:View(camera.m_View), Projection(camera.m_Projection), Frustrum(camera.m_Frustrum) { }
+				};
+
 				Camera() = default;
 				Camera(const ECS::CameraComponent& camera) {
 					m_Frustrum = DirectX::BoundingFrustum(camera.GetProjectionMatrix(), true);
-					m_ViewProjectionMatrix = camera.GetViewMatrix() * camera.GetProjectionMatrix();
+					m_View = camera.GetViewMatrix();
+					m_Projection = camera.GetProjectionMatrix();
 					m_Viewport = camera.GetViewport();
 					m_ScizzorRect = camera.GetScizzorRect();
 				}
+
+				GPUVersion CreateGPUVersion() const { return GPUVersion(*this); }
 			};
 
 			struct DirectionalLight

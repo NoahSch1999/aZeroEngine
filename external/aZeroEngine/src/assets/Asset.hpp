@@ -14,7 +14,7 @@ namespace aZero
 		using AssetID = uint32_t;
 		constexpr AssetID InvalidAssetID = std::numeric_limits<AssetID>::max();
 
-		using RenderID = uint32_t;
+		using RenderID = uint16_t;
 		constexpr RenderID InvalidRenderID = std::numeric_limits<RenderID>::max();
 
 		class AssetBase : public NonCopyable

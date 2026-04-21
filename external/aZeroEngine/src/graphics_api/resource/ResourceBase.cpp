@@ -17,7 +17,7 @@ aZero::RenderAPI::ResourceBase::~ResourceBase()
 	this->OnDestroy();
 }
 
-aZero::RenderAPI::ResourceBase::ResourceBase(ID3D12DeviceX* device, aZero::RenderAPI::ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue)
+aZero::RenderAPI::ResourceBase::ResourceBase(ID3D12DeviceX* device, aZero::RenderAPI::ResourceRecycler* diResourceRecycler, const D3D12_RESOURCE_DESC& resourceDesc, D3D12_HEAP_TYPE accessType, const D3D12_CLEAR_VALUE* clearValue, D3D12_RESOURCE_STATES initState)
 {
 	D3D12_HEAP_PROPERTIES heapProperties;
 	ZeroMemory(&heapProperties, sizeof(D3D12_HEAP_PROPERTIES));
@@ -27,7 +27,7 @@ aZero::RenderAPI::ResourceBase::ResourceBase(ID3D12DeviceX* device, aZero::Rende
 		&heapProperties,
 		D3D12_HEAP_FLAG_NONE,
 		&resourceDesc,
-		D3D12_RESOURCE_STATE_COMMON,
+		initState,
 		clearValue,
 		IID_PPV_ARGS(m_Resource.GetAddressOf()));
 

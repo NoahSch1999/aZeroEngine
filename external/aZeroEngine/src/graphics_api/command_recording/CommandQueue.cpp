@@ -61,16 +61,21 @@ void aZero::RenderAPI::CommandQueue::SignalAndFlush()
 	this->Flush();
 }
 
-uint64_t aZero::RenderAPI::CommandQueue::ExecuteCommandList(aZero::RenderAPI::CommandList& commandList)
+uint64_t aZero::RenderAPI::CommandQueue::ExecuteCommandList(aZero::RenderAPI::CommandList& commandList, bool shouldSignal)
 {
 	commandList.StopRecording();
 	ID3D12CommandList* temp = static_cast<ID3D12CommandList*>(commandList.Get());
 	m_Queue->ExecuteCommandLists(1, &temp);
 	commandList.StartRecording();
-	return this->Signal();
+	if (shouldSignal)
+	{
+		return this->Signal();
+	}
+
+	return std::numeric_limits<uint64_t>::max();
 }
 
-uint64_t aZero::RenderAPI::CommandQueue::ExecuteCommandLists(const std::vector<aZero::RenderAPI::CommandList*>& commandLists)
+uint64_t aZero::RenderAPI::CommandQueue::ExecuteCommandLists(const std::vector<aZero::RenderAPI::CommandList*>& commandLists, bool shouldSignal)
 {
 	std::vector<ID3D12CommandList*> lists;
 	lists.reserve(commandLists.size());
@@ -88,7 +93,12 @@ uint64_t aZero::RenderAPI::CommandQueue::ExecuteCommandLists(const std::vector<a
 		commandList->StartRecording();
 	}
 
-	return this->Signal();
+	if (shouldSignal)
+	{
+		return this->Signal();
+	}
+
+	return std::numeric_limits<uint64_t>::max();
 }
 
 bool aZero::RenderAPI::CommandQueue::WaitForSignal(uint64_t value, bool shouldStall)

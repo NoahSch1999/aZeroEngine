@@ -7,7 +7,9 @@
 #include "tests/Tests.hpp"
 #endif
 
-//#include "audio/AudioSystem.hpp"
+#if USE_DEBUG
+#include <dxgidebug.h>
+#endif
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 
@@ -48,96 +50,105 @@ int main(int argc, char* argv[])
 		Audio::AudioEngine& audioEngine = engine.GetAudioEngine();
 		//
 
-		auto m = Asset::LoadFromFile("cube.fbx");
-
 #ifdef RUN_TESTS
 		RunTests(engine);
 #endif
 
 		// Create your own implemented window and swapchain + input system
-		RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,800,600 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
+		RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,800,600/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
 		//
 
 		// Create render surfaces
 		auto [width, height] = window.GetClientDimensions();
 		auto [rtv, dsv] = CreateRenderSurfaces(engine, { (float)width, (float)height });
 		//
-		
-		// Scene setup
-		// TODO: Seperate the asset classes from file and name related stuff.
-		//		That way its easier to handle both file-assets and programmatically created assets in the same way.
-		//		An asset doesn't need a "name" unless it needs to either be fetched from some cache OR related to a filepath.
+
 		Asset::Mesh mesh(0);
 		Asset::Material material(0);
 		Asset::Texture albedo(0);
-		Asset::Texture normalMap(0);
+		Asset::Texture normalMap(1);
 		LoadAssets(engine, mesh, material, albedo, normalMap);
-
+		
 		Scene::SceneNew scene;
 		CreateScene(scene, mesh, material, { (float)width, (float)height });
 		//
 
-		float rot = 0.f;
+		renderer.FlushFrameAllocations();
 
-		Scene::SceneNew::ComponentFlag flag;
-		int32_t fl = 0;
-		fl |= (int32_t)Scene::SceneNew::ComponentFlag::Transform;
-		fl |= (int32_t)Scene::SceneNew::ComponentFlag::Camera;
+		ECS::Entity meshEntity = scene.GetEntity("MeshEntity").value();
+		ECS::TransformComponent& tf = *scene.m_ComponentManager.GetComponent<ECS::TransformComponent>(meshEntity);
+
+		ECS::Entity camEnt = scene.GetEntity("CameraEntity").value();
+		ECS::CameraComponent& cam = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt);
 
 		Input::KeyboardListener listener = window.GetDeviceManager().ListenKeyboard({
-			[&window](const SDL_Event& event, Input::Keyboard& keyboard) {
+			[&window, meshEntity, &tf, &scene](const SDL_Event& event, Input::Keyboard& keyboard) {
 				if (event.key.key == SDLK_RETURN)
 					window.Close();
+				if (event.key.key == SDLK_R)
+				{
+					tf.SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(0, -2, 4));
+					scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
+				}
 			},
 			[](const SDL_Event& event, Input::Keyboard& keyboard) { }
 			});
 
-		std::cout << "Render-loop started!\n";
+		;
+
 		while (window.IsOpen())
 		{
 			window.Update();
-			//continue;
-			// Call "NewFrame()" with API
+
+			// Declares start of new frame and loops until the new frame can be rendered
 			while (!renderer.BeginFrame())
 			{
-				// Do some stuff while waiting
+				// Do some stuff while waiting, ex. queue physics calcs on a seperate thread
 			}
 
-			// Example of moving the camera
-			ECS::Entity camEnt = scene.GetEntity("CameraEntity").value();
-			ECS::CameraComponent& cam = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt);
-			if (GetAsyncKeyState('W'))
+			// Camera controls
+			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_W))
 			{
 				cam.m_Position += DXM::Vector3(0, 0, 0.01f);
 			}
 
-			if (GetAsyncKeyState('S'))
+			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_S))
 			{
 				cam.m_Position += DXM::Vector3(0, 0, -0.03f);
 			}
 
-			if (GetAsyncKeyState('D'))
+			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_D))
 			{
 				cam.m_Position += DXM::Vector3(-0.01f, 0, 0);
 			}
 
-			if (GetAsyncKeyState('A'))
+			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_A))
 			{
 				cam.m_Position += DXM::Vector3(0.01f, 0, 0);
 			}
 
-			ECS::TransformComponent& tf = *scene.m_ComponentManager.GetComponent<ECS::TransformComponent>(camEnt);
-			tf.SetTransform(DXM::Matrix::CreateScale(0.5) * DXM::Matrix::CreateRotationY(3.1415 + rot) * DXM::Matrix::CreateTranslation(0, -1.3, 5));
+			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_SPACE))
+			{
+				cam.m_Position += DXM::Vector3(0, 0.01f, 0);
+			}
+
+			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_LSHIFT))
+			{
+				cam.m_Position += DXM::Vector3(0, -0.01f, 0);
+			}
 			scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
+
+			tf.SetTransform(DXM::Matrix::CreateRotationY(0.001f) * tf.GetTransform());
+			scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
 			//
 
-			// Call "Render()" with the API
+			// Rendering the scene
 			renderer.Render(scene, &rtv, &dsv);
 
-			// Call the helper function in the API that copies a rendersurface to a swapchain backbuffer
-			renderer.EndFrame();
-
 			renderer.CopyTextureToTexture(window.GetCurrentBackbuffer(), rtv.GetTexture().GetResource());
+
+			// Declares end of current frame
+			renderer.EndFrame();
 
 			window.Present();
 		}
@@ -152,8 +163,7 @@ int main(int argc, char* argv[])
 
 	aZero::Window::Shutdown();
 
-	// Link error...
-	//DEBUG_FUNC([&] {idxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, (DXGI_DEBUG_RLO_FLAGS)(DXGI_DEBUG_RLO_IGNORE_INTERNAL | DXGI_DEBUG_RLO_DETAIL)); });
+	DEBUG_FUNC([&] {idxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, (DXGI_DEBUG_RLO_FLAGS)(DXGI_DEBUG_RLO_IGNORE_INTERNAL | DXGI_DEBUG_RLO_DETAIL)); });
 
 	return 0;
 }

@@ -18,16 +18,10 @@ struct VertexOut
     float2 UV : UV;
 #if !NORMAL_MAP
     float3 Normal : NORMAL;
-    float3 Tangent : TANGENT; // TODO: Maybe calc it in mesh shader instead of storing it in the vertex data?
     float3x3 TBN : TBN;
 #endif
-    min16uint MaterialID : Material;
-};
-
-struct Payload
-{
-    uint InstanceID;
-    uint MeshletIndex;
+    nointerpolation min16uint MaterialID : Material;
+    float3 MeshletColor : MESHLET_COLOR;
 };
 
 struct Mesh
@@ -61,8 +55,9 @@ struct BindingConstants
     uint InstanceBuffer;
     uint MeshBuffer;
     uint CameraBuffer;
-    uint InstanceID;
     uint CameraID;
+    uint IndirectArgumentBuffer;
+    uint MeshletInstanceBuffer;
 };
 
 void UnpackBatchID(uint BatchID, out min16uint MeshIndex, out min16uint MaterialIndex)

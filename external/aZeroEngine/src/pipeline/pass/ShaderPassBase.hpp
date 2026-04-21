@@ -11,8 +11,6 @@ namespace aZero
 {
 	namespace Pipeline
 	{
-		// todo Flytta in shaderparams i samtliga descriptions
-		// todo Check if input shaders are compiled
 		class ShaderPassBase : public NonCopyable
 		{
 		public:
@@ -103,6 +101,8 @@ namespace aZero
 				}
 				return ConstantBinding();
 			}
+
+			ID3D12RootSignature* GetRootSignature() const { return m_RootSignature.Get(); }
 
 		protected:
 

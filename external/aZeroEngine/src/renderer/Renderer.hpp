@@ -8,6 +8,7 @@
 #include "graphics_api/resource/buffer/IndexedBuffer.hpp"
 #include "graphics_api/resource/texture/Texture2D.hpp"
 #include "pipeline/pass/MeshShaderPass.hpp"
+#include "pipeline/pass/ComputeShaderPass.hpp"
 #include "pipeline/pass/VertexShaderPass.hpp"
 #include "SamplerManager.hpp"
 #include "FrameContext.hpp"
@@ -47,9 +48,9 @@ namespace aZero
 			bool BeginFrame();
 			void EndFrame();
 
+			void FlushFrameAllocations();
 			void Render(const Scene::SceneNew& scene, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthTarget*> depthTarget);
 
-			void CopyTextureToTexture(RenderAPI::Texture2D& dstTexture, RenderAPI::Texture2D& srcTexture);
 			void CopyTextureToTexture(ID3D12Resource* dstTexture, ID3D12Resource* srcTexture);
 
 			void FlushGPU();
@@ -69,12 +70,13 @@ namespace aZero
 			bool AdvanceFrameIfReady();
 
 			void InitPipeline();
+			void InitMeshletCullPipeline();
+			void InitMeshletDrawPipeline();
 			
 			ID3D12DeviceX* m_diDevice;
 			uint32_t m_BufferCount;
 			uint32_t m_FrameIndex = 0;
 			uint64_t m_FrameCount = 0;
-
 
 			// todo Figure out how this should be used to defer destruction of descriptors so that they wont be used until their no longer in use
 			aZero::CallbackExecutor m_CallbackExecutor;
@@ -97,10 +99,20 @@ namespace aZero
 
 			Rendering::ResourceManager m_ResourceManager;
 
-			Pipeline::MeshShaderPass m_Pipeline;
-			Pipeline::AmplificationShader m_AmpShader;
-			Pipeline::MeshShader m_MeshShader;
-			Pipeline::PixelShader m_PixelShader;
+			uint32_t MAX_INSTANCES = 4000;
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
+			RenderAPI::Buffer m_MeshletDrawArgumentBuffer;
+			RenderAPI::UnorderedAccessView m_MeshletDrawArgumentUAV;
+			RenderAPI::Buffer m_MeshletInstanceBuffer;
+			RenderAPI::UnorderedAccessView m_MeshletInstanceUAV;
+			Pipeline::MeshShaderPass m_MeshletDrawPass;
+			Pipeline::MeshShader m_MeshletDrawMS;
+			Pipeline::PixelShader m_MeshletDrawPS;
+
+			Pipeline::ComputeShaderPass m_MeshletCullingPass;
+			Pipeline::ComputeShader m_MeshletCullingCS;
+
+
 		};
 	}
 }

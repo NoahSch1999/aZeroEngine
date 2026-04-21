@@ -11,16 +11,18 @@ namespace aZero
 
 	namespace Asset
 	{
+		// TODO: Support mips
+		struct TextureData
+		{
+			std::vector<uint8_t> TexelData;
+			uint32_t Width, Height, NumChannels;
+			DXGI_FORMAT Format;
+		};
+
 		class Texture : public AssetBase
 		{
 			friend class Rendering::Renderer;
 		public:
-			struct Data
-			{
-				std::vector<uint8_t> TexelData;
-				uint32_t Width, Height, NumChannels;
-				DXGI_FORMAT Format;
-			};
 
 			Texture() = default;
 			Texture(AssetID id)
@@ -31,13 +33,12 @@ namespace aZero
 
 			bool Load(const std::string& filePath, DXGI_FORMAT format);
 
-			void RemoveTexelData()
-			{
-				m_Data.TexelData.clear();
+			const TextureData& GetData() {
+				return m_Data;
 			}
 
 		private:
-			Data m_Data;
+			TextureData m_Data;
 		};
 	}
 }

@@ -19,8 +19,8 @@ namespace aZero
 			void SignalAndFlush();
 			bool WaitForSignal(uint64_t value, bool shouldStall);
 
-			uint64_t ExecuteCommandList(CommandList& commandList);
-			uint64_t ExecuteCommandLists(const std::vector<CommandList*>& commandLists);
+			uint64_t ExecuteCommandList(CommandList& commandList, bool shouldSignal = true);
+			uint64_t ExecuteCommandLists(const std::vector<CommandList*>& commandLists, bool shouldSignal = true);
 
 			ID3D12CommandQueue* const Get() const { return m_Queue.Get(); }
 			uint64_t GetLatestSignal() const { return m_LatestFenceValue; }

@@ -22,7 +22,7 @@ Output main(VertexOut pin)
     const DefaultMaterial material = MaterialBuffer[pin.MaterialID];
     
     const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[material.AlbedoTexture];
-    const float3 surfaceColor = albedoTexture.Sample(samplerState, pin.UV).xyz;
+    float3 surfaceColor = albedoTexture.Sample(samplerState, pin.UV).xyz;
     
     float3 fragmentNormal;
 #if !NORMAL_MAP
@@ -35,6 +35,14 @@ Output main(VertexOut pin)
 #endif
     
     // TODO: Calc lighting
+    float3 dir = float3(0, -3, 1);
+    dir = normalize(dir);
+    
+    float intensity = dot(-dir, fragmentNormal) * 3;
+    float3 lightColor = float3(1, 1, 1) * intensity;
+    
+    float3 ambient = float3(0.1, 0.1, 0.1);
+    surfaceColor += ambient * lightColor;
     
     Output output;
     output.color = float4(surfaceColor, 1.f);

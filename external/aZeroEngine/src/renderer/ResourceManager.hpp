@@ -39,12 +39,15 @@ namespace aZero
 			{
 				m_MeshDataBuffer = RenderAPI::IndexedBuffer<GPUMesh>(device, 1000, recycler);
 				m_MeshBufferView = RenderAPI::ShaderResourceView(device, descriptorHeap, m_MeshDataBuffer.GetBuffer(), 1000, sizeof(GPUMesh), 0);
+
 				m_MaterialDataBuffer = RenderAPI::IndexedBuffer<MaterialData>(device, 1000, recycler);
+				m_MaterialBufferView = RenderAPI::ShaderResourceView(device, descriptorHeap, m_MaterialDataBuffer.GetBuffer(), 1000, sizeof(MaterialData), 0);
 			}
 
 			void UpdateRenderState(ID3D12DeviceX* device, RenderAPI::CommandList& cmdList, LinearFrameAllocator& frameAllocator, RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Mesh& mesh)
 			{
 				// TODO: Validate mesh data
+				// TODO: Handle overwriting of the data... defer actual resource destruction until last usage or something...
 				if (mesh.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
 					mesh.m_RenderID = m_MeshDataBuffer.Allocate();
@@ -71,7 +74,7 @@ namespace aZero
 			void UpdateRenderState(LinearFrameAllocator& frameAllocator, RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Material& material)
 			{
 				// TODO: Validate material data
-
+				// TODO: Handle overwriting of the data... defer actual resource destruction until last usage or something...
 				if (material.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
 					material.m_RenderID = m_MaterialDataBuffer.Allocate();
@@ -79,32 +82,50 @@ namespace aZero
 
 				if (material.GetAlbedoTexture()->GetRenderID() == Asset::InvalidRenderID)
 				{
-					this->UpdateRenderState(recycler, descriptorHeap, *material.GetAlbedoTexture());
+					DEBUG_PRINT("Albedo texture isnt uploaded to the renderer\n");
+					return;
 				}
 
 				if (material.GetNormalMap()->GetRenderID() == Asset::InvalidRenderID)
 				{
-					this->UpdateRenderState(recycler, descriptorHeap, *material.GetNormalMap());
+					DEBUG_PRINT("Normal map isnt uploaded to the renderer\n");
+					return;
 				}
 
-				// TODO: Fill in m_MaterialDataBuffer
 				MaterialData data;
 				data.AlbedoIndex = material.GetAlbedoTexture()->GetRenderID();
 				data.NormalIndex = material.GetNormalMap()->GetRenderID();
-				//frameAllocator.AddAllocation(&data, &m_MaterialDataBuffer.GetBuffer(), material.GetRenderID(), sizeof(data));
+				frameAllocator.AddAllocation(&data, &m_MaterialDataBuffer.GetBuffer(), material.GetRenderID(), sizeof(data));
 			}
 
-			void UpdateRenderState(RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Texture& texture)
+			void UpdateRenderState(ID3D12DeviceX* device, RenderAPI::CommandList& cmdList, RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Texture& texture)
 			{
 				// TODO: Validate texture data
+				// TODO: Handle overwriting of the data... defer actual resource destruction until last usage or something...
 				if (texture.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
-					m_TextureDescriptorMap[texture.GetAssetID()] = descriptorHeap.CreateDescriptor();
+					const auto& data = texture.GetData();
+					m_TextureMap[texture.GetAssetID()] = RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(data.Width, data.Height, data.Format, D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST), &recycler, {});
+					m_TextureDescriptorMap[texture.GetAssetID()] = RenderAPI::ShaderResourceView(device, descriptorHeap, m_TextureMap[texture.GetAssetID()]);
 					texture.m_RenderID = m_TextureDescriptorMap[texture.GetAssetID()].GetHeapIndex();
-				}
 
-				// TODO: Create the m_TextureMap resource and descriptor
-				
+					const uint64_t stagingBufferSize = static_cast<uint64_t>(GetRequiredIntermediateSize(m_TextureMap[texture.GetAssetID()].GetResource(), 0, 1));
+					RenderAPI::Buffer stagingBuffer(device, RenderAPI::Buffer::Desc(stagingBufferSize, D3D12_HEAP_TYPE_UPLOAD), &recycler);
+
+					D3D12_SUBRESOURCE_DATA subresourceData{};
+					subresourceData.pData = data.TexelData.data();
+					subresourceData.RowPitch = /*roundUp(*/data.Width * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/;
+					subresourceData.SlicePitch = subresourceData.RowPitch * data.Height;
+
+					UpdateSubresources(
+						cmdList.Get(),
+						m_TextureMap[texture.GetAssetID()].GetResource(),
+						stagingBuffer.GetResource(),
+						0, 0, 1, &subresourceData);
+
+					auto barrier = m_TextureMap[texture.GetAssetID()].CreateTransition(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+					cmdList->ResourceBarrier(1, &barrier);
+				}
 			}
 
 			void RemoveRenderState(Asset::Mesh& mesh)
@@ -149,9 +170,10 @@ namespace aZero
 			std::unordered_map<Asset::RenderID, RenderAPI::MeshletBuffer> m_MeshletBufferMap;
 
 			RenderAPI::IndexedBuffer<MaterialData> m_MaterialDataBuffer;
+			RenderAPI::ShaderResourceView m_MaterialBufferView;
 			std::unordered_map<Asset::AssetID, Asset::RenderID> m_MaterialMap;
 
-			std::unordered_map<Asset::AssetID, RenderAPI::Descriptor> m_TextureDescriptorMap;
+			std::unordered_map<Asset::AssetID, RenderAPI::ShaderResourceView> m_TextureDescriptorMap;
 			std::unordered_map<Asset::AssetID, RenderAPI::Texture2D> m_TextureMap;
 
 		private:

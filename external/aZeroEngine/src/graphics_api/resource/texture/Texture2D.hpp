@@ -15,10 +15,11 @@ namespace aZero
 				uint32_t MipLevels = 1;
 				DXGI_FORMAT Format = DXGI_FORMAT::DXGI_FORMAT_UNKNOWN;
 				D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
+				D3D12_RESOURCE_STATES StartState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON;
 
 				Desc() = default;
-				Desc(uint32_t width, uint32_t height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE)
-					:Width(width), Height(height), Format(format), Flags(flags) {
+				Desc(uint32_t width, uint32_t height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES startState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON)
+					:Width(width), Height(height), Format(format), Flags(flags), StartState(startState) {
 				}
 			};
 

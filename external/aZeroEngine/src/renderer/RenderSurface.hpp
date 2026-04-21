@@ -16,9 +16,8 @@ namespace aZero
 		public:
 			OutputTargetBase() = default;
 
-			// TODO: Make it so the desc can be used to add more flags for the texture
 			OutputTargetBase(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& heap, RenderAPI::ResourceRecycler& recycler, const TargetDesc& desc, bool shouldClear, D3D12_RESOURCE_FLAGS flags)
-				:m_Texture(RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(static_cast<uint32_t>(desc.dimensions.x), static_cast<uint32_t>(desc.dimensions.y), desc.format, flags), &recycler, desc.GetDX())),
+				:m_Texture(RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(static_cast<uint32_t>(desc.dimensions.x), static_cast<uint32_t>(desc.dimensions.y), desc.format, flags, desc.startState), &recycler, desc.GetDX())),
 				m_Descriptor(heap.CreateDescriptor()), m_Desc(desc), m_ClearState(shouldClear) { }
 
 			bool GetClearState() const { return m_ClearState; }
@@ -45,6 +44,7 @@ namespace aZero
 			float depthClearValue;
 			uint8_t stencilClearValue;
 			DXGI_FORMAT format;
+			D3D12_RESOURCE_STATES startState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE;
 
 			DepthTargetDesc() = default;
 			DepthTargetDesc(const DXM::Vector2& dimensions, float depthClearValue, uint8_t stencilClearValue, DXGI_FORMAT format)
@@ -89,6 +89,7 @@ namespace aZero
 			DXM::Vector4 colorClearValue;
 			DXM::Vector2 dimensions;
 			DXGI_FORMAT format;
+			D3D12_RESOURCE_STATES startState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 
 			RenderTargetDesc() = default;
 			RenderTargetDesc(const DXM::Vector4& colorClearValue, const DXM::Vector2& dimensions, DXGI_FORMAT format)

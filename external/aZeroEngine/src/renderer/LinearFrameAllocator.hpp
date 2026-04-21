@@ -21,7 +21,7 @@ namespace aZero
 			RenderAPI::Buffer m_StagingBuffer;
 			uint32_t m_CurrentAllocOffset = 0;
 
-			// TODO: Implement a more sophisticated approach without raw-pointers (both as hash and in the Allocation struct)
+			// TODO: Implement a more sophisticated approach without raw-pointers (both as hash and in the Allocation struct)?
 			std::unordered_map<RenderAPI::Buffer*, std::vector<Allocation>> m_Allocations;
 
 			uint32_t GetNextAllocOffset(uint32_t NumBytes)
@@ -31,7 +31,7 @@ namespace aZero
 				return AllocOffset;
 			}
 
-			void Write(void* Data, uint32_t Offset, uint32_t NumBytes)
+			void Write(const void* const Data, uint32_t Offset, uint32_t NumBytes)
 			{
 				m_StagingBuffer.Write(Data, NumBytes, Offset);
 			}
@@ -52,7 +52,7 @@ namespace aZero
 				return OffsetAfterAlloc <= MemorySize;
 			}
 
-			void AddAllocation(void* Data, RenderAPI::Buffer* DstResource, uint32_t DstOffset, uint32_t NumBytes)
+			void AddAllocation(const void* const Data, RenderAPI::Buffer* DstResource, uint32_t DstOffset, uint32_t NumBytes)
 			{
 				const UINT64 DstResourceSize = DstResource->GetResource()->GetDesc().Width;
 				if (DstResourceSize < (DstOffset + NumBytes))
@@ -79,9 +79,14 @@ namespace aZero
 				m_Allocations[DstResource].push_back(Alloc);
 			}
 
-			void Reset()
+			void ClearQueuedAllocations()
 			{
 				m_Allocations.clear();
+			}
+
+			void Reset()
+			{
+				this->ClearQueuedAllocations();
 				m_CurrentAllocOffset = 0;
 			}
 
@@ -103,6 +108,7 @@ namespace aZero
 
 					OuterCounter++;
 				}
+				m_Allocations.clear();
 			}
 		};
 	}

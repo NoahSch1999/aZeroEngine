@@ -32,8 +32,27 @@ namespace aZero
 			return name;
 		}
 
+		inline uint32_t Pack8To32(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+		{
+			return 
+				(static_cast<uint32_t>(d) << 24) |
+				(static_cast<uint32_t>(c) << 16) |
+				(static_cast<uint32_t>(b) << 8) |
+				(static_cast<uint32_t>(a));
+		}
+
+		inline std::tuple<uint8_t, uint8_t, uint8_t, uint8_t> Unpack32To8(uint32_t value32Bit)
+		{
+			return std::make_tuple(static_cast<uint8_t>(value32Bit & 0xFFFF), static_cast<uint8_t>((value32Bit >> 8) & 0xFFFF), static_cast<uint8_t>((value32Bit >> 16) & 0xFFFF), static_cast<uint8_t>((value32Bit >> 24) & 0xFFFF));
+		}
+
 		inline uint32_t Pack16To32(uint16_t low, uint16_t high) {
 			return (static_cast<uint32_t>(high) << 16) | low;
+		}
+
+		inline std::tuple<uint16_t, uint16_t> Unpack32To16(uint32_t value32Bit)
+		{
+			return std::make_tuple(static_cast<uint16_t>(value32Bit & 0xFFFF), static_cast<uint16_t>((value32Bit >> 16) & 0xFFFF));
 		}
 	}
 }

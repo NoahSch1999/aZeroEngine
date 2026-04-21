@@ -20,7 +20,7 @@ namespace aZero
 
 			bool Compile(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader);
 
-			void Begin(RenderAPI::CommandList& cmdList) const;
+			void Begin(RenderAPI::CommandList& cmdList, const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap) const;
 
 			[[nodiscard]] ComputeShader::ThreadGroup GetThreadGroups() const { return m_ThreadGroupCount; }
 
@@ -32,7 +32,7 @@ namespace aZero
 				return true;
 			}
 
-			bool CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState) const;
+			bool CreatePipelineState(ID3D12DeviceX* device, const Description& description, Pipeline::ComputeShader& computeShader, Microsoft::WRL::ComPtr<ID3D12PipelineState>& pipelineState, Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature) const;
 
 			ComputeShader::ThreadGroup m_ThreadGroupCount;
 		};

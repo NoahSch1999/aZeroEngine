@@ -28,7 +28,7 @@ namespace aZero
 		{
 			DXM::Vector2 UV;
 			DXM::Vector3 Normal;
-			DXM::Vector3 Tangent; // TODO: Omit and calc it in the shader
+			DXM::Vector3 Tangent;
 		};
 
 		struct MeshletMeshData
@@ -36,7 +36,7 @@ namespace aZero
 			std::string Name;
 			std::vector<Meshlet> Meshlets;
 			std::vector<VertexIndex> MeshletIndices;
-			std::vector<uint8_t> MeshletPrimitives;
+			std::vector<uint32_t> MeshletPrimitives;
 			std::vector<VertexPosition> Positions;
 			std::vector<GenericVertexData> GenericVertexData;
 			DirectX::BoundingSphere Bounds;

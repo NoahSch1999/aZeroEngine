@@ -19,7 +19,6 @@ namespace aZero
 			//		This buffer should be updated via a compute shader that takes all entity updates done through UpdateRenderState() and copies them to the buffer in vram
 			//		So there needs to be a dedicated staging buffer, per primitive type, that the compute shader reads from.
 			//		Then there needs to be a dedicated vram-only buffer, per primitive, that the compute shader writes to.
-			// todo Create shader resource views for them and access them bindlessly in the shaders
 			RenderAPI::Buffer m_StaticMeshBuffer;
 			RenderAPI::ShaderResourceView m_StaticMeshDescriptor;
 
@@ -58,7 +57,6 @@ namespace aZero
 			}
 			//
 
-			// TODO: Is this OK?
 			uint64_t m_FrameCompleteSignal = 0; // Latest signal that is related to the context - Should be used to find when the frame context is available again
 
 			// Update with this for each new commandlist that is executed during the frame
@@ -72,7 +70,7 @@ namespace aZero
 			bool IsReady(RenderAPI::CommandQueue& directQueue)
 			{
 				// !note Currently stalls cpu if the next frame context isnt ready - Might wanna change it to return early to enable the game-loop to make another lap
-				return directQueue.WaitForSignal(m_FrameCompleteSignal, true);
+				return directQueue.WaitForSignal(m_FrameCompleteSignal, false);
 			}
 
 			FrameContext() = default;
@@ -86,6 +84,7 @@ namespace aZero
 			}
 			FrameContext& operator=(FrameContext&&) noexcept = default;
 
+			// TODO: Support dynamic resizing, or atleast easy resizing
 			void Init(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
 			{
 				const uint32_t frameBufferSize = 1000000;
@@ -94,6 +93,7 @@ namespace aZero
 				RenderAPI::Buffer::Desc primitiveBufferDesc(0, D3D12_HEAP_TYPE_UPLOAD);
 				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::StaticMesh) * 1000;
 				m_StaticMeshBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
+
 				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::PointLight) * 1000;
 				m_PointLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::SpotLight) * 1000;
@@ -101,7 +101,7 @@ namespace aZero
 				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::DirectionalLight) * 100;
 				m_DirectionalLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 
-				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::Camera) * 100;
+				primitiveBufferDesc.NumBytes = sizeof(Scene::RenderData::Camera::GPUVersion) * 100;
 				m_CameraBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 
 				m_DirectCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -109,10 +109,20 @@ namespace aZero
 				m_ComputeCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
 
 				m_StaticMeshDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_StaticMeshBuffer, 1000, sizeof(Scene::RenderData::StaticMesh), 0);
-				m_CameraDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_CameraBuffer, 100, sizeof(Scene::RenderData::Camera), 0);
+
+				m_PointLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_PointLightBuffer, 1000, sizeof(Scene::RenderData::PointLight), 0);
+				m_SpotLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_SpotLightBuffer, 1000, sizeof(Scene::RenderData::SpotLight), 0);
+				m_DirectionalLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_DirectionalLightBuffer, 100, sizeof(Scene::RenderData::DirectionalLight), 0);
+
+				m_CameraDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_CameraBuffer, 100, sizeof(Scene::RenderData::Camera::GPUVersion), 0);
 
 #ifdef USE_DEBUG
 				m_StaticMeshBuffer.GetResource()->SetName(L"m_StaticMeshBuffer");
+
+				m_PointLightBuffer.GetResource()->SetName(L"m_PointLightBuffer");
+				m_SpotLightBuffer.GetResource()->SetName(L"m_SpotLightBuffer");
+				m_DirectionalLightBuffer.GetResource()->SetName(L"m_DirectionalLightBuffer");
+
 				m_CameraBuffer.GetResource()->SetName(L"m_CameraBuffer");
 #endif
 			};
