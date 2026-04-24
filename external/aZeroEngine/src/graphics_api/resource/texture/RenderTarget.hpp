@@ -11,7 +11,7 @@ goal:
 
 namespace aZero
 {
-	namespace RenderingX
+	namespace Rendering
 	{
 		class RenderTarget
 		{

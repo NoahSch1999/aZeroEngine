@@ -20,16 +20,6 @@ namespace aZero
 		Rendering::Renderer& GetRenderer() const { return *m_Renderer.get(); }
 		Audio::AudioEngine& GetAudioEngine() const { return *m_AudioEngine.get(); }
 
-		Rendering::RenderTarget CreateRenderTarget(const Rendering::RenderTargetDesc& desc, bool shouldClear) const
-		{
-			return Rendering::RenderTarget(m_Device.Get(), m_Renderer->m_RTVHeapNew, m_Renderer->m_NewResourceRecycler, desc, shouldClear);
-		}
-
-		Rendering::DepthTarget CreateDepthStencilTarget(const Rendering::DepthTargetDesc& desc, bool shouldClear) const
-		{
-			return Rendering::DepthTarget(m_Device.Get(), m_Renderer->m_DSVHeapNew, m_Renderer->m_NewResourceRecycler, desc, shouldClear);
-		}
-
 		// TODO: Replace with a better file system/handling implementation (perhaps a project file or something reads the path)
 		const std::string& GetProjectDirectory() const { return m_ProjectDirectory; }
 

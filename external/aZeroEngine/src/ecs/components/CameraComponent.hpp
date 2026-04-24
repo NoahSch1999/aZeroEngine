@@ -28,10 +28,16 @@ namespace aZero
 			bool m_ClearDepthTarget = true;
 			bool m_ClearStencilTarget = true;
 			uint32_t m_Layer = 0;
-			std::optional<RenderingX::RenderTarget*> m_RenderTarget;
-			std::optional<RenderingX::DepthStencilTarget*> m_DepthStencilTarget;
+			std::optional<Rendering::RenderTarget*> m_RenderTarget;
+			std::optional<Rendering::DepthStencilTarget*> m_DepthStencilTarget;
+			std::optional<DirectX::BoundingFrustum> m_OverridingFrustum;
 
 			CameraComponent() = default;
+
+			void SetOverridingFrustum(const DXM::Matrix& viewProjectionMatrix)
+			{
+				m_OverridingFrustum = DirectX::BoundingFrustum(viewProjectionMatrix, true);
+			}
 
 			DXM::Matrix GetViewMatrix() const
 			{

@@ -44,13 +44,14 @@ namespace aZero
 				DXM::Matrix m_Projection;
 				D3D12_VIEWPORT m_Viewport;
 				D3D12_RECT m_ScizzorRect;
-				bool m_IsActive;
+
+				// TODO: Rework into renderpass nicely
 				bool m_ClearRenderTarget = true;
 				bool m_ClearDepthTarget = true;
 				bool m_ClearStencilTarget = true;
 				uint32_t m_Layer = 0;
-				std::optional<RenderingX::RenderTarget*> m_RenderTarget;
-				std::optional<RenderingX::DepthStencilTarget*> m_DepthStencilTarget;
+				std::optional<Rendering::RenderTarget*> m_RenderTarget;
+				std::optional<Rendering::DepthStencilTarget*> m_DepthStencilTarget;
 
 				struct GPUVersion
 				{
@@ -63,7 +64,7 @@ namespace aZero
 
 				Camera() = default;
 				Camera(const ECS::CameraComponent& camera) {
-					m_Frustrum = DirectX::BoundingFrustum(camera.GetProjectionMatrix(), true);
+					m_Frustrum = camera.m_OverridingFrustum.has_value() ? camera.m_OverridingFrustum.value() : DirectX::BoundingFrustum(camera.GetProjectionMatrix(), true);
 					m_View = camera.GetViewMatrix();
 					m_Projection = camera.GetProjectionMatrix();
 					m_Viewport = camera.GetViewport();

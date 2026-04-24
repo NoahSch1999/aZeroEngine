@@ -25,13 +25,15 @@ void main(uint3 dtid : SV_DispatchThreadID)
     {
         const StructuredBuffer<Meshlet> meshlets = ResourceDescriptorHeap[mesh.MeshletBuffer];
         const Meshlet meshlet = meshlets[dtid.x];
+
+        const StructuredBuffer<CameraData> cameraBuffer = ResourceDescriptorHeap[Bindings.CameraBuffer];
+        //const CameraData camera = cameraBuffer[Bindings.CameraID];
+        const CameraData camera = cameraBuffer[1];
         
         const float3 boundsWP = mul(instance.Transform, float4(meshlet.Bounds.Position, 1.f)).xyz;
         const BoundingSphere bounds = CreateBoundingSphere(boundsWP, meshlet.Bounds.Radius);
-
-        const StructuredBuffer<CameraData> cameraBuffer = ResourceDescriptorHeap[Bindings.CameraBuffer];
-        const CameraData camera = cameraBuffer[Bindings.CameraID];
-        if (true/*camera.BoundingFrustum.Intersects(bounds)*/)
+        
+        if (camera.BoundingFrustum.Intersects(bounds, camera.View))
         {
             RWStructuredBuffer<MeshShaderIndirectArgs> indirectArgumentsBuffer = ResourceDescriptorHeap[Bindings.IndirectArgumentMeshletCullingBuffer];
             RWStructuredBuffer<MeshletCulling_To_MeshShader_Data> meshletInstanceBuffer = ResourceDescriptorHeap[Bindings.MeshletInstanceBuffer];

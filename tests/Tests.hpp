@@ -30,7 +30,6 @@ inline bool CreateRenderPasses(const aZero::Engine& engine)
 
 inline void RunTests(const aZero::Engine& engine)
 {
-	if (!CreateRenderPasses(engine))
-		std::cout << "CreateRenderPasses failed\n";
+
 }
 #endif

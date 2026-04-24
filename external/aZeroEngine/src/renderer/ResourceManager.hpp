@@ -80,21 +80,19 @@ namespace aZero
 					material.m_RenderID = m_MaterialDataBuffer.Allocate();
 				}
 
-				if (material.GetAlbedoTexture()->GetRenderID() == Asset::InvalidRenderID)
+				if (material.GetAlbedoTexture() && material.GetAlbedoTexture()->GetRenderID() == Asset::InvalidRenderID)
 				{
-					DEBUG_PRINT("Albedo texture isnt uploaded to the renderer\n");
-					return;
+					DEBUG_PRINT("Albedo texture isnt set or uploaded to the renderer\n");
 				}
 
-				if (material.GetNormalMap()->GetRenderID() == Asset::InvalidRenderID)
+				if (material.GetNormalMap() && material.GetNormalMap()->GetRenderID() == Asset::InvalidRenderID)
 				{
-					DEBUG_PRINT("Normal map isnt uploaded to the renderer\n");
-					return;
+					DEBUG_PRINT("Normal map isnt set or uploaded to the renderer\n");
 				}
 
 				MaterialData data;
-				data.AlbedoIndex = material.GetAlbedoTexture()->GetRenderID();
-				data.NormalIndex = material.GetNormalMap()->GetRenderID();
+				data.AlbedoIndex = material.GetAlbedoTexture() ? material.GetAlbedoTexture()->GetRenderID() : Asset::InvalidRenderID;
+				data.NormalIndex = material.GetNormalMap() ? material.GetNormalMap()->GetRenderID() : Asset::InvalidRenderID;
 				frameAllocator.AddAllocation(&data, &m_MaterialDataBuffer.GetBuffer(), material.GetRenderID(), sizeof(data));
 			}
 

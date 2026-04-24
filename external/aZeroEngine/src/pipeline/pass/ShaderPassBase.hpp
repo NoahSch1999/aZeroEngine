@@ -4,8 +4,7 @@
 #include "graphics_api/command_recording/CommandList.hpp"
 #include "graphics_api/resource/buffer/Buffer.hpp"
 #include "graphics_api/resource/texture/Texture2D.hpp"
-#include "graphics_api/descriptor/Descriptor.hpp"
-#include "renderer/RenderSurface.hpp"
+#include "graphics_api/descriptor/DescriptorHeap.hpp"
 
 namespace aZero
 {

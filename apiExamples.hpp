@@ -19,7 +19,7 @@ inline void LoadAssets(
 	engine.GetRenderer().UpdateRenderState(&normalMap);
 
 	material.SetAlbedoTexture(&albedo);
-	material.SetNormalMap(&normalMap);
+	//material.SetNormalMap(&normalMap);
 	engine.GetRenderer().UpdateRenderState(&material);
 }
 
@@ -40,13 +40,13 @@ inline void CreateScene(
 		ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 
 		ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
-			->SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(0, -2, 4));
+			->SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(-10, -2, 4));
 
 		scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
 	}
 
 	{
-		for (int i = 0; i < 1; i++)
+		for (int i = 1; i < 4; i++)
 		{
 			aZero::ECS::Entity meshEntity = scene.AddEntity();
 			ecsManager.AddComponent(meshEntity, aZero::ECS::TransformComponent());
@@ -54,7 +54,7 @@ inline void CreateScene(
 			ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 
 			ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
-				->SetTransform(DXM::Matrix::CreateRotationY(i / 3.14) * DXM::Matrix::CreateTranslation(1, 0, 0));
+				->SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(i * 3, -2, 4));
 
 			scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
 		}
@@ -97,19 +97,4 @@ inline void CreateScene(
 
 		scene.MarkRenderStateDirty(cameraEntity, aZero::Scene::SceneNew::ComponentFlag());
 	}
-}
-
-inline auto CreateRenderSurfaces(const aZero::Engine& engine, const DXM::Vector2& windowDimensions)
-{
-	aZero::Rendering::RenderTarget::Desc rtvDesc;
-	rtvDesc.colorClearValue = { 0,0,0,0 };
-	rtvDesc.dimensions = windowDimensions;
-	rtvDesc.format = DXGI_FORMAT_R8G8B8A8_UNORM;
-
-	aZero::Rendering::DepthTarget::Desc dsvDesc;
-	dsvDesc.stencilClearValue = 0;
-	dsvDesc.depthClearValue = 1;
-	dsvDesc.dimensions = windowDimensions;
-	dsvDesc.format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	return std::make_tuple(engine.CreateRenderTarget(rtvDesc, true), engine.CreateDepthStencilTarget(dsvDesc, true));
 }

@@ -1,6 +1,5 @@
 #include "Renderer.hpp"
 #include "scene/Scene.hpp"
-#include "RenderSurface.hpp"
 
 namespace aZero
 {
@@ -47,6 +46,14 @@ namespace aZero
 			this->InitMeshObjectCullPipeline();
 			this->InitMeshletCullPipeline();
 			this->InitMeshletDrawPipeline();
+
+			// TODO: One for each pass above
+			Rendering::MeshShaderPass::Description msPassDesc;
+			msPassDesc.ExecutionCount = 1;
+			msPassDesc.Pipeline = &m_MeshletDrawPass;
+			msPassDesc.RenderTargets.resize(1);
+			msPassDesc.ClearRtvs.resize(1);
+			m_RenderPasses.push_back(new Rendering::MeshShaderPass(std::move(msPassDesc)));
 		}
 
 		void Renderer::InitMeshObjectCullPipeline()
@@ -296,7 +303,7 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
 		}
 
-		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<RenderingX::RenderTarget*> renderTarget, std::optional<RenderingX::DepthStencilTarget*> depthStencilTarget)
+		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthStencilTarget*> depthStencilTarget)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 			auto& cmdList = frameContext.m_DirectCmdList;
@@ -363,7 +370,7 @@ namespace aZero
 			uint32_t lastCameraIndex = 0;
 			for (const auto& camera : cameras)
 			{
-				if (camera.m_IsActive && (camera.m_RenderTarget.has_value() || camera.m_DepthStencilTarget.has_value()))
+				if (camera.m_RenderTarget.has_value() || camera.m_DepthStencilTarget.has_value())
 				{
 					BindingConstants constants;
 					constants.InstanceBuffer = frameContext.m_StaticMeshDescriptor.GetHeapIndex();
@@ -386,6 +393,31 @@ namespace aZero
 					this->RecordMeshDrawingPass(constants, camera, camera.m_RenderTarget, camera.m_DepthStencilTarget);
 				}
 			}
+
+			/*m_RenderPasses[0]->m_Desc.ExecutionCount = cameras.size();
+			m_RenderPasses[0]->m_Desc.StartCallback = std::move([&](RenderAPI::CommandList& cmdList, uint32_t index) {
+				const auto& camera = cameras[index];
+				if (camera.m_IsActive && (camera.m_RenderTarget.has_value() || camera.m_DepthStencilTarget.has_value()))
+				{
+					BindingConstants constants;
+					constants.InstanceBuffer = frameContext.m_StaticMeshDescriptor.GetHeapIndex();
+					constants.MeshBuffer = m_ResourceManager.m_MeshBufferView.GetHeapIndex();
+					constants.CameraBuffer = frameContext.m_CameraDescriptor.GetHeapIndex();
+					constants.CameraID = lastCameraIndex;
+					constants.IndirectArgumentMeshletCullingBuffer = m_MeshletDrawArgumentUAV.GetHeapIndex();
+					constants.MeshletInstanceBuffer = m_MeshletInstanceUAV.GetHeapIndex();
+
+					const auto gpuCamera = camera.CreateGPUVersion();
+					frameContext.m_CameraBuffer.Write(&gpuCamera, sizeof(gpuCamera), sizeof(gpuCamera)* lastCameraIndex);
+					lastCameraIndex++;
+
+					((Rendering::MeshShaderPass*)m_RenderPasses[0])->m_DescInternal.RenderTargets[0] = camera.m_RenderTarget.value();
+					((Rendering::MeshShaderPass*)m_RenderPasses[0])->m_DescInternal.ClearRtvs[0] = camera.m_ClearRenderTarget;
+					((Rendering::MeshShaderPass*)m_RenderPasses[0])->m_DescInternal.DepthStencilTarget[0] = camera.m_ClearRenderTarget;
+				}
+			});
+
+			this->ExecuteRenderPasses();*/
 		}
 
 		void Renderer::FlushGPU()
@@ -395,7 +427,7 @@ namespace aZero
 			// todo When we're also using other types of queues we need to add them here and do some other stuff
 		}
 
-		void Renderer::CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, RenderingX::RenderTarget& renderTarget)
+		void Renderer::CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 
@@ -470,14 +502,24 @@ namespace aZero
 			//m_ResourceManager.
 		}
 
-		RenderingX::RenderTarget Renderer::CreateRenderTarget(const RenderingX::RenderTarget::Desc& desc)
+		Rendering::RenderTarget Renderer::CreateRenderTarget(const Rendering::RenderTarget::Desc& desc)
 		{
-			return RenderingX::RenderTarget(desc, m_diDevice, m_RTVHeapNew, &m_NewResourceRecycler);
+			return Rendering::RenderTarget(desc, m_diDevice, m_RTVHeapNew, &m_NewResourceRecycler);
 		}
 
-		RenderingX::DepthStencilTarget Renderer::CreateDepthStencilTarget(const RenderingX::DepthStencilTarget::Desc& desc)
+		Rendering::DepthStencilTarget Renderer::CreateDepthStencilTarget(const Rendering::DepthStencilTarget::Desc& desc)
 		{
-			return RenderingX::DepthStencilTarget(desc, m_diDevice, m_DSVHeapNew, &m_NewResourceRecycler);
+			return Rendering::DepthStencilTarget(desc, m_diDevice, m_DSVHeapNew, &m_NewResourceRecycler);
+		}
+
+		void Renderer::ExecuteRenderPasses()
+		{
+			FrameContext& context = this->GetCurrentContext();
+			RenderAPI::CommandList& cmdList = context.m_DirectCmdList;
+			for (const auto pass : m_RenderPasses)
+			{
+				pass->Execute(m_DirectCommandQueue, context.m_DirectCmdList, m_ResourceHeapNew, m_SamplerHeapNew);
+			}
 		}
 	}
 }

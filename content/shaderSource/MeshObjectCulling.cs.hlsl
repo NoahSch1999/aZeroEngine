@@ -27,12 +27,13 @@ void main(uint3 dtid : SV_DispatchThreadID)
         const Mesh mesh = meshes[meshIndex];
         
         const StructuredBuffer<CameraData> cameraBuffer = ResourceDescriptorHeap[Bindings.CameraBuffer];
-        const CameraData camera = cameraBuffer[Bindings.CameraID];
+        //const CameraData camera = cameraBuffer[Bindings.CameraID];
+        const CameraData camera = cameraBuffer[1];
         
         const float3 boundsWP = mul(instance.Transform, float4(mesh.Bounds.xyz, 1.f)).xyz;
         const BoundingSphere bounds = CreateBoundingSphere(boundsWP, mesh.Bounds.w);
         
-        if (true/*camera.BoundingFrustum.Intersects(bounds)*/)
+        if (camera.BoundingFrustum.Intersects(bounds, camera.View))
         {
             RWStructuredBuffer<MeshletInstanceIndirectArgs> instancesPassedBuffer = ResourceDescriptorHeap[PassConstants.IndirectArgumentMeshCullingBuffer];
             RWStructuredBuffer<uint> passedMeshesCounterBuffer = ResourceDescriptorHeap[PassConstants.PassedMeshesCounterBuffer];

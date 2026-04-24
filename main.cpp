@@ -17,6 +17,8 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 
 using namespace aZero;
 
+#define USE_DEBUG true
+
 int main(int argc, char* argv[])
 {
 #if USE_DEBUG
@@ -55,14 +57,14 @@ int main(int argc, char* argv[])
 #endif
 
 		// Create your own implemented window and swapchain + input system
-		RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,800,600/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
-		//RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,2560,1440 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
+		//RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,800,600/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
+		RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,2560,1440 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
 		//
 
 		// Create render surfaces
 		auto [width, height] = window.GetClientDimensions();
-		auto rtv = renderer.CreateRenderTarget(RenderingX::RenderTarget::Desc(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, { 0.3,0.3,0.3,1 }, true));
-		auto dsv = renderer.CreateDepthStencilTarget(RenderingX::DepthStencilTarget::Desc(width, height, 1, 0, true, true));
+		auto rtv = renderer.CreateRenderTarget(Rendering::RenderTarget::Desc(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, { 0.3,0.3,0.3,1 }, true));
+		auto dsv = renderer.CreateDepthStencilTarget(Rendering::DepthStencilTarget::Desc(width, height, 1, 0, true, true));
 		//
 
 		Asset::Mesh mesh(0);
@@ -86,13 +88,14 @@ int main(int argc, char* argv[])
 		cam.m_DepthStencilTarget = &dsv;
 		scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
 
-		{
-			ECS::Entity camEnt2 = scene.GetEntity("CameraEntity2").value();
-			ECS::CameraComponent& cam2 = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt2);
-			cam2.m_RenderTarget = &rtv;
-			cam2.m_DepthStencilTarget = &dsv;
-			scene.MarkRenderStateDirty(camEnt2, aZero::Scene::SceneNew::ComponentFlag());
-		}
+		
+		ECS::Entity camEnt2 = scene.GetEntity("CameraEntity2").value();
+		ECS::CameraComponent& cam2 = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt2);
+		cam2.m_RenderTarget = &rtv;
+		cam2.m_DepthStencilTarget = &dsv;
+		cam2.m_Position = { 0,0,-10 };
+		scene.MarkRenderStateDirty(camEnt2, aZero::Scene::SceneNew::ComponentFlag());
+		
 
 		Input::KeyboardListener listener = window.GetDeviceManager().ListenKeyboard({
 			[&window, meshEntity, &tf, &scene](const SDL_Event& event, Input::Keyboard& keyboard) {
@@ -106,8 +109,6 @@ int main(int argc, char* argv[])
 			},
 			[](const SDL_Event& event, Input::Keyboard& keyboard) { }
 			});
-
-		;
 
 		while (window.IsOpen())
 		{
@@ -175,8 +176,8 @@ int main(int argc, char* argv[])
 	}
 
 	aZero::Window::Shutdown();
-
-	DEBUG_FUNC([&] {idxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, (DXGI_DEBUG_RLO_FLAGS)(DXGI_DEBUG_RLO_IGNORE_INTERNAL | DXGI_DEBUG_RLO_DETAIL)); });
-
+#if USE_DEBUG
+	idxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, (DXGI_DEBUG_RLO_FLAGS)(DXGI_DEBUG_RLO_IGNORE_INTERNAL | DXGI_DEBUG_RLO_DETAIL));
+#endif
 	return 0;
 }

@@ -17,6 +17,7 @@
 #include "graphics_api/resource/texture/DepthStencilTarget.hpp"
 #include "graphics_api/resource/texture/RenderTarget.hpp"
 #include "graphics_api/SwapChain.hpp"
+#include "renderer/RenderPass.hpp"
 
 namespace aZero
 {
@@ -55,7 +56,7 @@ namespace aZero
 
 			void Render(const Scene::SceneNew& scene);
 
-			void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, RenderingX::RenderTarget& renderTarget);
+			void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget);
 
 			void FlushGPU();
 			uint64_t SignalGraphicsQueue() { return m_DirectCommandQueue.Signal(); }
@@ -67,8 +68,8 @@ namespace aZero
 			void RemoveRenderState(Asset::Material* material);
 			void RemoveRenderState(Asset::Texture* texture);
 
-			RenderingX::RenderTarget CreateRenderTarget(const RenderingX::RenderTarget::Desc& desc);
-			RenderingX::DepthStencilTarget CreateDepthStencilTarget(const RenderingX::DepthStencilTarget::Desc& desc);
+			Rendering::RenderTarget CreateRenderTarget(const Rendering::RenderTarget::Desc& desc);
+			Rendering::DepthStencilTarget CreateDepthStencilTarget(const Rendering::DepthStencilTarget::Desc& desc);
 
 		private:
 			FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
@@ -121,7 +122,7 @@ namespace aZero
 			
 			void RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes);
 			void RecordMeshLetCullingPass(const BindingConstants& bindings);
-			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<RenderingX::RenderTarget*> renderTarget, std::optional<RenderingX::DepthStencilTarget*> depthStencilTarget);
+			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthStencilTarget*> depthStencilTarget);
 
 			uint32_t MAX_INSTANCES = 4000;
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
@@ -143,6 +144,9 @@ namespace aZero
 			RenderAPI::UnorderedAccessView m_MeshObjectCullingUAV; 
 			RenderAPI::Buffer m_PassedMeshCountBuffer;
 			RenderAPI::UnorderedAccessView m_PassedMeshCountUAV;
+		public:
+			void ExecuteRenderPasses();
+			std::vector<Rendering::PassBase*> m_RenderPasses;
 		};
 	}
 }
