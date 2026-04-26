@@ -17,7 +17,7 @@ namespace aZero
 				uint32_t BatchID;
 
 				StaticMesh() = default;
-				StaticMesh(const ECS::TransformComponent& transform, const ECS::StaticMeshComponent& staticMesh)
+				StaticMesh(const ECS::TransformComponent& transform, const ECS::StaticMeshComponent& staticMesh, const DXM::Matrix& globalTransform)
 				{
 					const Asset::Mesh* mesh = staticMesh.GetMesh();
 					const Asset::Material* material = staticMesh.GetMaterial();
@@ -26,7 +26,7 @@ namespace aZero
 						&& mesh->GetRenderID() != std::numeric_limits<Asset::RenderID>::max()
 						&& material->GetRenderID() != std::numeric_limits<Asset::RenderID>::max())
 					{
-						Transform = transform.GetTransform();
+						Transform = globalTransform;
 						BatchID = Helper::Pack16To32(staticMesh.GetMesh()->GetRenderID(), staticMesh.GetMaterial()->GetRenderID());
 					}
 				}
@@ -63,7 +63,8 @@ namespace aZero
 				};
 
 				Camera() = default;
-				Camera(const ECS::CameraComponent& camera) {
+				Camera(const ECS::CameraComponent& camera, const DXM::Matrix& globalTransform) {
+					const DXM::Vector3 cameraPosition = DXM::Vector3::Transform(camera.m_Position, globalTransform);
 					m_Frustrum = camera.m_OverridingFrustum.has_value() ? camera.m_OverridingFrustum.value() : DirectX::BoundingFrustum(camera.GetProjectionMatrix(), true);
 					m_View = camera.GetViewMatrix();
 					m_Projection = camera.GetProjectionMatrix();
@@ -88,36 +89,34 @@ namespace aZero
 
 				DirectionalLight() = default;
 				DirectionalLight(const ECS::DirectionalLightComponent& light)
-					: m_Direction(light.Direction), m_Color(light.Color), m_Intensity(light.Intensity) {
-				}
+					: m_Direction(light.Direction), m_Color(light.Color), m_Intensity(light.Intensity) {}
 			};
 
 			struct PointLight
 			{
+				// TODO: Fix so it gets this from the component
+				DXM::Vector3 m_Position;
 				DXM::Vector3 m_Color;
 				float m_Intensity;
-				DXM::Vector3 m_Position;
-				float m_FalloffFactor;
+				float m_Attenuation;
+				float m_BoundsRadius;
 
 				PointLight() = default;
-				PointLight(const ECS::PointLightComponent& light)
-					: m_Position(light.Position), m_Color(light.Color), m_Intensity(light.Intensity), m_FalloffFactor(light.FalloffFactor) {
-				}
+				PointLight(const ECS::PointLightComponent& light, const DXM::Matrix& globalTransform) {}
 			};
 
 			struct SpotLight
 			{
-				DXM::Vector3 m_Direction;
+				// TODO: Fix so it gets this from the component
 				DXM::Vector3 m_Position;
+				DXM::Vector3 m_Direction;
 				DXM::Vector3 m_Color;
-				float m_ConeRadius;
-				float m_Range;
 				float m_Intensity;
+				float m_BoundsRadius;
+				float m_ConeAngle;
 
 				SpotLight() = default;
-				SpotLight(const ECS::SpotLightComponent& light)
-					: m_Direction(light.Direction), m_Position(light.Position), m_Color(light.Color), m_Intensity(light.Intensity), m_ConeRadius(light.CutoffAngle), m_Range(light.Range) {
-				}
+				SpotLight(const ECS::SpotLightComponent& light, const DXM::Matrix& globalTransform) {}
 			};
 		};
 	}

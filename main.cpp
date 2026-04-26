@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
 		ECS::CameraComponent& cam2 = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt2);
 		cam2.m_RenderTarget = &rtv;
 		cam2.m_DepthStencilTarget = &dsv;
-		cam2.m_Position = { 0,0,-10 };
+		cam2.m_Position = { -10, 0, -15 };
 		scene.MarkRenderStateDirty(camEnt2, aZero::Scene::SceneNew::ComponentFlag());
 		
 
@@ -110,6 +110,7 @@ int main(int argc, char* argv[])
 			[](const SDL_Event& event, Input::Keyboard& keyboard) { }
 			});
 
+		float idk = 0.f;
 		while (window.IsOpen())
 		{
 			window.Update();
@@ -156,6 +157,10 @@ int main(int argc, char* argv[])
 			scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
 			//
 
+			auto ent3 = scene.GetEntity("Entity_3");
+			scene.m_ComponentManager.GetComponent<ECS::TransformComponent>(ent3.value())->SetTransform(DXM::Matrix::CreateTranslation(sin(idk) * 10, 0, 0));
+			scene.MarkRenderStateDirty(ent3.value(), aZero::Scene::SceneNew::ComponentFlag());
+
 			// Rendering the scene
 			renderer.Render(scene);
 
@@ -163,6 +168,8 @@ int main(int argc, char* argv[])
 
 			// Declares end of current frame
 			renderer.EndFrame();
+
+			idk += 0.001f;
 
 			window.Present();
 		}

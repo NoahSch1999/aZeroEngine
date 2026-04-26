@@ -4,14 +4,14 @@ namespace aZero
 {
 	namespace Scene
 	{
-		void SceneProxy::UpdateStaticMesh(ECS::EntityID id, const ECS::TransformComponent* transformComponent, const ECS::StaticMeshComponent* staticMeshComponent)
+		void SceneProxy::UpdateStaticMesh(ECS::EntityID id, const ECS::TransformComponent* transformComponent, const ECS::StaticMeshComponent* staticMeshComponent, const DXM::Matrix& globalTransform)
 		{
 			if (!transformComponent || !staticMeshComponent) {
 				m_StaticMeshes.Remove(id);
 				return;
 			}
 
-			RenderData::StaticMesh staticMesh(*transformComponent, *staticMeshComponent);
+			RenderData::StaticMesh staticMesh(*transformComponent, *staticMeshComponent, globalTransform);
 			if (staticMesh.IsRenderReady()) {
 
 				m_StaticMeshes.AddOrUpdate(id, std::move(staticMesh));
@@ -21,7 +21,7 @@ namespace aZero
 			}
 		}
 
-		void SceneProxy::UpdateCamera(ECS::EntityID id, const ECS::CameraComponent* cameraComponent)
+		void SceneProxy::UpdateCamera(ECS::EntityID id, const ECS::CameraComponent* cameraComponent, const DXM::Matrix& globalTransform)
 		{
 			if (!cameraComponent) {
 				m_Cameras.Remove(id);
@@ -29,7 +29,7 @@ namespace aZero
 			}
 
 			if (cameraComponent->m_IsActive) {
-				m_Cameras.AddOrUpdate(id, RenderData::Camera(*cameraComponent));
+				m_Cameras.AddOrUpdate(id, RenderData::Camera(*cameraComponent, globalTransform));
 			}
 			else {
 				m_Cameras.Remove(id);
@@ -46,24 +46,24 @@ namespace aZero
 			m_DirectionalLights.AddOrUpdate(id, RenderData::DirectionalLight(*lightComponent));
 		}
 
-		void SceneProxy::UpdatePointLight(ECS::EntityID id, const ECS::PointLightComponent* lightComponent)
+		void SceneProxy::UpdatePointLight(ECS::EntityID id, const ECS::PointLightComponent* lightComponent, const DXM::Matrix& globalTransform)
 		{
 			if (!lightComponent) {
 				m_PointLights.Remove(id);
 				return;
 			}
 
-			m_PointLights.AddOrUpdate(id, RenderData::PointLight(*lightComponent));
+			m_PointLights.AddOrUpdate(id, RenderData::PointLight(*lightComponent, globalTransform));
 		}
 
-		void SceneProxy::UpdateSpotLight(ECS::EntityID id, const ECS::SpotLightComponent* lightComponent)
+		void SceneProxy::UpdateSpotLight(ECS::EntityID id, const ECS::SpotLightComponent* lightComponent, const DXM::Matrix& globalTransform)
 		{
 			if (!lightComponent) {
 				m_SpotLights.Remove(id);
 				return;
 			}
 
-			m_SpotLights.AddOrUpdate(id, RenderData::SpotLight(*lightComponent));
+			m_SpotLights.AddOrUpdate(id, RenderData::SpotLight(*lightComponent, globalTransform));
 		}
 	}
 }

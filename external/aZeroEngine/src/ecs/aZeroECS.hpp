@@ -16,6 +16,7 @@ namespace aZero
 			DirectionalLightComponent,
 			PointLightComponent, 
 			SpotLightComponent, 
-			CameraComponent> ComponentManagerDecl;
+			CameraComponent
+		> ComponentManagerDecl;
 	}
 }

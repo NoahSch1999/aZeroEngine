@@ -303,7 +303,7 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
 		}
 
-		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthStencilTarget*> depthStencilTarget)
+		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, uint32_t pointLightBufferIndex, uint32_t spotLightBufferIndex, uint32_t directionalLightBufferIndex)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 			auto& cmdList = frameContext.m_DirectCmdList;
@@ -312,12 +312,12 @@ namespace aZero
 			cmdList->ResourceBarrier(1, &barrier);
 
 			std::vector<RenderAPI::Descriptor*> renderTargets;
-			if (renderTarget.has_value())
+			if (camera.m_RenderTarget.has_value())
 			{
-				renderTargets.push_back(&renderTarget.value()->GetDescriptor());
+				renderTargets.push_back(&camera.m_RenderTarget.value()->GetDescriptor());
 			}
-			RenderAPI::Descriptor* dsv = depthStencilTarget.has_value() ? &depthStencilTarget.value()->GetDescriptor() : nullptr;
-			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew, renderTargets, depthStencilTarget.has_value() ? dsv : std::optional<RenderAPI::Descriptor*>());
+			RenderAPI::Descriptor* dsv = camera.m_DepthStencilTarget.has_value() ? &camera.m_DepthStencilTarget.value()->GetDescriptor() : nullptr;
+			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew, renderTargets, camera.m_DepthStencilTarget.has_value() ? dsv : std::optional<RenderAPI::Descriptor*>());
 
 			auto msBindings = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
 			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &bindings, 0);
@@ -326,9 +326,15 @@ namespace aZero
 			{
 				uint32_t SamplerIndex;
 				uint32_t MaterialBuffer;
+				uint32_t PointLightBuffer;
+				uint32_t SpotLightBuffer;
+				uint32_t DirectionalLightBuffer;
 			} pixelbindings;
 			pixelbindings.SamplerIndex = m_SamplerManager.GetSampler(aZero::Rendering::SamplerManager::Anisotropic_8x_Wrap).GetHeapIndex();
 			pixelbindings.MaterialBuffer = m_ResourceManager.m_MaterialBufferView.GetHeapIndex();
+			pixelbindings.PointLightBuffer = pointLightBufferIndex;
+			pixelbindings.SpotLightBuffer = spotLightBufferIndex;
+			pixelbindings.DirectionalLightBuffer = directionalLightBufferIndex;
 
 			auto psConstants = m_MeshletDrawPass.GetConstantBindingIndex("PixelShaderConstants");
 			cmdList.SetGraphicsRoot32BitConstantsSafe(psConstants.GetRootIndex(), psConstants.GetNumConstants(), &pixelbindings, 0);
@@ -390,7 +396,7 @@ namespace aZero
 
 					this->RecordMeshLetCullingPass(constants);
 
-					this->RecordMeshDrawingPass(constants, camera, camera.m_RenderTarget, camera.m_DepthStencilTarget);
+					this->RecordMeshDrawingPass(constants, camera, frameContext.m_PointLightDescriptor.GetHeapIndex(), frameContext.m_SpotLightDescriptor.GetHeapIndex(), frameContext.m_DirectionalLightDescriptor.GetHeapIndex());
 				}
 			}
 

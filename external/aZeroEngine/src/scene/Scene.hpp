@@ -10,6 +10,7 @@ namespace aZero
 	{
 		class SceneNew
 		{
+			ECS::Entity m_RootEntity;
 		public:
 			enum class ComponentFlag
 			{
@@ -35,6 +36,11 @@ namespace aZero
 				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(1000);
 				m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(1000);
 				m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(1000);
+
+				m_RootEntity = m_EntityManager.CreateEntity();
+				m_Entities["RootEntity"] = m_RootEntity;
+				m_Entity_To_Name[m_RootEntity.GetID()] = "RootEntity";
+				m_ComponentManager.AddComponent(m_RootEntity, aZero::ECS::TransformComponent(m_RootEntity));
 			}
 
 			ECS::Entity AddEntity()
@@ -43,6 +49,9 @@ namespace aZero
 				std::string newName = Helper::HandleNameCollision(this->GenerateEntityName(), m_Entities);
 				m_Entities[newName] = entity;
 				m_Entity_To_Name[entity.GetID()] = newName;
+				m_ComponentManager.AddComponent(entity, aZero::ECS::TransformComponent(entity));
+				
+				this->ParentEntity(m_RootEntity, entity);
 
 				return entity;
 			}
@@ -84,21 +93,40 @@ namespace aZero
 			void MarkRenderStateDirty(const ECS::Entity& entity, ComponentFlag flag)
 			{
 				ECS::TransformComponent* transformComp = m_ComponentManager.GetComponent<ECS::TransformComponent>(entity);
+				DXM::Matrix entityTransform = transformComp->GetTransform();
+				
+				// TODO: Fix parenting transform calculations
+				//DXM::Matrix entityTransform = DXM::Matrix::Identity;
+				//if (transformComp)
+				//{
 
-				// NOTE: When we have SkeletalMeshComp we will make this if-statement be one or the other
+				//	if (transformComp->m_ParentID.GetID() != ECS::InvalidEntityID)
+				//	{
+				//		// TODO: Go up parent chain and update transformComp accordinly
+				//		ECS::TransformComponent* parentTransfrom = m_ComponentManager.GetComponent<ECS::TransformComponent>(transformComp->m_ParentID);
+				//		entityTransform = parentTransfrom->GetTransform() * transformComp->GetTransform();
+
+				//		for (auto& child : transformComp->m_ChildrenIDs)
+				//		{
+				//			this->MarkRenderStateDirty(child, ComponentFlag());
+				//		}
+				//	}
+				//}
+
 				ECS::EntityID id = entity.GetID();
 
+				// NOTE: When we have SkeletalMeshComp we will make this if-statement be one or the other
 				ECS::StaticMeshComponent* staticMeshComp = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity);
-				m_Proxy->UpdateStaticMesh(id, transformComp, staticMeshComp);
+				m_Proxy->UpdateStaticMesh(id, transformComp, staticMeshComp, entityTransform);
 
 				ECS::PointLightComponent* pointLightComp = m_ComponentManager.GetComponent<ECS::PointLightComponent>(entity);
-				m_Proxy->UpdatePointLight(id, pointLightComp);
+				m_Proxy->UpdatePointLight(id, pointLightComp, entityTransform);
 
 				ECS::SpotLightComponent* spotLightComp = m_ComponentManager.GetComponent<ECS::SpotLightComponent>(entity);
-				m_Proxy->UpdateSpotLight(id, spotLightComp);
+				m_Proxy->UpdateSpotLight(id, spotLightComp, entityTransform);
 
 				ECS::CameraComponent* cameraComp = m_ComponentManager.GetComponent<ECS::CameraComponent>(entity);
-				m_Proxy->UpdateCamera(id, cameraComp);
+				m_Proxy->UpdateCamera(id, cameraComp, entityTransform);
 
 				ECS::DirectionalLightComponent* DirLightComp = m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(entity);
 				m_Proxy->UpdateDirectionalLight(id, DirLightComp);
@@ -112,16 +140,35 @@ namespace aZero
 				m_Entity_To_Name[entity.GetID()] = entityName;
 			}
 
+			void ParentEntity(std::optional<ECS::Entity> parent, ECS::Entity child)
+			{
+				auto& arr = m_ComponentManager.GetComponentArray<ECS::TransformComponent>();
+				ECS::TransformComponent* childComp = arr.GetComponent(child.GetID());
+				ECS::TransformComponent* parentComp = arr.GetComponent(parent.value().GetID());
+
+				if (!childComp || !parentComp)
+					return;
+
+				if (!parent.has_value())
+				{
+					ECS::TransformComponent nullComponent;
+					childComp->SetParent(nullComponent);
+				}
+
+				ECS::Entity previousParent = childComp->GetParent();
+				if (previousParent.GetID() != ECS::InvalidEntityID)
+				{
+					ECS::TransformComponent& prevParentComp = *arr.GetComponent(previousParent);
+					prevParentComp.RemoveChild(*childComp);
+				}
+
+				parentComp->AddChild(*childComp);
+			}
+
 			std::optional<ECS::Entity> GetEntity(const std::string& name) { return m_Entities.count(name) == 1 ? m_Entities.at(name) : std::optional<ECS::Entity>{}; }
 			const std::unordered_map<std::string, ECS::Entity>& GetEntities() const { return m_Entities; }
 
-			ECS::ComponentManager<
-				ECS::TransformComponent,
-				ECS::StaticMeshComponent,
-				ECS::DirectionalLightComponent,
-				ECS::PointLightComponent,
-				ECS::SpotLightComponent,
-				ECS::CameraComponent> m_ComponentManager;
+			ECS::ComponentManagerDecl m_ComponentManager;
 
 			ECS::EntityManager m_EntityManager;
 		private:

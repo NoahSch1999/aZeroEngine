@@ -122,7 +122,7 @@ namespace aZero
 			
 			void RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes);
 			void RecordMeshLetCullingPass(const BindingConstants& bindings);
-			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, std::optional<Rendering::RenderTarget*> renderTarget, std::optional<Rendering::DepthStencilTarget*> depthStencilTarget);
+			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, uint32_t pointLightBufferIndex, uint32_t spotLightBufferIndex, uint32_t directionalLightBufferIndex);
 
 			uint32_t MAX_INSTANCES = 4000;
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;

@@ -1,10 +1,14 @@
-#include "MeshletCommon.hlsli"
+#include "VertexDefinitions.hlsli"
 #include "Materials.hlsli"
+#include "Lights.hlsli"
 
 struct PixelShaderConstantsData
 {
     uint SamplerIndex;
     uint MaterialBuffer;
+    uint PointLightBuffer;
+    uint SpotLightBuffer;
+    uint DirectionalLightBuffer;
 };
 
 ConstantBuffer<PixelShaderConstantsData> PixelShaderConstants : register(b0);

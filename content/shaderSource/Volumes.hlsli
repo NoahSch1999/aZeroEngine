@@ -71,17 +71,3 @@ Frustum CreateFrustum(float3 position, float4 rotation, float rightSlope, float 
     frustum.Far = far;
     return frustum;
 }
-
-Frustum CreateFrustumFromCameraMatrix(float4x4 viewProjectionMatrix)
-{
-    // TODO: Calc
-    float3 position;
-    float4 rotation;
-    float rightSlope;
-    float leftSlope;
-    float topSlope;
-    float bottomSlope;
-    float near;
-    float far;
-    return CreateFrustum(position, rotation, rightSlope, leftSlope, topSlope, bottomSlope, near, far);
-}

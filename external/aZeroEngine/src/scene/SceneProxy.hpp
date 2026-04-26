@@ -12,11 +12,11 @@ namespace aZero
 		public:
 			SceneProxy() = default;
 
-			void UpdateStaticMesh(ECS::EntityID id, const ECS::TransformComponent* transformComponent, const ECS::StaticMeshComponent* staticMeshComponent);
-			void UpdateCamera(ECS::EntityID id, const ECS::CameraComponent* cameraComponent);
+			void UpdateStaticMesh(ECS::EntityID id, const ECS::TransformComponent* transformComponent, const ECS::StaticMeshComponent* staticMeshComponent, const DXM::Matrix& globalTransform);
+			void UpdateCamera(ECS::EntityID id, const ECS::CameraComponent* cameraComponent, const DXM::Matrix& globalTransform);
 			void UpdateDirectionalLight(ECS::EntityID id, const ECS::DirectionalLightComponent* lightComponent);
-			void UpdatePointLight(ECS::EntityID id, const ECS::PointLightComponent* lightComponent);
-			void UpdateSpotLight(ECS::EntityID id, const ECS::SpotLightComponent* lightComponent);
+			void UpdatePointLight(ECS::EntityID id, const ECS::PointLightComponent* lightComponent, const DXM::Matrix& globalTransform);
+			void UpdateSpotLight(ECS::EntityID id, const ECS::SpotLightComponent* lightComponent, const DXM::Matrix& globalTransform);
 
 			/*
 			NOTE:

@@ -11,6 +11,7 @@ namespace aZero
 		constexpr int MAX_COMPONENT_COUNT = 32;
 
 		typedef unsigned int EntityID;
+		static inline EntityID InvalidEntityID = std::numeric_limits<uint32_t>::max();
 
 		/** @brief The Entity of the ECS */
 		class Entity
@@ -24,7 +25,7 @@ namespace aZero
 			friend class ComponentArray;
 
 		private:
-			EntityID m_ID = std::numeric_limits<uint32_t>::max();
+			EntityID m_ID = InvalidEntityID;
 			std::bitset<MAX_COMPONENT_COUNT> m_ComponentMask;
 
 		private:
