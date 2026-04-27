@@ -399,31 +399,6 @@ namespace aZero
 					this->RecordMeshDrawingPass(constants, camera, frameContext.m_PointLightDescriptor.GetHeapIndex(), frameContext.m_SpotLightDescriptor.GetHeapIndex(), frameContext.m_DirectionalLightDescriptor.GetHeapIndex());
 				}
 			}
-
-			/*m_RenderPasses[0]->m_Desc.ExecutionCount = cameras.size();
-			m_RenderPasses[0]->m_Desc.StartCallback = std::move([&](RenderAPI::CommandList& cmdList, uint32_t index) {
-				const auto& camera = cameras[index];
-				if (camera.m_IsActive && (camera.m_RenderTarget.has_value() || camera.m_DepthStencilTarget.has_value()))
-				{
-					BindingConstants constants;
-					constants.InstanceBuffer = frameContext.m_StaticMeshDescriptor.GetHeapIndex();
-					constants.MeshBuffer = m_ResourceManager.m_MeshBufferView.GetHeapIndex();
-					constants.CameraBuffer = frameContext.m_CameraDescriptor.GetHeapIndex();
-					constants.CameraID = lastCameraIndex;
-					constants.IndirectArgumentMeshletCullingBuffer = m_MeshletDrawArgumentUAV.GetHeapIndex();
-					constants.MeshletInstanceBuffer = m_MeshletInstanceUAV.GetHeapIndex();
-
-					const auto gpuCamera = camera.CreateGPUVersion();
-					frameContext.m_CameraBuffer.Write(&gpuCamera, sizeof(gpuCamera), sizeof(gpuCamera)* lastCameraIndex);
-					lastCameraIndex++;
-
-					((Rendering::MeshShaderPass*)m_RenderPasses[0])->m_DescInternal.RenderTargets[0] = camera.m_RenderTarget.value();
-					((Rendering::MeshShaderPass*)m_RenderPasses[0])->m_DescInternal.ClearRtvs[0] = camera.m_ClearRenderTarget;
-					((Rendering::MeshShaderPass*)m_RenderPasses[0])->m_DescInternal.DepthStencilTarget[0] = camera.m_ClearRenderTarget;
-				}
-			});
-
-			this->ExecuteRenderPasses();*/
 		}
 
 		void Renderer::FlushGPU()

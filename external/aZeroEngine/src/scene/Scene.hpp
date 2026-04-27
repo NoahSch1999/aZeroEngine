@@ -6,6 +6,11 @@
 
 namespace aZero
 {
+	namespace Physics
+	{
+		class PhysicsEngine;
+	}
+
 	namespace Scene
 	{
 		class SceneNew
@@ -27,21 +32,17 @@ namespace aZero
 
 			SceneProxy* GetProxy() const { return m_Proxy.get(); }
 
-			SceneNew()
-				:m_Proxy(std::make_unique<SceneProxy>())
-			{
-				m_ComponentManager.GetComponentArray<ECS::TransformComponent>().Init(1000);
-				m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>().Init(1000);
-				m_ComponentManager.GetComponentArray<ECS::PointLightComponent>().Init(1000);
-				m_ComponentManager.GetComponentArray<ECS::SpotLightComponent>().Init(1000);
-				m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(1000);
-				m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(1000);
+			void UpdatePhysics(bool applyImmediate = true);
 
-				m_RootEntity = m_EntityManager.CreateEntity();
-				m_Entities["RootEntity"] = m_RootEntity;
-				m_Entity_To_Name[m_RootEntity.GetID()] = "RootEntity";
-				m_ComponentManager.AddComponent(m_RootEntity, aZero::ECS::TransformComponent(m_RootEntity));
-			}
+			void OptimizePhysics();
+
+			void ApplyPhysics();
+
+			void QueueCollidersForRendering();
+
+			SceneNew() = default;
+
+			SceneNew(Physics::PhysicsEngine& physicsEngine);
 
 			ECS::Entity AddEntity()
 			{
@@ -72,7 +73,18 @@ namespace aZero
 				// Add the component to ecs
 				
 				// Remove the component if the entity is in m_DirtyEntities and the component is flagged in m_RemovedFlag
-				
+
+				// TODO: Cleanup and make it safe
+				if constexpr (std::is_same_v<ComponentType, ECS::RigidbodyComponent>)
+				{
+					m_ComponentManager.AddComponent(entity, component);
+					ECS::RigidbodyComponent* rb = m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(entity);
+					this->AddRigidbody(rb);
+				}
+				else
+				{
+					m_ComponentManager.AddComponent(entity, component);
+				}
 			}
 
 			template<typename ComponentType>
@@ -81,7 +93,21 @@ namespace aZero
 				// Remove the component from ecs
 				
 				// Add entity to m_DirtyEntities and modify the component flag in m_RemovedFlag
-				
+
+				// TODO: Cleanup and make it safe
+				if constexpr (std::is_same_v<ComponentType, ECS::RigidbodyComponent>)
+				{
+					ECS::RigidbodyComponent* rb = m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(entity);
+					if (rb)
+					{
+						this->RemoveRigidbody(rb);
+						m_ComponentManager.RemoveComponent<ECS::RigidbodyComponent>(entity);
+					}
+				}
+				else
+				{
+					m_ComponentManager.RemoveComponent<ComponentType>(entity);
+				}
 			}
 
 			template<typename ComponentType>
@@ -172,6 +198,9 @@ namespace aZero
 
 			ECS::EntityManager m_EntityManager;
 		private:
+			void AddRigidbody(ECS::RigidbodyComponent* rb);
+			void RemoveRigidbody(ECS::RigidbodyComponent* rb);
+
 			std::string GenerateEntityName()
 			{
 				static uint32_t nameDummy = 0;
@@ -199,7 +228,7 @@ namespace aZero
 			std::unordered_map<std::string, ECS::Entity> m_Entities;
 			std::unordered_map<ECS::EntityID, std::string> m_Entity_To_Name;
 
-
+			std::unique_ptr<Physics::PhysicsWorld> m_PhysicsWorld;
 		};
 	}
 }

@@ -50,6 +50,7 @@ int main(int argc, char* argv[])
 		aZero::Engine engine(3);
 		Rendering::Renderer& renderer = engine.GetRenderer();
 		Audio::AudioEngine& audioEngine = engine.GetAudioEngine();
+		Physics::PhysicsEngine& pEngine = engine.GetPhysicsEngine();
 		//
 
 #ifdef RUN_TESTS
@@ -73,7 +74,7 @@ int main(int argc, char* argv[])
 		Asset::Texture normalMap(1);
 		LoadAssets(engine, mesh, material, albedo, normalMap);
 		
-		Scene::SceneNew scene;
+		Scene::SceneNew scene = engine.CreateScene();
 		CreateScene(scene, mesh, material, { (float)width, (float)height });
 		//
 
@@ -81,44 +82,87 @@ int main(int argc, char* argv[])
 
 		ECS::Entity meshEntity = scene.GetEntity("MeshEntity").value();
 		ECS::TransformComponent& tf = *scene.m_ComponentManager.GetComponent<ECS::TransformComponent>(meshEntity);
-
-		ECS::Entity camEnt = scene.GetEntity("CameraEntity").value();
-		ECS::CameraComponent& cam = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt);
-		cam.m_RenderTarget = &rtv;
-		cam.m_DepthStencilTarget = &dsv;
-		scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
-
 		
 		ECS::Entity camEnt2 = scene.GetEntity("CameraEntity2").value();
 		ECS::CameraComponent& cam2 = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt2);
 		cam2.m_RenderTarget = &rtv;
 		cam2.m_DepthStencilTarget = &dsv;
 		cam2.m_Position = { -10, 0, -15 };
+		cam2.m_IsActive = false;
 		scene.MarkRenderStateDirty(camEnt2, aZero::Scene::SceneNew::ComponentFlag());
 		
+		// Creatign rbs
+		// Floor
+		JPH::BoxShapeSettings floor_shape_settings(JPH::Vec3(100.0f, 1.0f, 100.0f));
+		JPH::BodyCreationSettings floor_settings(floor_shape_settings.Create().Get(), JPH::RVec3(0.0, -1.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Static, Physics::Layers::NON_MOVING);
+		auto ent = scene.GetEntity("Entity_1").value();
+		scene.AddComponent(ent, ECS::RigidbodyComponent(floor_settings));
+
+		// Cube 1
+		JPH::BoxShapeSettings meshShape(JPH::Vec3(1, 1, 1));
+		JPH::BodyCreationSettings meshSettings(meshShape.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, Physics::Layers::MOVING);
+		meshSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
+		meshSettings.mMassPropertiesOverride.mMass = 1.0f;
+		scene.AddComponent(meshEntity, ECS::RigidbodyComponent(meshSettings));
+
+		// Cube 2
+		meshSettings.mPosition = JPH::RVec3(0, 50, 0);
+		meshSettings.mRotation = JPH::Quat::sEulerAngles(JPH::Vec3(0.5, 0.5, 0).Normalized());
+		auto meshEntity3 = scene.GetEntity("Entity_3").value();
+		scene.AddComponent(meshEntity3, ECS::RigidbodyComponent(meshSettings));
+		//
+
+		ECS::Entity camEnt = scene.GetEntity("CameraEntity").value();
+		ECS::CameraComponent& cam = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt);
+		cam.m_RenderTarget = &rtv;
+		cam.m_DepthStencilTarget = &dsv;
+		JPH::BoxShapeSettings cameraCollider(JPH::Vec3(1, 1, 1));
+		JPH::BodyCreationSettings cameraColliderSettings(cameraCollider.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Kinematic, Physics::Layers::MOVING);
+		cameraColliderSettings.mPosition = JPH::RVec3(Math::Convert(cam.m_Position));
+		scene.AddComponent(camEnt, ECS::RigidbodyComponent(cameraColliderSettings));
+		scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
+
+		bool showColliders = true;
 
 		Input::KeyboardListener listener = window.GetDeviceManager().ListenKeyboard({
-			[&window, meshEntity, &tf, &scene](const SDL_Event& event, Input::Keyboard& keyboard) {
-				if (event.key.key == SDLK_RETURN)
-					window.Close();
-				if (event.key.key == SDLK_R)
+			[&window, meshEntity, &tf, &scene, &showColliders, &meshEntity3](const SDL_Event& event, Input::Keyboard& keyboard) {
+				if (event.type == SDL_EVENT_KEY_DOWN)
 				{
-					tf.SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(0, -2, 4));
-					scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
+					if (event.key.key == SDLK_RETURN)
+						window.Close();
+
+					if (event.key.key == SDLK_P)
+					{
+						ECS::RigidbodyComponent& rbDropping = *scene.m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(meshEntity3);
+						rbDropping.m_Body.SetPosition(JPH::Vec3(0, 50, 0), JPH::EActivation::Activate);
+						rbDropping.m_Body.SetRotation(JPH::Quat::sEulerAngles(JPH::Vec3(0.5, 0.5, 0).Normalized()), JPH::EActivation::Activate);
+					}
+
+					if (event.key.key == SDLK_T)
+					{
+						showColliders = !showColliders;
+					}
 				}
 			},
 			[](const SDL_Event& event, Input::Keyboard& keyboard) { }
 			});
 
-		float idk = 0.f;
+		int frame = 0;
+
 		while (window.IsOpen())
 		{
 			window.Update();
 
+			frame++;
 			// Declares start of new frame and loops until the new frame can be rendered
-			while (!renderer.BeginFrame())
+			while (!engine.TryBeginFrame())
 			{
 				// Do some stuff while waiting, ex. queue physics calcs on a seperate thread
+			}
+
+			if (frame % 3 == 0)
+			{
+				scene.UpdatePhysics(true);
 			}
 
 			// Camera controls
@@ -151,25 +195,28 @@ int main(int argc, char* argv[])
 			{
 				cam.m_Position += DXM::Vector3(0, -0.01f, 0);
 			}
+
+			{
+				ECS::RigidbodyComponent& camBody = *scene.m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(camEnt);
+				camBody.m_Body.SetPosition(Math::Convert(cam.m_Position), JPH::EActivation::Activate);
+			}
+
 			scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
-
-			tf.SetTransform(DXM::Matrix::CreateRotationY(0.001f) * tf.GetTransform());
-			scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
 			//
-
-			auto ent3 = scene.GetEntity("Entity_3");
-			scene.m_ComponentManager.GetComponent<ECS::TransformComponent>(ent3.value())->SetTransform(DXM::Matrix::CreateTranslation(sin(idk) * 10, 0, 0));
-			scene.MarkRenderStateDirty(ent3.value(), aZero::Scene::SceneNew::ComponentFlag());
 
 			// Rendering the scene
 			renderer.Render(scene);
 
+			if (showColliders)
+			{
+				scene.QueueCollidersForRendering();
+				engine.DrawColliders(cam, rtv, dsv);
+			}
+
 			renderer.CopyRenderTargetToSwapChain(window.GetSwapChain(), rtv);
 
 			// Declares end of current frame
-			renderer.EndFrame();
-
-			idk += 0.001f;
+			engine.EndFrame();
 
 			window.Present();
 		}

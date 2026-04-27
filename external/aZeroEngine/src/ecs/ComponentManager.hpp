@@ -65,10 +65,10 @@ namespace aZero
 			@return void
 			*/
 			template<typename ComponentType>
-			void AddComponent(Entity& Ent)
+			void AddComponent(const Entity& Ent)
 			{
 				GetComponentArray<ComponentType>().AddComponent(Ent, ComponentType());
-				Ent.SetComponentBit(GetComponentBit<ComponentType>(), true);
+				//Ent.SetComponentBit(GetComponentBit<ComponentType>(), true);
 			}
 
 			/** Adds a component for the input aZero::ECS::Entity and initializes with the input ComponentType data
@@ -78,17 +78,17 @@ namespace aZero
 			@return void
 			*/
 			template<typename ComponentType>
-			void AddComponent(Entity& Ent, ComponentType&& Component)
+			void AddComponent(const Entity& Ent, ComponentType&& Component)
 			{
 				GetComponentArray<ComponentType>().AddComponent(Ent, std::forward<ComponentType>(Component));
-				Ent.SetComponentBit(GetComponentBit<ComponentType>(), true);
+				//Ent.SetComponentBit(GetComponentBit<ComponentType>(), true);
 			}
 
 			template<typename ComponentType>
-			void AddComponent(Entity& Ent, ComponentType& Component)
+			void AddComponent(const Entity& Ent, ComponentType& Component)
 			{
 				GetComponentArray<ComponentType>().AddComponent(Ent, Component);
-				Ent.SetComponentBit(GetComponentBit<ComponentType>(), true);
+				//Ent.SetComponentBit(GetComponentBit<ComponentType>(), true);
 			}
 
 			/** Removes a component for the input aZero::ECS::Entity

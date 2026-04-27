@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.23)
-
+set(CMAKE_VERBOSE_MAKEFILE ON)
 project (aZeroEditor VERSION 1.0)
 
 option(RUN_TESTS "Run tests" OFF)
@@ -8,6 +8,13 @@ set(PROJECT_DIRECTORY "${CMAKE_SOURCE_DIR}/content/" CACHE STRING "Project direc
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+#if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+#set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL")
+#elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+#set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+#endif()
+set(USE_STATIC_MSVC_RUNTIME_LIBRARY OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/external/aZeroEngine)
 
@@ -74,3 +81,9 @@ target_link_libraries(aZeroEditor
         aZeroWindow
         aZeroInput
 )
+
+#get_property(allTargets GLOBAL PROPERTY TARGETS)
+#foreach(t ${allTargets})
+#    get_target_property(rt ${t} MSVC_RUNTIME_LIBRARY)
+#    message(STATUS "Target ${t} runtime: ${rt}")
+#endforeach()

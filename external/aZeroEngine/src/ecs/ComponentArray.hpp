@@ -109,7 +109,7 @@ namespace aZero
 			@param Component
 			@return void
 			*/
-			void AddComponent(Entity& Ent, ComponentType&& Component)
+			void AddComponent(const Entity& Ent, ComponentType&& Component)
 			{
 				if (Ent.GetID() != std::numeric_limits<uint32_t>::max())
 				{
@@ -121,7 +121,7 @@ namespace aZero
 				}
 			}
 
-			void AddComponent(Entity& Ent, ComponentType& Component)
+			void AddComponent(const Entity& Ent, ComponentType& Component)
 			{
 				if (Ent.GetID() != std::numeric_limits<uint32_t>::max())
 				{
@@ -138,7 +138,7 @@ namespace aZero
 			@param Ent
 			@return void
 			*/
-			void RemoveComponent(Entity& Ent)
+			void RemoveComponent(const Entity& Ent)
 			{
 				m_ComponentArray.Remove(Ent.GetID());
 			}

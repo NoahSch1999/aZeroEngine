@@ -5,6 +5,7 @@
 #include "components/StaticMeshComponent.hpp"
 #include "components/CameraComponent.hpp"
 #include "components/LightComponents.hpp"
+#include "components/RigidbodyComponent.hpp"
 
 namespace aZero
 {
@@ -16,7 +17,8 @@ namespace aZero
 			DirectionalLightComponent,
 			PointLightComponent, 
 			SpotLightComponent, 
-			CameraComponent
+			CameraComponent,
+			RigidbodyComponent
 		> ComponentManagerDecl;
 	}
 }

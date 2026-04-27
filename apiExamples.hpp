@@ -9,7 +9,7 @@ inline void LoadAssets(
 	aZero::Asset::Texture& albedo,
 	aZero::Asset::Texture& normalMap)
 {
-	mesh.LoadFromFile("Goblin.fbx");
+	mesh.LoadFromFile("cube.fbx");
 	engine.GetRenderer().UpdateRenderState(&mesh);
 
 	albedo.Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinAlbedo.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
@@ -19,7 +19,7 @@ inline void LoadAssets(
 	engine.GetRenderer().UpdateRenderState(&normalMap);
 
 	material.SetAlbedoTexture(&albedo);
-	//material.SetNormalMap(&normalMap);
+	material.SetNormalMap(&normalMap);
 	engine.GetRenderer().UpdateRenderState(&material);
 }
 
@@ -74,14 +74,14 @@ inline void CreateScene(
 
 		aZero::ECS::CameraComponent cameraComponent;
 		cameraComponent.m_TopLeft = { 0,0 };
-		cameraComponent.m_Dimensions = { windowDimensions.x / 2.f, windowDimensions.y };
+		cameraComponent.m_Dimensions = { windowDimensions.x /*/ 2.f*/, windowDimensions.y };
 		cameraComponent.m_NearPlane = 0.001f;
 		cameraComponent.m_FarPlane = 1000.f;
 		cameraComponent.m_Fov = 3.14f / 2.f;
 		cameraComponent.m_Layer = 1;
-		cameraComponent.m_ClearRenderTarget = false;
+		/*cameraComponent.m_ClearRenderTarget = false;
 		cameraComponent.m_ClearDepthTarget = false;
-		cameraComponent.m_ClearStencilTarget = false;
+		cameraComponent.m_ClearStencilTarget = false;*/
 		ecsManager.AddComponent(cameraEntity, cameraComponent);
 		ecsManager.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
 

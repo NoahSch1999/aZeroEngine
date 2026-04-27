@@ -74,6 +74,26 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(meshoptimizer)
 #
 
+# Jolt Physics
+FetchContent_Declare(
+    joltPhysics
+    GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+    GIT_TAG        "master"
+    SOURCE_SUBDIR "Build"
+)
+#set(USE_ASSERTS OFF)
+#set(JPH_BUILD_SHARED_LIBS OFF)
+##set(JPH_CPP_EXCEPTIONS_ENABLED OFF)
+#set(JPH_FLOATING_POINT_EXCEPTIONS_ENABLED ON)
+#set(JPH_CROSS_PLATFORM_DETERMINISTIC OFF)
+#set(GENERATE_DEBUG_SYMBOLS ON)
+#set(JPH_DOUBLE_PRECISION OFF)
+#set(JPH_OBJECT_LAYER_BITS 16)
+#set(JPH_USE_DX12 ON)
+
+FetchContent_MakeAvailable(joltPhysics)
+#
+
 # aZero Audio
 FetchContent_Declare(
     aZeroAudio
@@ -143,7 +163,7 @@ add_library(aZeroEngine
     "src/graphics_api/command_recording/CommandQueue.cpp"
     "src/graphics_api/descriptor/Descriptor.cpp"
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
-    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp")
+    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp")
 
 target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 
@@ -165,6 +185,7 @@ target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-sparse-set-src/src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include
+    PUBLIC ${joltPhysics_SOURCE_DIR}/..
 )
 
 # Linking
@@ -179,6 +200,7 @@ target_link_libraries(aZeroEngine
     PUBLIC yaml-cpp
     PUBLIC aZeroAudio
     PUBLIC meshoptimizer
+    PUBLIC Jolt
     #PUBLIC DXGIDebug.dll
 )
 #

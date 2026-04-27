@@ -51,6 +51,7 @@ namespace aZero
 
 			RenderAPI::Texture2D& GetTexture() { return m_Texture; }
 			RenderAPI::Descriptor& GetDescriptor() { return m_View.GetDescriptor(); }
+			RenderAPI::DepthStencilTargetView& GetView() { return m_View; }
 
 		private:
 			Desc m_Desc;

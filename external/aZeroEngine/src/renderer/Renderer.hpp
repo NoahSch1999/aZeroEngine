@@ -71,8 +71,9 @@ namespace aZero
 			Rendering::RenderTarget CreateRenderTarget(const Rendering::RenderTarget::Desc& desc);
 			Rendering::DepthStencilTarget CreateDepthStencilTarget(const Rendering::DepthStencilTarget::Desc& desc);
 
-		private:
 			FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
+			uint32_t GetFrameIndex() const { return m_FrameIndex; }
+		private:
 
 			// Returns true if the frame context for the next frame has completed and is open for reuse
 			bool AdvanceFrameIfReady();
