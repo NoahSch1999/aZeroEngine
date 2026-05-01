@@ -26,17 +26,14 @@ namespace aZero
                 }
             };
 
-            struct BaseShape
+            struct LineShape
             {
             public:
-                BaseShape() = default;
-                std::vector<Line> GetLines() const { return m_Lines; }
-
-            protected:
+                LineShape() = default;
                 std::vector<Line> m_Lines;
             };
 
-            struct Sphere : public BaseShape
+            struct Sphere : public LineShape
             {
                 Sphere() = default;
                 Sphere(const DXM::Vector3& color, const DXM::Vector3& center, float radius, uint32_t detail)
@@ -64,7 +61,7 @@ namespace aZero
                 }
             };
 
-            struct AABB : public BaseShape
+            struct AABB : public LineShape
             {
                 AABB() = default;
                 AABB(const DXM::Vector3& color, const DXM::Vector3& center, const DXM::Vector3& halfExtents)
@@ -104,7 +101,7 @@ namespace aZero
                 }
             };
 
-            struct OBB : public BaseShape
+            struct OBB : public LineShape
             {
                 OBB() = default;
                 OBB(const DXM::Vector3& color, const DXM::Vector3& center, const DXM::Quaternion& rotation, const DXM::Vector3& halfExtents)
@@ -121,13 +118,14 @@ namespace aZero
                     points[5] = DXM::Vector3(halfExtents.x, -halfExtents.y, halfExtents.z);
                     points[6] = DXM::Vector3(halfExtents.x, -halfExtents.y, -halfExtents.z);
                     points[7] = DXM::Vector3(-halfExtents.x, -halfExtents.y, -halfExtents.z);
-                    DXM::Matrix world = DXM::Matrix::CreateTranslation(center);
-                    DXM::Matrix::Transform(DXM::Matrix::CreateTranslation(center), rotation, world);
+
+                    const DXM::Matrix world = DXM::Matrix::CreateFromQuaternion(rotation) * DXM::Matrix::CreateTranslation(center);
                     for (auto& p : points)
                     {
-                        DXM::Vector3 temp = DXM::Vector3::Transform(p, world);
-                        p = temp;
+                        p *= DXM::Vector3(1.002f);
+                        p = DXM::Vector3::Transform(p, world);
                     }
+
                     m_Lines.emplace_back(Line(points[0], points[1], color));
                     m_Lines.emplace_back(Line(points[1], points[2], color));
                     m_Lines.emplace_back(Line(points[2], points[3], color));

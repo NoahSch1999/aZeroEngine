@@ -1,6 +1,6 @@
 #include "Scene.hpp"
 #include "physics/PhysicsEngine.hpp"
-#include "renderer/WireframeShapes.hpp"
+#include "renderer/WireframeRenderer.hpp"
 
 aZero::Scene::SceneNew::SceneNew(Physics::PhysicsEngine& physicsEngine)
 	:m_Proxy(std::make_unique<SceneProxy>()), m_PhysicsWorld(std::make_unique<Physics::PhysicsWorld>())
@@ -31,9 +31,11 @@ void aZero::Scene::SceneNew::RemoveRigidbody(ECS::RigidbodyComponent* rb)
 	m_PhysicsWorld->DestroyBody(rb->m_Body);
 }
 
-void aZero::Scene::SceneNew::QueueCollidersForRendering()
+void aZero::Scene::SceneNew::AddCollidersForRendering(Rendering::WireframeRenderer& wireframeRenderer)
 {
 	auto& rbArray = m_ComponentManager.GetComponentArray<ECS::RigidbodyComponent>();
+	auto& tfArray = m_ComponentManager.GetComponentArray<ECS::TransformComponent>();
+	auto& smArray = m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>();
 	for (auto& [name, entity] : m_Entities)
 	{
 		ECS::RigidbodyComponent* rbComp = rbArray.GetComponent(entity);
@@ -43,8 +45,28 @@ void aZero::Scene::SceneNew::QueueCollidersForRendering()
 			if (lock->Succeeded())
 			{
 				auto bounds = body->GetWorldSpaceBounds();
-				m_PhysicsWorld->AddDebugAABB(Rendering::WireframeShape::AABB({ 0,1,0 }, Math::Convert(bounds.GetCenter()), Math::Convert(bounds.GetExtent())));
+
+				const JPH::BoxShape* x = static_cast<const JPH::BoxShape* const>(body->GetShape());
+				auto rot = body->GetRotation();
+				auto trans = body->GetPosition();
+				auto halfExt = x->GetHalfExtent();
+				Rendering::WireframeShape::OBB obb = { DXM::Vector3(0,1,1), Math::Convert(trans), Math::Convert(rot), Math::Convert(halfExt) };
+				wireframeRenderer.AddShape(obb);
 			}
+		}
+
+		ECS::TransformComponent* tfComp = tfArray.GetComponent(entity);
+		ECS::StaticMeshComponent* smComp = smArray.GetComponent(entity);
+		if (tfComp && smComp)
+		{
+			const auto& meshData = smComp->GetMesh()->GetVertexData();
+			wireframeRenderer.AddShape(Rendering::WireframeShape::Sphere(DXM::Vector3(1, 0, 0), DXM::Vector3::Transform(meshData.Bounds.Center, tfComp->GetTransform()), meshData.Bounds.Radius, 10));
+
+			// Too poor performance...
+			/*for (const auto& meshlet : meshData.Meshlets)
+			{
+				wireframeRenderer.AddShape(Rendering::WireframeShape::Sphere(DXM::Vector3(1, 0, 0), DXM::Vector3::Transform(meshlet.Bounds.Center, tfComp->GetTransform()), meshlet.Bounds.Radius, 10));
+			}*/
 		}
 	}
 }

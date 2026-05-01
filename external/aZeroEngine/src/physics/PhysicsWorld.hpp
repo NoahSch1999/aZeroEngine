@@ -4,17 +4,6 @@
 
 namespace aZero
 {
-	namespace Rendering
-	{
-		class WireframeRenderer;
-
-		namespace WireframeShape
-		{
-			class Sphere;
-			class AABB;
-		}
-	}
-
 	namespace Physics
 	{
 		class PhysicsEngine;
@@ -174,11 +163,8 @@ namespace aZero
 				m_ContactCallbackExecutor.Execute();
 			}
 
-			void AddDebugSphere(const Rendering::WireframeShape::Sphere& sphere);
-			void AddDebugAABB(const Rendering::WireframeShape::AABB& aabb);
-
 		private:
-			void Init(JPH::JobSystemThreadPool& jobSystem, Rendering::WireframeRenderer& colliderRenderer, float updateFrequency);
+			void Init(JPH::JobSystemThreadPool& jobSystem, float updateFrequency);
 
 			// TODO: Make the listeners fill in arrays of data with each collision that is later processed on the main thread
 
@@ -190,7 +176,6 @@ namespace aZero
 			JPH::BodyInterface* m_BodyInterface = nullptr;
 			std::unique_ptr<JPH::TempAllocatorImpl> m_Allocator;
 			JPH::JobSystemThreadPool* di_JobSystem = nullptr;
-			Rendering::WireframeRenderer* di_ColliderRenderer = nullptr;
 			float m_UpdateFrequency;
 		};
 	}

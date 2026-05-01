@@ -65,6 +65,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(AgilitySDK)
 #
 
+# PIX
+FetchContent_Declare(
+    winpix
+    URL https://www.nuget.org/api/v2/package/WinPixEventRuntime/1.0.240308001
+)
+
+FetchContent_MakeAvailable(winpix)
+#
+
 # Meshoptimizer
 FetchContent_Declare(
     meshoptimizer
@@ -168,7 +177,7 @@ add_library(aZeroEngine
 target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG)
+    target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG USE_PIX)
     target_compile_options(aZeroEngine PRIVATE -O0 -g)   # Disable optimization, enable debug info
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_options(aZeroEngine PRIVATE -O3)      # Full optimization
@@ -186,6 +195,11 @@ target_include_directories(aZeroEngine
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-sparse-set-src/src/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include
     PUBLIC ${joltPhysics_SOURCE_DIR}/..
+    PUBLIC ${winpix_SOURCE_DIR}/Include
+)
+
+target_link_directories(aZeroEngine
+    PUBLIC ${winpix_SOURCE_DIR}/bin/x64
 )
 
 # Linking
@@ -201,13 +215,23 @@ target_link_libraries(aZeroEngine
     PUBLIC aZeroAudio
     PUBLIC meshoptimizer
     PUBLIC Jolt
+    PUBLIC WinPixEventRuntime
     #PUBLIC DXGIDebug.dll
 )
 #
 
-target_precompile_headers(aZeroEngine PUBLIC
-    <${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include/LinearAllocator.hpp>
-)
+#target_precompile_headers(aZeroEngine PUBLIC
+#    <${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include/LinearAllocator.hpp>
+#)
+
+#add_custom_command(TARGET aZeroEngine POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#        "${winpix_SOURCE_DIR}/bin/x64/WinPixEventRuntime.dll"
+#        $<TARGET_FILE_DIR:aZeroEngine>
+#)
+
+file(COPY ${winpix_SOURCE_DIR}/bin/x64/WinPixEventRuntime.dll
+     DESTINATION ${CMAKE_BINARY_DIR})
 
 # DXCompiler
 file(COPY ${CMAKE_BINARY_DIR}/_deps/dxcompiler-src/bin/x64/dxcompiler.dll

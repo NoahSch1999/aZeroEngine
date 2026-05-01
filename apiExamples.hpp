@@ -9,7 +9,7 @@ inline void LoadAssets(
 	aZero::Asset::Texture& albedo,
 	aZero::Asset::Texture& normalMap)
 {
-	mesh.LoadFromFile("cube.fbx");
+	mesh.LoadFromFile("goblin.fbx");
 	engine.GetRenderer().UpdateRenderState(&mesh);
 
 	albedo.Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinAlbedo.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
@@ -29,42 +29,35 @@ inline void CreateScene(
 	aZero::Asset::Material& material,
 	const DXM::Vector2& windowDimensions)
 {
-	aZero::ECS::ComponentManagerDecl& ecsManager = scene.m_ComponentManager;
-
-	// Create mesh
-	aZero::ECS::Entity meshEntity1 = scene.AddEntity();
 	{
-		scene.RenameEntity(meshEntity1, "MeshEntity");
+		JPH::BoxShapeSettings meshShape(JPH::Vec3(1, 1, 1));
+		JPH::BodyCreationSettings meshSettings(meshShape.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, aZero::Physics::Layers::MOVING);
+		meshSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
+		meshSettings.mMassPropertiesOverride.mMass = 1.0f;
 
-		ecsManager.AddComponent(meshEntity1, aZero::ECS::StaticMeshComponent(&mesh, &material));
-
-		ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity1)
-			->SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(-10, -2, 4));
-
-		scene.MarkRenderStateDirty(meshEntity1, aZero::Scene::SceneNew::ComponentFlag());
-	}
-
-	{
 		for (int i = 1; i < 4; i++)
 		{
 			aZero::ECS::Entity meshEntity = scene.AddEntity();
 
-			ecsManager.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
+			scene.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 
-			ecsManager.GetComponent<aZero::ECS::TransformComponent>(meshEntity)
-				->SetTransform(DXM::Matrix::CreateRotationY(3.14) * DXM::Matrix::CreateTranslation(i * 3, -2, 4));
-
-			scene.ParentEntity(meshEntity1, meshEntity);
+			meshSettings.mPosition = { (float)i + 0.5f, 10, 0 };
+			scene.AddComponent(meshEntity, aZero::ECS::RigidbodyComponent(meshSettings));
 
 			scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
 		}
 
-		auto ent2 = scene.GetEntity("Entity_2");
-		auto ent3 = scene.GetEntity("Entity_3");
+		aZero::ECS::Entity floorEntity = scene.AddEntity();
+		JPH::BoxShapeSettings floor_shape_settings(JPH::Vec3(100.0f, 1.0f, 100.0f));
+		JPH::BodyCreationSettings floor_settings(floor_shape_settings.Create().Get(), JPH::RVec3(0.0, -1.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Static, aZero::Physics::Layers::NON_MOVING);
+		scene.AddComponent(floorEntity, aZero::ECS::RigidbodyComponent(floor_settings));
 
-		scene.ParentEntity(ent3, ent2.value());
-
-		ecsManager.GetComponent<aZero::ECS::TransformComponent>(ent2.value())->SetTransform(DXM::Matrix::Identity);
+		aZero::ECS::Entity resetEntity = scene.AddEntity();
+		scene.RenameEntity(resetEntity, "resetEntity");
+		meshSettings.mPosition = { 0, 50, 0 };
+		scene.AddComponent(resetEntity, aZero::ECS::RigidbodyComponent(meshSettings));
+		scene.AddComponent(resetEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
+		scene.MarkRenderStateDirty(resetEntity, aZero::Scene::SceneNew::ComponentFlag());
 	}
 
 	// Create camera
@@ -82,8 +75,8 @@ inline void CreateScene(
 		/*cameraComponent.m_ClearRenderTarget = false;
 		cameraComponent.m_ClearDepthTarget = false;
 		cameraComponent.m_ClearStencilTarget = false;*/
-		ecsManager.AddComponent(cameraEntity, cameraComponent);
-		ecsManager.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
+		scene.AddComponent(cameraEntity, cameraComponent);
+		scene.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
 
 		scene.MarkRenderStateDirty(cameraEntity, aZero::Scene::SceneNew::ComponentFlag());
 	}
@@ -99,8 +92,8 @@ inline void CreateScene(
 		cameraComponent.m_FarPlane = 1000.f;
 		cameraComponent.m_Fov = 3.14f / 2.f;
 		cameraComponent.m_Layer = 0;
-		ecsManager.AddComponent(cameraEntity, cameraComponent);
-		ecsManager.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
+		scene.AddComponent(cameraEntity, cameraComponent);
+		scene.AddComponent(cameraEntity, aZero::ECS::TransformComponent());
 
 		scene.MarkRenderStateDirty(cameraEntity, aZero::Scene::SceneNew::ComponentFlag());
 	}

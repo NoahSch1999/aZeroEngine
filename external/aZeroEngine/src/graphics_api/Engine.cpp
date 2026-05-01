@@ -27,19 +27,4 @@ namespace aZero
 	{
 		m_Renderer->FlushGPU();
 	}
-
-	bool Engine::TryBeginFrame()
-	{
-		const bool canBegin = m_Renderer->BeginFrame();
-		if (canBegin)
-		{
-			m_PhysicsEngine->GetColliderRenderer().BeginFrame(*m_Renderer.get()); // TODO: Move to renderer
-		}
-		return canBegin;
-	}
-
-	void Engine::EndFrame()
-	{
-		m_Renderer->EndFrame();
-	}
 }

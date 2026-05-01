@@ -2,6 +2,7 @@
 #include "Renderer.hpp"
 #include "misc/Maths.hpp"
 #include "WireframeShapes.hpp"
+#include "WinPixEventRuntime/pix3.h"
 #include <numbers>
 
 namespace aZero
@@ -27,7 +28,7 @@ namespace aZero
 
                 for (int i = 0; i < 3; i++)
                 {
-                    m_VertexBuffers[i] = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(WireframeShape::LineVertex) * 20000, D3D12_HEAP_TYPE_UPLOAD));
+                    m_VertexBuffers[i] = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(WireframeShape::LineVertex) * 2000000, D3D12_HEAP_TYPE_UPLOAD));
                 }
 
                 m_VBView.StrideInBytes = sizeof(WireframeShape::LineVertex);
@@ -43,6 +44,9 @@ namespace aZero
             void Render(Rendering::Renderer& renderer, const ECS::CameraComponent& camera, RenderTarget& rtv, DepthStencilTarget& dsv)
             {
                 auto& frameContext = renderer.GetCurrentContext();
+
+                PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 255, 255), "Render debug colliders");
+
                 auto& cmdList = frameContext.m_DirectCmdList;
 
                 m_Pass.Begin(cmdList, renderer.GetResourceHeap(), renderer.GetSamplerHeap(), { &rtv.GetDescriptor() }, &dsv.GetDescriptor());
@@ -71,8 +75,7 @@ namespace aZero
             template<typename Shape>
             void AddShape(const Shape& shape)
             {
-                const auto lines = shape.GetLines();
-                for (const auto& line : lines)
+                for (const auto& line : shape.m_Lines)
                 {
                     memcpy((char*)m_VertexBuffers[m_FrameIndex].GetCPUAccessibleMemory() + m_VertCount * sizeof(WireframeShape::LineVertex), &line, sizeof(line));
                     m_VertCount += 2;

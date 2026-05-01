@@ -1,5 +1,8 @@
 #include "Renderer.hpp"
 #include "scene/Scene.hpp"
+#include "WireframeRenderer.hpp"
+
+#include "WinPixEventRuntime/pix3.h"
 
 namespace aZero
 {
@@ -37,6 +40,8 @@ namespace aZero
 			m_SamplerManager = SamplerManager(device, m_SamplerHeapNew);
 
 			m_ResourceManager = ResourceManager(device, &m_NewResourceRecycler, m_ResourceHeapNew);
+
+			m_WireframeRenderer = std::make_unique<Rendering::WireframeRenderer>(device, compiler);
 
 			this->InitPipeline();
 		}
@@ -153,7 +158,7 @@ namespace aZero
 			return true;
 		}
 
-		bool Renderer::BeginFrame()
+		bool Renderer::TryBeginFrame()
 		{
 			const bool hasNewFrameStarted = AdvanceFrameIfReady();
 			if (hasNewFrameStarted)
@@ -162,6 +167,7 @@ namespace aZero
 				m_FrameCount++;
 				m_NewResourceRecycler.SetFrameIndex(m_FrameIndex);
 				m_NewResourceRecycler.Clear();
+				m_WireframeRenderer->BeginFrame(*this); // TODO: Move to renderer
 			}
 
 			return hasNewFrameStarted;
@@ -186,6 +192,9 @@ namespace aZero
 		void Renderer::RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
+
+			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Mesh object culling pass");
+
 			auto& cmdList = frameContext.m_DirectCmdList;
 
 			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_PassedMeshCountBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -228,6 +237,9 @@ namespace aZero
 		void Renderer::RecordMeshLetCullingPass(const BindingConstants& bindings)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
+
+			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet culling pass");
+
 			auto& cmdList = frameContext.m_DirectCmdList;
 
 			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -254,6 +266,7 @@ namespace aZero
 		void Renderer::ClearRenderSurfaces(const Scene::RenderData::Camera& camera)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
+			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 255, 0), "Clear render surfaces");
 
 			std::array<ID3D12DescriptorHeap*, 2> heaps{ m_ResourceHeapNew.Get(), m_SamplerHeapNew.Get() };
 			frameContext.m_DirectCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
@@ -306,6 +319,9 @@ namespace aZero
 		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, uint32_t pointLightBufferIndex, uint32_t spotLightBufferIndex, uint32_t directionalLightBufferIndex)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
+
+			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet culling pass");
+
 			auto& cmdList = frameContext.m_DirectCmdList;
 
 			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
@@ -349,6 +365,8 @@ namespace aZero
 		void Renderer::Render(const Scene::SceneNew& scene)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
+
+			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(255, 0, 0), "Render scene");
 
 			// Perform uploads for all updated/new assets and other stagings
 			frameContext.RecordFrameAllocations(frameContext.m_DirectCmdList);
@@ -399,6 +417,11 @@ namespace aZero
 					this->RecordMeshDrawingPass(constants, camera, frameContext.m_PointLightDescriptor.GetHeapIndex(), frameContext.m_SpotLightDescriptor.GetHeapIndex(), frameContext.m_DirectionalLightDescriptor.GetHeapIndex());
 				}
 			}
+		}
+
+		void Renderer::RenderWireframes(const ECS::CameraComponent& camera, Rendering::RenderTarget& rtv, Rendering::DepthStencilTarget& dsv)
+		{
+			m_WireframeRenderer->Render(*this, camera, rtv, dsv);
 		}
 
 		void Renderer::FlushGPU()
@@ -502,5 +525,7 @@ namespace aZero
 				pass->Execute(m_DirectCommandQueue, context.m_DirectCmdList, m_ResourceHeapNew, m_SamplerHeapNew);
 			}
 		}
+
+		Rendering::WireframeRenderer& Renderer::GetWireframeRenderer() { return *m_WireframeRenderer.get(); }
 	}
 }

@@ -111,14 +111,11 @@ namespace aZero
 
 			void CreateWorld(PhysicsWorld& world, float updateFrequency = 1.0f / 60.f, uint32_t maxBodies = 1024, uint32_t maxBodyPairs = 1024, uint32_t maxContactConstraints = 1024, uint32_t maxBodyMutexes = 0);
 
-			Rendering::WireframeRenderer& GetColliderRenderer();
-
 		private:
 			std::unique_ptr<JPH::JobSystemThreadPool> m_JobSystem;
 			std::unique_ptr<BPLayerInterfaceImpl> m_BroadPhaseLayerInterface;
 			std::unique_ptr<ObjectVsBroadPhaseLayerFilterImpl> m_ObjectVsBroadPhaseLayerInterface;
 			std::unique_ptr<ObjectLayerPairFilterImpl> m_ObjectLayerPairInterface;
-			std::unique_ptr<Rendering::WireframeRenderer> m_ColliderRenderer;
 		};
 	}
 }

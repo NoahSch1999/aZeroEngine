@@ -16,14 +16,6 @@ namespace aZero
 		Engine& operator=(Engine&&) noexcept = default;
 		~Engine();
 
-		bool TryBeginFrame();
-		void EndFrame();
-
-		void DrawColliders(const ECS::CameraComponent& camera, Rendering::RenderTarget& rtv, Rendering::DepthStencilTarget& dsv) // TODO: Move to renderer
-		{
-			m_PhysicsEngine->GetColliderRenderer().Render(*m_Renderer.get(), camera, rtv, dsv);
-		}
-
 		Scene::SceneNew CreateScene()
 		{
 			return Scene::SceneNew(*m_PhysicsEngine.get());

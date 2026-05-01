@@ -11,6 +11,11 @@ namespace aZero
 		class PhysicsEngine;
 	}
 
+	namespace Rendering
+	{
+		class WireframeRenderer;
+	}
+
 	namespace Scene
 	{
 		class SceneNew
@@ -38,7 +43,7 @@ namespace aZero
 
 			void ApplyPhysics();
 
-			void QueueCollidersForRendering();
+			void AddCollidersForRendering(Rendering::WireframeRenderer& wireframeRenderer);
 
 			SceneNew() = default;
 

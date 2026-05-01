@@ -32,6 +32,8 @@ namespace aZero
 
 	namespace Rendering
 	{
+		class WireframeRenderer;
+
 		class Renderer : public NonCopyable
 		{
 			friend class Engine;
@@ -48,13 +50,15 @@ namespace aZero
 			RenderAPI::DescriptorHeap& GetSamplerHeap() { return m_SamplerHeapNew; }
 			RenderAPI::DescriptorHeap& GetRenderTargetHeap() { return m_RTVHeapNew; }
 			RenderAPI::DescriptorHeap& GetDepthTargetHeap() { return m_DSVHeapNew; }
+			Rendering::WireframeRenderer& GetWireframeRenderer();
 
-			bool BeginFrame();
+			bool TryBeginFrame();
 			void EndFrame();
 
 			void FlushFrameAllocations();
 
 			void Render(const Scene::SceneNew& scene);
+			void RenderWireframes(const ECS::CameraComponent& camera, Rendering::RenderTarget& rtv, Rendering::DepthStencilTarget& dsv);
 
 			void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget);
 
@@ -110,6 +114,8 @@ namespace aZero
 			std::vector<FrameContext> m_FrameContexts;
 
 			Rendering::ResourceManager m_ResourceManager;
+
+			std::unique_ptr<Rendering::WireframeRenderer> m_WireframeRenderer;
 
 			struct BindingConstants
 			{
