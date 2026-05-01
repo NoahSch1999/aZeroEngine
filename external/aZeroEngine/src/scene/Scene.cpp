@@ -14,6 +14,7 @@ aZero::Scene::SceneNew::SceneNew(Physics::PhysicsEngine& physicsEngine)
 	m_ComponentManager.GetComponentArray<ECS::DirectionalLightComponent>().Init(1000);
 	m_ComponentManager.GetComponentArray<ECS::CameraComponent>().Init(1000);
 	m_ComponentManager.GetComponentArray<ECS::RigidbodyComponent>().Init(1000);
+	m_ComponentManager.GetComponentArray<ECS::ColliderComponent>().Init(1000);
 
 	m_RootEntity = m_EntityManager.CreateEntity();
 	m_Entities["RootEntity"] = m_RootEntity;
@@ -44,11 +45,26 @@ void aZero::Scene::SceneNew::RemoveRigidbody(ECS::RigidbodyComponent* rb)
 	m_PhysicsWorld->DestroyBody(rb->m_Body);
 }
 
+void aZero::Scene::SceneNew::AddRigidbody(const ECS::Entity& entity, aZero::Physics::Body& body, JPH::BodyCreationSettings& tempBodySettings)
+{
+	tempBodySettings.mUserData = static_cast<uint64_t>(entity.GetID()) << 32;
+
+	body = m_PhysicsWorld->CreateBody(tempBodySettings, true);
+	m_BodyID_To_Entity[body.GetBodyID()] = entity;
+}
+
+void aZero::Scene::SceneNew::RemoveRigidbody(const aZero::Physics::Body& body)
+{
+	m_BodyID_To_Entity.erase(body.GetBodyID());
+	m_PhysicsWorld->DestroyBody(body);
+}
+
 void aZero::Scene::SceneNew::AddDebugDrawArguments(Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds)
 {
 	auto& rbArray = m_ComponentManager.GetComponentArray<ECS::RigidbodyComponent>();
 	auto& tfArray = m_ComponentManager.GetComponentArray<ECS::TransformComponent>();
 	auto& smArray = m_ComponentManager.GetComponentArray<ECS::StaticMeshComponent>();
+	auto& colliderArray = m_ComponentManager.GetComponentArray<ECS::ColliderComponent>();
 	for (auto& [name, entity] : m_Entities)
 	{
 		if (showColliders) {
@@ -60,13 +76,39 @@ void aZero::Scene::SceneNew::AddDebugDrawArguments(Rendering::WireframeRenderer&
 				{
 					auto bounds = body->GetWorldSpaceBounds();
 
-					const JPH::BoxShape* x = static_cast<const JPH::BoxShape* const>(body->GetShape());
-					auto rot = body->GetRotation();
-					auto trans = body->GetPosition();
-					auto halfExt = x->GetHalfExtent();
-					Rendering::WireframeShape::OBB obb = { DXM::Vector3(0,1,1), Math::Convert(trans), Math::Convert(rot), Math::Convert(halfExt) };
-					wireframeRenderer.AddShape(obb);
+					auto* shape = body->GetShape();
+					//const JPH::BoxShape* boxShape = dynamic_cast<const JPH::BoxShape*>(body->GetShape()); // Why crash with dynamic cast? Answer: RTTI OFF :(
+					if (body->GetShape()->GetSubType() == JPH::EShapeSubType::Box)
+					{
+						const JPH::BoxShape* boxShape = static_cast<const JPH::BoxShape*>(body->GetShape());
+						wireframeRenderer.AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 1), Math::Convert(body->GetPosition()), Math::Convert(body->GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
+					}
+					
+					// TODO: Implement support for other shapes
 				}
+			}
+
+			ECS::ColliderComponent* colliderComp = colliderArray.GetComponent(entity);
+			if (colliderComp)
+			{
+				auto& colliders = colliderComp->m_Colliders;
+				for (auto& collider : colliders)
+				{
+					auto [lock, body] = collider.m_Body.LockForRead();
+					if (lock->Succeeded())
+					{
+						auto bounds = body->GetWorldSpaceBounds();
+
+						if (body->GetShape()->GetSubType() == JPH::EShapeSubType::Box)
+						{
+							const JPH::BoxShape* boxShape = reinterpret_cast<const JPH::BoxShape*>(body->GetShape());
+							wireframeRenderer.AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 1), Math::Convert(body->GetPosition()), Math::Convert(body->GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
+						}
+
+						// TODO: Implement support for other shapes
+					}
+				}
+				
 			}
 		}
 

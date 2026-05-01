@@ -93,17 +93,17 @@ int main(int argc, char* argv[])
 		cam.m_RenderTarget = &rtv;
 		cam.m_DepthStencilTarget = &dsv;
 		JPH::BoxShapeSettings cameraCollider(JPH::Vec3(1, 1, 1));
-		JPH::BodyCreationSettings cameraColliderSettings(cameraCollider.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Kinematic, Physics::Layers::MOVING);
+		JPH::BodyCreationSettings cameraColliderSettings(cameraCollider.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Kinematic, Physics::Layers::DYNAMIC);
 		cameraColliderSettings.mPosition = JPH::RVec3(Math::Convert(cam.m_Position));
 		scene.AddComponent(camEnt, ECS::RigidbodyComponent(cameraColliderSettings));
 		scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
 		{
 			auto* rb = scene.m_ComponentManager.GetComponent<aZero::ECS::RigidbodyComponent>(camEnt);
-			rb->m_OnBodyActivated = [camEnt] {std::cout << camEnt.GetID() << " activated!\n"; };
-			rb->m_OnBodyDeactivated = [camEnt] {std::cout << camEnt.GetID() << " deactivated!\n"; };
-			rb->m_OnContactAdded = [camEnt, &scene](aZero::Physics::Body& body, const JPH::ContactManifold& man, const JPH::ContactSettings& sett) {
+			rb->SetOnBodyActivated([camEnt] {std::cout << camEnt.GetID() << " activated!\n"; });
+			rb->SetOnBodyDeactivated([camEnt] {std::cout << camEnt.GetID() << " deactivated!\n"; });
+			rb->SetOnContactAdded([camEnt, &scene](aZero::Physics::Body& body, const JPH::ContactManifold& man, const JPH::ContactSettings& sett) {
 				std::cout << "Entity " << camEnt.GetID() << " had contact with entity " << scene.GetEntityFromBody(body).value().GetID() << "\n";
-				};
+				});
 		}
 
 		bool showGrid = true;
@@ -120,8 +120,8 @@ int main(int argc, char* argv[])
 					{
 						auto resetEntity = scene.GetEntity("resetEntity").value();
 						ECS::RigidbodyComponent& rbDropping = *scene.m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(resetEntity);
-						rbDropping.m_Body.SetPosition(JPH::Vec3(0, 50, 0), JPH::EActivation::Activate);
-						rbDropping.m_Body.SetRotation(JPH::Quat::sEulerAngles(JPH::Vec3(0.5, 0.5, 0).Normalized()), JPH::EActivation::Activate);
+						rbDropping.GetBody().SetPosition(JPH::Vec3(0, 50, 0), JPH::EActivation::Activate);
+						rbDropping.GetBody().SetRotation(JPH::Quat::sEulerAngles(JPH::Vec3(0.5, 0.5, 0).Normalized()), JPH::EActivation::Activate);
 					}
 
 					if (event.key.key == SDLK_C)
@@ -192,7 +192,7 @@ int main(int argc, char* argv[])
 
 			{
 				ECS::RigidbodyComponent& camBody = *scene.m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(camEnt);
-				camBody.m_Body.SetPosition(Math::Convert(cam.m_Position), JPH::EActivation::Activate);
+				camBody.GetBody().SetPosition(Math::Convert(cam.m_Position), JPH::EActivation::Activate);
 			}
 
 			scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());

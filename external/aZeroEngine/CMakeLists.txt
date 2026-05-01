@@ -99,7 +99,7 @@ FetchContent_Declare(
 #set(JPH_DOUBLE_PRECISION OFF)
 #set(JPH_OBJECT_LAYER_BITS 16)
 #set(JPH_USE_DX12 ON)
-
+#option(CPP_RTTI_ENABLED "Enable C++ RTTI" OFF)
 FetchContent_MakeAvailable(joltPhysics)
 #
 
@@ -172,7 +172,7 @@ add_library(aZeroEngine
     "src/graphics_api/command_recording/CommandQueue.cpp"
     "src/graphics_api/descriptor/Descriptor.cpp"
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
-    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp")
+    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp" "src/ecs/components/ColliderComponent.cpp")
 
 target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 

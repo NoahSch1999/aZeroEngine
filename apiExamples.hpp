@@ -31,7 +31,7 @@ inline void CreateScene(
 {
 	{
 		JPH::BoxShapeSettings meshShape(JPH::Vec3(1, 1, 1));
-		JPH::BodyCreationSettings meshSettings(meshShape.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, aZero::Physics::Layers::MOVING);
+		JPH::BodyCreationSettings meshSettings(meshShape.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, aZero::Physics::Layers::DYNAMIC);
 		meshSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
 		meshSettings.mMassPropertiesOverride.mMass = 1.0f;
 
@@ -49,7 +49,7 @@ inline void CreateScene(
 
 		aZero::ECS::Entity floorEntity = scene.AddEntity();
 		JPH::BoxShapeSettings floor_shape_settings(JPH::Vec3(100.0f, 1.0f, 100.0f));
-		JPH::BodyCreationSettings floor_settings(floor_shape_settings.Create().Get(), JPH::RVec3(0.0, -1.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Static, aZero::Physics::Layers::NON_MOVING);
+		JPH::BodyCreationSettings floor_settings(floor_shape_settings.Create().Get(), JPH::RVec3(0.0, -1.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Static, aZero::Physics::Layers::STATIC);
 		scene.AddComponent(floorEntity, aZero::ECS::RigidbodyComponent(floor_settings));
 
 		aZero::ECS::Entity resetEntity = scene.AddEntity();
@@ -60,11 +60,11 @@ inline void CreateScene(
 		scene.MarkRenderStateDirty(resetEntity, aZero::Scene::SceneNew::ComponentFlag());
 
 		auto* rb = scene.m_ComponentManager.GetComponent<aZero::ECS::RigidbodyComponent>(resetEntity);
-		rb->m_OnBodyActivated = [resetEntity] {std::cout << resetEntity.GetID() << " activated!\n"; };
-		rb->m_OnBodyDeactivated = [resetEntity] {std::cout << resetEntity.GetID() << " deactivated!\n"; };
-		rb->m_OnContactAdded = [resetEntity, &scene](aZero::Physics::Body& body, const JPH::ContactManifold& man, const JPH::ContactSettings& sett){
-			std::cout << "Entity " << resetEntity.GetID() << " had contact with entity " << scene.GetEntityFromBody(body).value().GetID() << "\n";
-			};
+		rb->SetOnBodyActivated([resetEntity] {std::cout << resetEntity.GetID() << " activated!\n"; });
+		rb->SetOnBodyDeactivated([resetEntity] {std::cout << resetEntity.GetID() << " deactivated!\n"; });
+		rb->SetOnContactAdded([resetEntity, &scene](aZero::Physics::Body& body, const JPH::ContactManifold& man, const JPH::ContactSettings& sett) {
+			 std::cout << "Entity " << resetEntity.GetID() << " had contact with entity " << scene.GetEntityFromBody(body).value().GetID() << "\n";
+			 });
 	}
 
 	// Create camera

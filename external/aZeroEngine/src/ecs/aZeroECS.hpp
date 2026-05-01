@@ -6,6 +6,7 @@
 #include "components/CameraComponent.hpp"
 #include "components/LightComponents.hpp"
 #include "components/RigidbodyComponent.hpp"
+#include "components/ColliderComponent.hpp"
 
 namespace aZero
 {
@@ -18,7 +19,8 @@ namespace aZero
 			PointLightComponent, 
 			SpotLightComponent, 
 			CameraComponent,
-			RigidbodyComponent
+			RigidbodyComponent,
+			ColliderComponent
 		> ComponentManagerDecl;
 	}
 }

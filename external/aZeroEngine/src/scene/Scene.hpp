@@ -202,9 +202,14 @@ namespace aZero
 			const std::unordered_map<std::string, ECS::Entity>& GetEntities() const { return m_Entities; }
 			std::optional<ECS::Entity> GetEntityFromBody(const aZero::Physics::Body& body) const { return m_BodyID_To_Entity.count(body.GetBodyID()) == 1 ? m_BodyID_To_Entity.at(body.GetBodyID()) : std::optional<ECS::Entity>{}; }
 
+			// TODO: Make these private
 			ECS::ComponentManagerDecl m_ComponentManager;
-
 			ECS::EntityManager m_EntityManager;
+
+			void AddRigidbody(const ECS::Entity& entity, Physics::Body& body, JPH::BodyCreationSettings& tempBodySettings);
+			void RemoveRigidbody(const Physics::Body& body);
+			//
+
 		private:
 			void AddRigidbody(const ECS::Entity& entity, ECS::RigidbodyComponent* rb);
 			void RemoveRigidbody(ECS::RigidbodyComponent* rb);
