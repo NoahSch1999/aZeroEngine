@@ -9,7 +9,7 @@ inline void LoadAssets(
 	aZero::Asset::Texture& albedo,
 	aZero::Asset::Texture& normalMap)
 {
-	mesh.LoadFromFile("goblin.fbx");
+	mesh.LoadFromFile("cube.fbx");
 	engine.GetRenderer().UpdateRenderState(&mesh);
 
 	albedo.Load(engine.GetProjectDirectory() + TEXTURE_ASSET_RELATIVE_PATH + "goblinAlbedo.png", DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
@@ -35,13 +35,13 @@ inline void CreateScene(
 		meshSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
 		meshSettings.mMassPropertiesOverride.mMass = 1.0f;
 
-		for (int i = 1; i < 4; i++)
+		for (int i = 1; i < 10; i++)
 		{
 			aZero::ECS::Entity meshEntity = scene.AddEntity();
 
 			scene.AddComponent(meshEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 
-			meshSettings.mPosition = { (float)i + 0.5f, 10, 0 };
+			meshSettings.mPosition = { (float)i + 2.f, 10, 0 };
 			scene.AddComponent(meshEntity, aZero::ECS::RigidbodyComponent(meshSettings));
 
 			scene.MarkRenderStateDirty(meshEntity, aZero::Scene::SceneNew::ComponentFlag());
@@ -58,6 +58,13 @@ inline void CreateScene(
 		scene.AddComponent(resetEntity, aZero::ECS::RigidbodyComponent(meshSettings));
 		scene.AddComponent(resetEntity, aZero::ECS::StaticMeshComponent(&mesh, &material));
 		scene.MarkRenderStateDirty(resetEntity, aZero::Scene::SceneNew::ComponentFlag());
+
+		auto* rb = scene.m_ComponentManager.GetComponent<aZero::ECS::RigidbodyComponent>(resetEntity);
+		rb->m_OnBodyActivated = [resetEntity] {std::cout << resetEntity.GetID() << " activated!\n"; };
+		rb->m_OnBodyDeactivated = [resetEntity] {std::cout << resetEntity.GetID() << " deactivated!\n"; };
+		rb->m_OnContactAdded = [resetEntity, &scene](aZero::Physics::Body& body, const JPH::ContactManifold& man, const JPH::ContactSettings& sett){
+			std::cout << "Entity " << resetEntity.GetID() << " had contact with entity " << scene.GetEntityFromBody(body).value().GetID() << "\n";
+			};
 	}
 
 	// Create camera

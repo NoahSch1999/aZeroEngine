@@ -58,8 +58,8 @@ int main(int argc, char* argv[])
 #endif
 
 		// Create your own implemented window and swapchain + input system
-		//RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,800,600/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
-		RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,2560,1440 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
+		RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,1200,800/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
+		//RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,2560,1440 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
 		//
 
 		// Create render surfaces
@@ -97,6 +97,14 @@ int main(int argc, char* argv[])
 		cameraColliderSettings.mPosition = JPH::RVec3(Math::Convert(cam.m_Position));
 		scene.AddComponent(camEnt, ECS::RigidbodyComponent(cameraColliderSettings));
 		scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
+		{
+			auto* rb = scene.m_ComponentManager.GetComponent<aZero::ECS::RigidbodyComponent>(camEnt);
+			rb->m_OnBodyActivated = [camEnt] {std::cout << camEnt.GetID() << " activated!\n"; };
+			rb->m_OnBodyDeactivated = [camEnt] {std::cout << camEnt.GetID() << " deactivated!\n"; };
+			rb->m_OnContactAdded = [camEnt, &scene](aZero::Physics::Body& body, const JPH::ContactManifold& man, const JPH::ContactSettings& sett) {
+				std::cout << "Entity " << camEnt.GetID() << " had contact with entity " << scene.GetEntityFromBody(body).value().GetID() << "\n";
+				};
+		}
 
 		bool showGrid = true;
 		bool showColliders = true;
@@ -108,7 +116,7 @@ int main(int argc, char* argv[])
 					if (event.key.key == SDLK_RETURN)
 						window.Close();
 
-					if (event.key.key == SDLK_P)
+					if (event.key.key == SDLK_R)
 					{
 						auto resetEntity = scene.GetEntity("resetEntity").value();
 						ECS::RigidbodyComponent& rbDropping = *scene.m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(resetEntity);
@@ -116,7 +124,7 @@ int main(int argc, char* argv[])
 						rbDropping.m_Body.SetRotation(JPH::Quat::sEulerAngles(JPH::Vec3(0.5, 0.5, 0).Normalized()), JPH::EActivation::Activate);
 					}
 
-					if (event.key.key == SDLK_T)
+					if (event.key.key == SDLK_C)
 					{
 						showColliders = !showColliders;
 					}
@@ -205,11 +213,8 @@ int main(int argc, char* argv[])
 				renderer.GetWireframeRenderer().AddShape(gridLines);
 			}
 
-			if (showColliders)
-			{
-				scene.AddCollidersForRendering(renderer.GetWireframeRenderer());
-				renderer.RenderWireframes(cam, rtv, dsv);
-			}
+			scene.AddDebugDrawArguments(renderer.GetWireframeRenderer(), showColliders, false);
+			renderer.RenderWireframes(cam, rtv, dsv);
 
 			renderer.CopyRenderTargetToSwapChain(window.GetSwapChain(), rtv);
 

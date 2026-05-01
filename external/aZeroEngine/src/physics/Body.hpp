@@ -251,6 +251,10 @@ namespace aZero
 				return m_BodyInterface->GetCollisionGroup(m_ID);
 			}
 
+			JPH::BodyID GetBodyID() const {
+				return m_ID;
+			}
+
 		private:
 			Body(JPH::BodyID id, JPH::BodyInterface& bodyInterface, const JPH::BodyLockInterfaceLocking& lockingInterface)
 				:m_ID(id), m_BodyInterface(&bodyInterface), m_LockingInterface(&lockingInterface) {}

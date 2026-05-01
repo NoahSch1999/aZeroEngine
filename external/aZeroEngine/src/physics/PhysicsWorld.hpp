@@ -1,6 +1,7 @@
 #pragma once
-#include "misc/CallbackExecutor.hpp"
+#include <memory>
 #include "Body.hpp"
+#include "Jolt/Physics/Collision/CollideShape.h"
 
 namespace aZero
 {
@@ -14,45 +15,81 @@ namespace aZero
 		public:
 			class MyBodyActivationListener : public JPH::BodyActivationListener
 			{
+				friend class PhysicsWorld;
 			public:
-				MyBodyActivationListener() = default;
+				struct Event_BodyActivation
+				{
+					uint32_t EntityID;
+				};
 
-				MyBodyActivationListener(CallbackExecutor& callbackExecutor)
-					:m_CallbackExecutor(&callbackExecutor) {}
+				MyBodyActivationListener() = default;
 
 				virtual void OnBodyActivated(const JPH::BodyID& inBodyID, uint64_t inBodyUserData) override
 				{
-					m_CallbackExecutor->Append([inBodyID] {
-						std::cout << "Body activated: " << inBodyID.GetIndex() << "\n";
-						});
+					std::unique_lock<std::mutex> lock(m_BodyActivationMutex);
+					m_ActivatedEvents.emplace_back(static_cast<uint32_t>(inBodyUserData >> 32));
 				}
 
 				virtual void OnBodyDeactivated(const JPH::BodyID& inBodyID, uint64_t inBodyUserData) override
 				{
-					m_CallbackExecutor->Append([inBodyID] {
-						std::cout << "Body deactivated: " << inBodyID.GetIndex() << "\n";
-						});
+					std::unique_lock<std::mutex> lock(m_BodyActivationMutex);
+					m_DeactivatedEvents.emplace_back(static_cast<uint32_t>(inBodyUserData >> 32));
 				}
+
+				void ResetEvents()
+				{
+					m_ActivatedEvents.clear();
+					m_DeactivatedEvents.clear();
+				}
+
 			private:
-				CallbackExecutor* m_CallbackExecutor = nullptr;
+				std::mutex m_BodyActivationMutex; // TODO: Split to multiple locks
+
+				std::vector<Event_BodyActivation> m_ActivatedEvents;
+				std::vector<Event_BodyActivation> m_DeactivatedEvents;
 			};
 
 			class MyContactListener : public JPH::ContactListener
 			{
+				friend PhysicsWorld;
 			public:
-				MyContactListener() = default;
+				struct Event_ContactValidate
+				{
+					uint32_t FirstEntityID, SecondEntityID;
+					JPH::RVec3Arg InBaseOffset;
+					std::unique_ptr<JPH::CollideShapeResult> InCollisionResult; // TODO: Avoid dynamic mem alloc
+				};
 
-				MyContactListener(CallbackExecutor& callbackExecutor)
-					:m_CallbackExecutor(&callbackExecutor) {}
+				struct Event_ContactAdded
+				{
+					uint32_t FirstEntityID, SecondEntityID;
+					JPH::ContactManifold ContactManifold;
+					JPH::ContactSettings ContactSettings;
+				};
+
+				struct Event_ContactPersisted
+				{
+					uint32_t FirstEntityID, SecondEntityID;
+					JPH::ContactManifold ContactManifold;
+					JPH::ContactSettings ContactSettings;
+				};
+
+				struct Event_ContactRemoved
+				{
+					JPH::SubShapeIDPair InSubShapePair;
+				};
+
+				MyContactListener() = default;
 
 				// See: ContactListener
 				virtual JPH::ValidateResult OnContactValidate(const JPH::Body& inBody1, const JPH::Body& inBody2, JPH::RVec3Arg inBaseOffset, const JPH::CollideShapeResult& inCollisionResult) override
 				{
-					JPH::BodyID one = inBody1.GetID();
-					JPH::BodyID two = inBody2.GetID();
-					m_CallbackExecutor->Append([one, two] {
-						std::cout << "Body " << one.GetIndex() << " validated with " << two.GetIndex() << "\n";
-						});
+					std::unique_lock<std::mutex> lock(m_ContactMutex);
+					m_ContactValidateEvents.emplace_back(
+						static_cast<uint32_t>((inBody1.GetUserData()) >> 32),
+						static_cast<uint32_t>((inBody2.GetUserData()) >> 32),
+						inBaseOffset,
+						std::make_unique<JPH::CollideShapeResult>(inCollisionResult));
 
 					// Allows you to ignore a contact before it is created (using layers to not make objects collide is cheaper!)
 					return JPH::ValidateResult::AcceptAllContactsForThisBodyPair;
@@ -60,33 +97,45 @@ namespace aZero
 
 				virtual void OnContactAdded(const JPH::Body& inBody1, const JPH::Body& inBody2, const JPH::ContactManifold& inManifold, JPH::ContactSettings& ioSettings) override
 				{
-					JPH::BodyID one = inBody1.GetID();
-					JPH::BodyID two = inBody2.GetID();
-					m_CallbackExecutor->Append([one, two] {
-						std::cout << "Body " << one.GetIndex() << " collided with " << two.GetIndex() << "\n";
-						});
+					std::unique_lock<std::mutex> lock(m_ContactMutex);
+					m_ContactAddedEvents.emplace_back(
+						static_cast<uint32_t>((inBody1.GetUserData()) >> 32),
+						static_cast<uint32_t>((inBody2.GetUserData()) >> 32),
+						inManifold,
+						ioSettings);
 				}
 
 				virtual void OnContactPersisted(const JPH::Body& inBody1, const JPH::Body& inBody2, const JPH::ContactManifold& inManifold, JPH::ContactSettings& ioSettings) override
 				{
-					JPH::BodyID one = inBody1.GetID();
-					JPH::BodyID two = inBody2.GetID();
-					m_CallbackExecutor->Append([one, two] {
-						std::cout << "Body " << one.GetIndex() << " persisted with " << two.GetIndex() << "\n";
-						});
+					std::unique_lock<std::mutex> lock(m_ContactMutex);
+					m_ContactPersistedEvents.emplace_back(
+						static_cast<uint32_t>((inBody1.GetUserData()) >> 32),
+						static_cast<uint32_t>((inBody2.GetUserData()) >> 32),
+						inManifold,
+						ioSettings);
 				}
 
 				virtual void OnContactRemoved(const JPH::SubShapeIDPair& inSubShapePair) override
 				{
-					JPH::BodyID one = inSubShapePair.GetBody1ID();
-					JPH::BodyID two = inSubShapePair.GetBody2ID();
-					m_CallbackExecutor->Append([one, two] {
-						std::cout << "Body " << one.GetIndex() << " stopped colliding with " << two.GetIndex() << "\n";
-						});
+					std::unique_lock<std::mutex> lock(m_ContactMutex);
+					m_ContactRemovedEvents.emplace_back(inSubShapePair);
+				}
+
+				void ResetEvents()
+				{
+					m_ContactValidateEvents.clear();
+					m_ContactAddedEvents.clear();
+					m_ContactPersistedEvents.clear();
+					m_ContactRemovedEvents.clear();
 				}
 
 			private:
-				CallbackExecutor* m_CallbackExecutor = nullptr;
+				std::mutex m_ContactMutex; // TODO: Split to multiple locks
+
+				std::vector<Event_ContactValidate> m_ContactValidateEvents;
+				std::vector<Event_ContactAdded> m_ContactAddedEvents;
+				std::vector<Event_ContactPersisted> m_ContactPersistedEvents;
+				std::vector<Event_ContactRemoved> m_ContactRemovedEvents;
 			};
 
 			PhysicsWorld() = default;
@@ -154,25 +203,27 @@ namespace aZero
 			void Update()
 			{
 				m_System.Update(m_UpdateFrequency, 1, m_Allocator.get(), di_JobSystem);
-				this->ResolveCallbacks();
 			}
 
-			void ResolveCallbacks()
+			void ResetBodyEvents()
 			{
-				m_ActivationCallbackExecutor.Execute();
-				m_ContactCallbackExecutor.Execute();
+				m_Body_activation_listener->ResetEvents();
+				m_Contact_listener->ResetEvents();
 			}
+
+			const std::vector<MyBodyActivationListener::Event_BodyActivation>& GetBodyActivatedEvents() const { return m_Body_activation_listener->m_ActivatedEvents; }
+			const std::vector<MyBodyActivationListener::Event_BodyActivation>& GetBodyDeactivatedEvents() const { return m_Body_activation_listener->m_DeactivatedEvents; }
+			const std::vector<MyContactListener::Event_ContactValidate>& GetContactValidateEvents() const { return m_Contact_listener->m_ContactValidateEvents; }
+			const std::vector<MyContactListener::Event_ContactAdded>& GetContactAddedEvents() const { return m_Contact_listener->m_ContactAddedEvents; }
+			const std::vector<MyContactListener::Event_ContactPersisted>& GetContactPersistedEvents() const { return m_Contact_listener->m_ContactPersistedEvents; }
+			const std::vector<MyContactListener::Event_ContactRemoved>& GetContactRemovedEvents() const { return m_Contact_listener->m_ContactRemovedEvents; }
 
 		private:
 			void Init(JPH::JobSystemThreadPool& jobSystem, float updateFrequency);
 
-			// TODO: Make the listeners fill in arrays of data with each collision that is later processed on the main thread
-
-			CallbackExecutor m_ActivationCallbackExecutor;
-			CallbackExecutor m_ContactCallbackExecutor;
 			JPH::PhysicsSystem m_System;
-			MyBodyActivationListener m_Body_activation_listener;
-			MyContactListener m_Contact_listener;
+			std::unique_ptr<MyBodyActivationListener> m_Body_activation_listener;
+			std::unique_ptr<MyContactListener> m_Contact_listener;
 			JPH::BodyInterface* m_BodyInterface = nullptr;
 			std::unique_ptr<JPH::TempAllocatorImpl> m_Allocator;
 			JPH::JobSystemThreadPool* di_JobSystem = nullptr;

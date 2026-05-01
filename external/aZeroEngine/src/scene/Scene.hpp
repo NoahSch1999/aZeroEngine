@@ -39,11 +39,13 @@ namespace aZero
 
 			void UpdatePhysics(bool applyImmediate = true);
 
+			void ResolveCollisionEvents();
+
 			void OptimizePhysics();
 
 			void ApplyPhysics();
 
-			void AddCollidersForRendering(Rendering::WireframeRenderer& wireframeRenderer);
+			void AddDebugDrawArguments(Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
 
 			SceneNew() = default;
 
@@ -84,7 +86,7 @@ namespace aZero
 				{
 					m_ComponentManager.AddComponent(entity, component);
 					ECS::RigidbodyComponent* rb = m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(entity);
-					this->AddRigidbody(rb);
+					this->AddRigidbody(entity, rb);
 				}
 				else
 				{
@@ -198,12 +200,13 @@ namespace aZero
 
 			std::optional<ECS::Entity> GetEntity(const std::string& name) { return m_Entities.count(name) == 1 ? m_Entities.at(name) : std::optional<ECS::Entity>{}; }
 			const std::unordered_map<std::string, ECS::Entity>& GetEntities() const { return m_Entities; }
+			std::optional<ECS::Entity> GetEntityFromBody(const aZero::Physics::Body& body) const { return m_BodyID_To_Entity.count(body.GetBodyID()) == 1 ? m_BodyID_To_Entity.at(body.GetBodyID()) : std::optional<ECS::Entity>{}; }
 
 			ECS::ComponentManagerDecl m_ComponentManager;
 
 			ECS::EntityManager m_EntityManager;
 		private:
-			void AddRigidbody(ECS::RigidbodyComponent* rb);
+			void AddRigidbody(const ECS::Entity& entity, ECS::RigidbodyComponent* rb);
 			void RemoveRigidbody(ECS::RigidbodyComponent* rb);
 
 			std::string GenerateEntityName()
@@ -234,6 +237,7 @@ namespace aZero
 			std::unordered_map<ECS::EntityID, std::string> m_Entity_To_Name;
 
 			std::unique_ptr<Physics::PhysicsWorld> m_PhysicsWorld;
+			std::unordered_map<JPH::BodyID, ECS::Entity> m_BodyID_To_Entity;
 		};
 	}
 }
