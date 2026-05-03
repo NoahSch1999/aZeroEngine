@@ -1,6 +1,7 @@
 struct VertexOut
 {
     float4 Position : SV_Position;
+    float3 WorldPosition : WORLD_POSITION;
     float2 UV : UV;
 #if !NORMAL_MAP
     float3 Normal : NORMAL;

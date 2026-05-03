@@ -37,7 +37,7 @@ namespace Example {
 		JPH::BodyCreationSettings meshSettings(meshShape.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, aZero::Physics::Layers::DYNAMIC);
 		meshSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
 		meshSettings.mMassPropertiesOverride.mMass = 1.0f;
-		for (int i = 1; i < 1; i++)
+		for (int i = 1; i < 10; i++)
 		{
 			aZero::ECS::Entity meshEntity = scene.AddEntity();
 
@@ -66,6 +66,8 @@ namespace Example {
 		meshSettings.mPosition = { 0, 50, 0 };
 		scene.AddComponent(resetEntity, aZero::ECS::RigidbodyComponent(meshSettings));
 		scene.AddComponent(resetEntity, aZero::ECS::StaticMeshComponent(aManager.GetMesh("cube2").value(), aManager.GetMaterial("TestMaterial").value()));
+		ECS::TransformComponent& tfmesh = *scene.m_ComponentManager.GetComponent<ECS::TransformComponent>(resetEntity);
+		tfmesh.SetTransform(DXM::Matrix::CreateTranslation(0, 3, 0));
 		scene.MarkRenderStateDirty(resetEntity, aZero::Scene::Scene::ComponentFlag());
 
 		auto* rb = scene.m_ComponentManager.GetComponent<aZero::ECS::RigidbodyComponent>(resetEntity);
@@ -128,6 +130,40 @@ namespace Example {
 
 	inline void ControlCamera(Input::KeyboardListener& listener, Scene::Scene& scene)
 	{
+		auto resetEntity = scene.GetEntity("resetEntity").value();
+		ECS::TransformComponent& tf = *scene.m_ComponentManager.GetComponent<ECS::TransformComponent>(resetEntity);
+
+		if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_UP))
+		{
+			auto x = tf.GetTransform();
+			
+			x.Translation(DXM::Vector3(x.m[3][0], x.m[3][1], x.m[3][2] + 0.01 ));
+			tf.SetTransform(x);
+		}
+
+		if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_DOWN))
+		{
+			auto x = tf.GetTransform();
+			x.Translation(DXM::Vector3(x.m[3][0], x.m[3][1], x.m[3][2] - 0.01 ));
+			tf.SetTransform(x);
+		}
+
+		if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_LEFT))
+		{
+			auto x = tf.GetTransform();
+			x.Translation(DXM::Vector3(x.m[3][0] - 0.01, x.m[3][1], x.m[3][2]));
+			tf.SetTransform(x);
+		}
+
+		if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_RIGHT))
+		{
+			auto x = tf.GetTransform();
+			x.Translation(DXM::Vector3(x.m[3][0] + 0.01, x.m[3][1], x.m[3][2]));
+			tf.SetTransform(x);
+		}
+		scene.MarkRenderStateDirty(resetEntity, aZero::Scene::Scene::ComponentFlag());
+		auto aa = tf.GetTransform();
+
 		ECS::Entity camEnt = scene.GetEntity("CameraEntity").value();
 		ECS::CameraComponent& cam = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt);
 		if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_W))
@@ -163,6 +199,7 @@ namespace Example {
 		ECS::RigidbodyComponent* camBody = scene.m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(camEnt);
 		if (camBody) {
 			camBody->GetBody().SetPosition(Math::Convert(cam.m_Position), JPH::EActivation::Activate);
+			camBody->GetBody().SetRotation(JPH::Quat::sIdentity(), JPH::EActivation::Activate);
 		}
 		scene.MarkRenderStateDirty(camEnt, aZero::Scene::Scene::ComponentFlag());
 	}

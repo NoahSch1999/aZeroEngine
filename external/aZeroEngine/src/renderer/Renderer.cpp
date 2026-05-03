@@ -335,14 +335,20 @@ namespace aZero
 			auto msBindings = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
 			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &bindings, 0);
 
-			struct Pixelbindings
+			struct PixelShaderConstantsData
 			{
 				uint32_t SamplerIndex;
 				uint32_t MaterialBuffer;
 				uint32_t PointLightBuffer;
 				uint32_t SpotLightBuffer;
 				uint32_t DirectionalLightBuffer;
+				float Time;
 			} pixelbindings;
+
+			static float time = 0.f;
+			time += 0.0005;
+			pixelbindings.Time = time;
+
 			pixelbindings.SamplerIndex = m_SamplerManager.GetSampler(aZero::Rendering::SamplerManager::Anisotropic_8x_Wrap).GetHeapIndex();
 			pixelbindings.MaterialBuffer = m_ResourceManager.m_MaterialBufferView.GetHeapIndex();
 			pixelbindings.PointLightBuffer = pointLightBufferIndex;

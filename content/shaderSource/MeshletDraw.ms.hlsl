@@ -23,6 +23,7 @@ VertexOut GetVertex(uint vertexIndex, float4x4 vpMatrix, StructuredBuffer<Vertex
 {
     VertexOut output;
     float4 position = mul(transform, float4(positions[vertexIndex].Position, 1.f));
+    output.WorldPosition = position.xyz;
     position = mul(vpMatrix, position);
     output.Position = position;
     
