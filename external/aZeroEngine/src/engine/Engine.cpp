@@ -21,6 +21,7 @@ namespace aZero
 		m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_Compiler.Get());
 		m_AudioEngine = std::make_unique<Audio::AudioEngine>();
 		m_PhysicsEngine = std::make_unique<Physics::PhysicsEngine>(m_Device.Get(), *m_Compiler.Get());
+		m_AssetManager = std::make_unique<Asset::AssetManager>(*m_Renderer.get());
 	}
 
 	Engine::~Engine()

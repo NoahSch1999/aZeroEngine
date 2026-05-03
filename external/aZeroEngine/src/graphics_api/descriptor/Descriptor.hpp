@@ -33,8 +33,9 @@ namespace aZero
 			DescriptorIndex m_HeapIndex = Descriptor::InvalidDescriptorIndex;
 			D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
 			D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle;
+			bool m_DestroyOnScope = true;
 
-			Descriptor(const D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle, const D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle, const DescriptorIndex HeapIndex, DescriptorHeap* OwningHeap);
+			Descriptor(const D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle, const D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle, const DescriptorIndex HeapIndex, DescriptorHeap* OwningHeap, bool destroyOnScope = true);
 		};
 	}
 }

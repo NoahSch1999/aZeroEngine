@@ -5,6 +5,7 @@
 #include "scene/Scene.hpp"
 #include "aZeroAudio.hpp"
 #include "physics/PhysicsEngine.hpp"
+#include "assets/AssetManager.hpp"
 
 namespace aZero
 {
@@ -16,9 +17,13 @@ namespace aZero
 		Engine& operator=(Engine&&) noexcept = default;
 		~Engine();
 
-		Scene::SceneNew CreateScene()
+		Scene::Scene CreateScene(bool hasPhysics)
 		{
-			return Scene::SceneNew(*m_PhysicsEngine.get());
+			if (hasPhysics)
+			{
+				return Scene::Scene(*m_PhysicsEngine.get());
+			}
+			return Scene::Scene();
 		}
 
 		IDxcCompilerX& GetCompiler() const { return *m_Compiler.Get(); }
@@ -27,6 +32,7 @@ namespace aZero
 		Rendering::Renderer& GetRenderer() const { return *m_Renderer.get(); }
 		Audio::AudioEngine& GetAudioEngine() const { return *m_AudioEngine.get(); }
 		Physics::PhysicsEngine& GetPhysicsEngine() const { return *m_PhysicsEngine.get(); }
+		Asset::AssetManager& GetAssetManager() const { return *m_AssetManager.get(); }
 
 		// TODO: Replace with a better file system/handling implementation (perhaps a project file or something reads the path)
 		const std::string& GetProjectDirectory() const { return m_ProjectDirectory; }
@@ -42,6 +48,7 @@ namespace aZero
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
 		std::unique_ptr<Audio::AudioEngine> m_AudioEngine;
 		std::unique_ptr<Physics::PhysicsEngine> m_PhysicsEngine;
+		std::unique_ptr<Asset::AssetManager> m_AssetManager;
 		//
 	};
 }

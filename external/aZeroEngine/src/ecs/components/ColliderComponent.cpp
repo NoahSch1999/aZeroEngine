@@ -3,7 +3,7 @@
 #include "scene/Scene.hpp"
 #include "ecs/Entity.hpp"
 
-void aZero::ECS::ColliderComponent::AddCollider(Scene::SceneNew& scene, const ECS::Entity& entity, JPH::BodyCreationSettings& bodySettings)
+void aZero::ECS::ColliderComponent::AddCollider(Scene::Scene& scene, const ECS::Entity& entity, JPH::BodyCreationSettings& bodySettings)
 {
 	Physics::Body newBody;
 	bodySettings.mIsSensor = true;
@@ -11,7 +11,7 @@ void aZero::ECS::ColliderComponent::AddCollider(Scene::SceneNew& scene, const EC
 	m_Colliders.push_back(std::move(newBody));
 }
 
-void aZero::ECS::ColliderComponent::RemoveCollider(Scene::SceneNew& scene, uint32_t index)
+void aZero::ECS::ColliderComponent::RemoveCollider(Scene::Scene& scene, uint32_t index)
 {
 	scene.RemoveRigidbody(m_Colliders[index].GetBody());
 	m_Colliders.erase(m_Colliders.begin() + index);

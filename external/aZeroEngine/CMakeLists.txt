@@ -112,13 +112,14 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(aZeroAudio)
 #
 
-# YAML-CPP
+# SIMDJSON
 FetchContent_Declare(
-    yaml-cpp
-    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+    simdjson
+    GIT_REPOSITORY https://github.com/simdjson/simdjson.git
     GIT_TAG        "master"
+    GIT_SHALLOW TRUE
 )
-FetchContent_MakeAvailable(yaml-cpp)
+FetchContent_MakeAvailable(simdjson)
 #
 
 # aZero Sparse Set
@@ -152,7 +153,7 @@ add_library(aZeroEngine
     "src/assets/Mesh.cpp" 
     "src/assets/Material.cpp" 
     "src/assets/Texture.cpp"
-    "src/graphics_api/Engine.cpp" 
+    "src/engine/Engine.cpp" 
     "src/scene/Scene.cpp" 
     "src/pipeline/shader/Shader.cpp" 
     "src/pipeline/shader/VertexShader.cpp" 
@@ -172,7 +173,7 @@ add_library(aZeroEngine
     "src/graphics_api/command_recording/CommandQueue.cpp"
     "src/graphics_api/descriptor/Descriptor.cpp"
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
-    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp" "src/ecs/components/ColliderComponent.cpp")
+    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp" "src/ecs/components/ColliderComponent.cpp" "src/renderer/WireframeRenderer.cpp")
 
 target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
 
@@ -211,7 +212,7 @@ target_link_libraries(aZeroEngine
     PUBLIC DirectXTK12
     PUBLIC DXCompiler
     PUBLIC assimp
-    PUBLIC yaml-cpp
+    PUBLIC simdjson
     PUBLIC aZeroAudio
     PUBLIC meshoptimizer
     PUBLIC Jolt

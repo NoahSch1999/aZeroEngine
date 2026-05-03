@@ -2,7 +2,7 @@
 #include "misc/EngineDebugMacros.hpp"
 #include "misc/stb_image.h"
 
-bool aZero::Asset::Texture::Load(const std::string& filePath, DXGI_FORMAT format)
+bool aZero::Asset::Texture::LoadFromFile(const std::string& filePath, DXGI_FORMAT format)
 {
 	std::int32_t width, height, channels;
 	stbi_uc* loadedImage = stbi_load(filePath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
@@ -28,6 +28,8 @@ bool aZero::Asset::Texture::Load(const std::string& filePath, DXGI_FORMAT format
 
 	stbi_image_free(loadedImage);
 	m_Data.Format = format;
+
+	AssetBase::Load(filePath);
 
 	return true;
 }

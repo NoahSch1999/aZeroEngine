@@ -5,7 +5,7 @@ namespace aZero
 {
 	namespace Scene
 	{
-		class SceneNew;
+		class Scene;
 	}
 
 	namespace ECS
@@ -15,7 +15,7 @@ namespace aZero
 		private:
 			DXM::Matrix m_Transform = DXM::Matrix::Identity;
 
-			friend class Scene::SceneNew;
+			friend class Scene::Scene;
 
 			Entity m_AttachedEntityID;
 			Entity m_ParentID = Entity();

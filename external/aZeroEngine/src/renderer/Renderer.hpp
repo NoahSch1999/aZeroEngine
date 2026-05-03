@@ -45,78 +45,50 @@ namespace aZero
 
 			size_t GetBufferingCount() const { return m_FrameContexts.size(); }
 			RenderAPI::CommandQueue& GetGraphicsCommandQueue() { return m_DirectCommandQueue; }
-			RenderAPI::ResourceRecycler& GetResourceRecycler() { return m_NewResourceRecycler; }
-			RenderAPI::DescriptorHeap& GetResourceHeap() { return m_ResourceHeapNew; }
-			RenderAPI::DescriptorHeap& GetSamplerHeap() { return m_SamplerHeapNew; }
-			RenderAPI::DescriptorHeap& GetRenderTargetHeap() { return m_RTVHeapNew; }
-			RenderAPI::DescriptorHeap& GetDepthTargetHeap() { return m_DSVHeapNew; }
+			RenderAPI::DescriptorHeap& GetResourceHeap() { return m_ResourceHeap; }
+			RenderAPI::DescriptorHeap& GetSamplerHeap() { return m_SamplerHeap; }
 			Rendering::WireframeRenderer& GetWireframeRenderer();
+			uint32_t GetFrameIndex() const { return m_FrameIndex; }
+
+			void FlushFrameAllocations();
+			void FlushGPU();
 
 			bool TryBeginFrame();
 			void EndFrame();
 
-			void FlushFrameAllocations();
-
-			void Render(const Scene::SceneNew& scene);
+			void Render(const Scene::Scene& scene);
 			void RenderWireframes(const ECS::CameraComponent& camera, Rendering::RenderTarget& rtv, Rendering::DepthStencilTarget& dsv);
-
 			void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget);
 
-			void FlushGPU();
-			uint64_t SignalGraphicsQueue() { return m_DirectCommandQueue.Signal(); }
+			void UpdateRenderState(Asset::Mesh& mesh);
+			void UpdateRenderState(Asset::Material& material);
+			void UpdateRenderState(Asset::Texture& texture);
 
-			void UpdateRenderState(Asset::Mesh* mesh);
-			void UpdateRenderState(Asset::Material* material);
-			void UpdateRenderState(Asset::Texture* texture);
-			void RemoveRenderState(Asset::Mesh* mesh);
-			void RemoveRenderState(Asset::Material* material);
-			void RemoveRenderState(Asset::Texture* texture);
+			// TODO: Impl
+			void RemoveRenderState(Asset::Mesh& mesh);
+			void RemoveRenderState(Asset::Material& material);
+			void RemoveRenderState(Asset::Texture& texture);
 
 			Rendering::RenderTarget CreateRenderTarget(const Rendering::RenderTarget::Desc& desc);
 			Rendering::DepthStencilTarget CreateDepthStencilTarget(const Rendering::DepthStencilTarget::Desc& desc);
 
 			FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
-			uint32_t GetFrameIndex() const { return m_FrameIndex; }
+
+			/*void ExecuteRenderPasses();
+			std::vector<Rendering::PassBase*> m_RenderPasses;*/
 		private:
 
 			// Returns true if the frame context for the next frame has completed and is open for reuse
 			bool AdvanceFrameIfReady();
 
 			void InitPipeline();
-			void InitMeshObjectCullPipeline();
-			void InitMeshletCullPipeline();
-			void InitMeshletDrawPipeline();
-
 			void ClearRenderSurfaces(const Scene::RenderData::Camera& camera);
-			
-			ID3D12DeviceX* m_diDevice;
-			uint32_t m_BufferCount;
-			uint32_t m_FrameIndex = 0;
-			uint64_t m_FrameCount = 0;
 
-			// todo Figure out how this should be used to defer destruction of descriptors so that they wont be used until their no longer in use
-			aZero::CallbackExecutor m_CallbackExecutor;
-
-			IDxcCompilerX& m_Compiler;
-
-			RenderAPI::CommandQueue m_DirectCommandQueue;
-			RenderAPI::CommandQueue m_CopyCommandQueue;
-			RenderAPI::CommandQueue m_ComputeCommandQueue;
-
-			RenderAPI::ResourceRecycler m_NewResourceRecycler;
-			RenderAPI::DescriptorHeap m_ResourceHeapNew;
-			RenderAPI::DescriptorHeap m_SamplerHeapNew;
-
-			SamplerManager m_SamplerManager;
-			RenderAPI::DescriptorHeap m_RTVHeapNew;
-			RenderAPI::DescriptorHeap m_DSVHeapNew;
-
-			std::vector<FrameContext> m_FrameContexts;
-
-			Rendering::ResourceManager m_ResourceManager;
-
-			std::unique_ptr<Rendering::WireframeRenderer> m_WireframeRenderer;
-
+			/*
+			---------------------------------------------------------------------------------------------------------------------------------------------
+			Instance -> Meshlet -> Mesh shader pipeline
+			---------------------------------------------------------------------------------------------------------------------------------------------
+			*/
 			struct BindingConstants
 			{
 				uint32_t InstanceBuffer;
@@ -126,12 +98,15 @@ namespace aZero
 				uint32_t IndirectArgumentMeshletCullingBuffer;
 				uint32_t MeshletInstanceBuffer;
 			};
-			
+			void InitMeshObjectCullPipeline();
+			void InitMeshletCullPipeline();
+			void InitMeshletDrawPipeline();
 			void RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes);
 			void RecordMeshLetCullingPass(const BindingConstants& bindings);
 			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, uint32_t pointLightBufferIndex, uint32_t spotLightBufferIndex, uint32_t directionalLightBufferIndex);
 
-			uint32_t MAX_INSTANCES = 4000;
+			uint32_t MAX_INSTANCES = 4000; // TODO: Make configurable
+			uint32_t MAX_MESHLETS = 10000; // TODO: Make configurable
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
 			RenderAPI::Buffer m_MeshletDrawArgumentBuffer;
 			RenderAPI::UnorderedAccessView m_MeshletDrawArgumentUAV;
@@ -148,12 +123,41 @@ namespace aZero
 			Pipeline::ComputeShaderPass m_MeshObjectCullingPass;
 			Pipeline::ComputeShader m_MeshObjectCullingCS;
 			RenderAPI::Buffer m_MeshObjectCullingBuffer;
-			RenderAPI::UnorderedAccessView m_MeshObjectCullingUAV; 
+			RenderAPI::UnorderedAccessView m_MeshObjectCullingUAV;
 			RenderAPI::Buffer m_PassedMeshCountBuffer;
 			RenderAPI::UnorderedAccessView m_PassedMeshCountUAV;
-		public:
-			void ExecuteRenderPasses();
-			std::vector<Rendering::PassBase*> m_RenderPasses;
+
+			/*
+			---------------------------------------------------------------------------------------------------------------------------------------------
+			*/
+			
+			ID3D12DeviceX* m_diDevice;
+			uint32_t m_BufferCount;
+			uint32_t m_FrameIndex = 0;
+			uint64_t m_FrameCount = 0;
+
+			// TODO: Figure out how this should be used to defer destruction of descriptors so that they wont be used until their no longer in use
+			aZero::CallbackExecutor m_CallbackExecutor;
+
+			IDxcCompilerX& m_Compiler;
+
+			RenderAPI::CommandQueue m_DirectCommandQueue;
+			RenderAPI::CommandQueue m_CopyCommandQueue;
+			RenderAPI::CommandQueue m_ComputeCommandQueue;
+
+			RenderAPI::ResourceRecycler m_ResourceRecycler;
+			RenderAPI::DescriptorHeap m_ResourceHeap;
+			RenderAPI::DescriptorHeap m_SamplerHeap;
+
+			SamplerManager m_SamplerManager;
+			RenderAPI::DescriptorHeap m_RTVHeap;
+			RenderAPI::DescriptorHeap m_DSVHeap;
+
+			std::vector<FrameContext> m_FrameContexts;
+
+			Rendering::ResourceManager m_ResourceManager;
+
+			std::unique_ptr<Rendering::WireframeRenderer> m_WireframeRenderer;
 		};
 	}
 }

@@ -20,7 +20,7 @@ namespace aZero
 			DescriptorHeap(DescriptorHeap&& other) noexcept;
 			DescriptorHeap& operator=(DescriptorHeap&& other) noexcept;
 
-			Descriptor CreateDescriptor();
+			Descriptor CreateDescriptor(bool destroyOnScope = true);
 
 			uint32_t GetMaxDescriptors() const;
 			uint32_t GetDescriptorSize() const;

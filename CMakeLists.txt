@@ -47,10 +47,9 @@ FetchContent_MakeAvailable(aZeroInput)
 
 add_executable(aZeroEditor
     "main.cpp" 
-    "aZeroEditor.hpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui.cpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/backends/imgui_impl_dx12.cpp"
-    "${CMAKE_BINARY_DIR}/_deps/imgui-src/backends/imgui_impl_win32.cpp"
+    "${CMAKE_BINARY_DIR}/_deps/imgui-src/backends/imgui_impl_sdl3.cpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_widgets.cpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_tables.cpp"
     "${CMAKE_BINARY_DIR}/_deps/imgui-src/imgui_draw.cpp"

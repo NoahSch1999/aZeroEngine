@@ -20,11 +20,16 @@ namespace aZero
 				Texture* NormalMap = nullptr;
 			};
 
-			Material() = default;
-			Material(AssetID id)
-				:AssetBase(id) { }
+			struct LoadedData
+			{
+				std::string AlbedoTexture;
+				std::string NormalMap;
+			};
 
-			bool Load(const std::string& filePath);
+			Material() = default;
+
+			bool Save(const std::string& filePath);
+			bool LoadFromFile(const std::string& filePath);
 
 			void SetAlbedoTexture(Texture* texture) { m_Data.AlbedoTexture = texture; }
 			Texture* GetAlbedoTexture() const { return m_Data.AlbedoTexture; }
@@ -32,8 +37,10 @@ namespace aZero
 			void SetNormalMap(Texture* texture) { m_Data.NormalMap = texture; }
 			Texture* GetNormalMap() const { return m_Data.NormalMap; }
 
-		private:
+			const LoadedData& GetLoadedData() const { return m_LoadedData; }
 
+		private:
+			LoadedData m_LoadedData;
 			Data m_Data;
 		};
 	}

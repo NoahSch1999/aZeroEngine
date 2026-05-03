@@ -32,6 +32,28 @@ namespace aZero
 			return name;
 		}
 
+		inline std::string GetPathSuffix(const std::string& filePath)
+		{
+			const size_t lastDot = filePath.find_last_of('.');
+			return filePath.substr(lastDot + 1, filePath.length() - (filePath.length() - lastDot));
+		}
+
+		inline std::string GetFilenameFromPath(const std::string& filePath)
+		{
+			const size_t lastSlash = filePath.find_last_of('/');
+			if (lastSlash != std::wstring::npos)
+			{
+				return filePath.substr(lastSlash + 1, filePath.length() - lastSlash);
+			}
+			return "";
+		}
+
+		inline std::string StripSuffixFromFilePath(const std::string& filePath)
+		{
+			const size_t lastDot = filePath.find_last_of('.');
+			return filePath.substr(0, lastDot);
+		}
+
 		inline uint32_t Pack8To32(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 		{
 			return 

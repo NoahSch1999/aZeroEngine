@@ -4,7 +4,7 @@
 
 namespace aZero
 {
-	namespace Scene { class SceneNew; }
+	namespace Scene { class Scene; }
 	namespace Physics
 	{
 		using BodyActivated_ResolveCallback = std::function<void()>;
@@ -17,7 +17,7 @@ namespace aZero
 
 		class TriggerBody
 		{
-			friend class aZero::Scene::SceneNew;
+			friend class aZero::Scene::Scene;
 		public:
 			TriggerBody() = default;
 			TriggerBody(const JPH::BodyCreationSettings& bodySettings)

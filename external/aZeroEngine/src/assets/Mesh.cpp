@@ -222,15 +222,12 @@ std::vector<aZero::Asset::MeshletMeshData> LoadFBX(const std::string& path)
 	return output;
 }
 
-std::vector<aZero::Asset::MeshletMeshData> aZero::Asset::LoadFromFile(const std::string& filename)
+std::vector<aZero::Asset::MeshletMeshData> aZero::Asset::LoadFromFile(const std::string& filePath)
 {
-	const std::string absolutePath = PROJECT_DIRECTORY + std::string("assets/meshes/") + filename;
-
-	const size_t lastDot = absolutePath.find_last_of('.');
-	const std::string suffix = absolutePath.substr(lastDot + 1, absolutePath.length() - (absolutePath.length() - lastDot));
+	const std::string suffix = Helper::GetPathSuffix(filePath);
 	if (suffix == "fbx")
 	{
-		return LoadFBX(absolutePath);
+		return LoadFBX(filePath);
 	}
 
 	// Add other formats here...
@@ -238,13 +235,13 @@ std::vector<aZero::Asset::MeshletMeshData> aZero::Asset::LoadFromFile(const std:
 	return std::vector<aZero::Asset::MeshletMeshData>();
 }
 
-bool aZero::Asset::Mesh::LoadFromFile(const std::string& filename)
+bool aZero::Asset::Mesh::LoadFromFile(const std::string& filePath)
 {
-	const auto& meshes = Asset::LoadFromFile(filename);
+	const auto& meshes = Asset::LoadFromFile(filePath);
 	if (meshes.size())
 	{
-
 		m_VertexData = meshes[0];
+		AssetBase::Load(filePath);
 	}
 
 	return !meshes.empty();

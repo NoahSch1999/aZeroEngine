@@ -18,28 +18,28 @@ namespace aZero
 				throw std::runtime_error("Device doesn't support mesh shaders.");
 			}
 
-			m_NewResourceRecycler = RenderAPI::ResourceRecycler(bufferCount);
+			m_ResourceRecycler = RenderAPI::ResourceRecycler(bufferCount);
 
 			m_DirectCommandQueue = RenderAPI::CommandQueue(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 			m_CopyCommandQueue = RenderAPI::CommandQueue(device, D3D12_COMMAND_LIST_TYPE_COPY);
 			m_ComputeCommandQueue = RenderAPI::CommandQueue(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
 
-			m_ResourceHeapNew = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 10000, true);
-			m_SamplerHeapNew = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 20, true);
-			m_RTVHeapNew = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 100, false);
-			m_DSVHeapNew = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 100, false);
+			m_ResourceHeap = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 10000, true);
+			m_SamplerHeap = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 20, true);
+			m_RTVHeap = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 100, false);
+			m_DSVHeap = RenderAPI::DescriptorHeap(device, m_CallbackExecutor, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 100, false);
 
 			// TODO: DEFINE A MOVE-CONSTRUCTOR FOR FRAMECONTEXT
 			// OTHERWISE THIS WILL CRASH IF WE DONT RESERVE
 			m_FrameContexts.reserve(bufferCount);
 			for (int32_t i = 0; i < bufferCount; i++)
 			{
-				m_FrameContexts.emplace_back(device, m_ResourceHeapNew, m_NewResourceRecycler);
+				m_FrameContexts.emplace_back(device, m_ResourceHeap, m_ResourceRecycler);
 			}
 
-			m_SamplerManager = SamplerManager(device, m_SamplerHeapNew);
+			m_SamplerManager = SamplerManager(device, m_SamplerHeap);
 
-			m_ResourceManager = ResourceManager(device, &m_NewResourceRecycler, m_ResourceHeapNew);
+			m_ResourceManager = ResourceManager(device, &m_ResourceRecycler, m_ResourceHeap);
 
 			m_WireframeRenderer = std::make_unique<Rendering::WireframeRenderer>(device, compiler);
 
@@ -52,13 +52,12 @@ namespace aZero
 			this->InitMeshletCullPipeline();
 			this->InitMeshletDrawPipeline();
 
-			// TODO: One for each pass above
-			Rendering::MeshShaderPass::Description msPassDesc;
+			/*Rendering::MeshShaderPass::Description msPassDesc;
 			msPassDesc.ExecutionCount = 1;
 			msPassDesc.Pipeline = &m_MeshletDrawPass;
 			msPassDesc.RenderTargets.resize(1);
 			msPassDesc.ClearRtvs.resize(1);
-			m_RenderPasses.push_back(new Rendering::MeshShaderPass(std::move(msPassDesc)));
+			m_RenderPasses.push_back(new Rendering::MeshShaderPass(std::move(msPassDesc)));*/
 		}
 
 		void Renderer::InitMeshObjectCullPipeline()
@@ -95,10 +94,10 @@ namespace aZero
 			m_diDevice->CreateCommandSignature(&indirectArgsDesc, m_MeshletCullingPass.GetRootSignature(), IID_PPV_ARGS(m_MeshObjectCullSignature.GetAddressOf()));
 
 			m_MeshObjectCullingBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(IndirectCommand) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true));
-			m_MeshObjectCullingUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeapNew, m_MeshObjectCullingBuffer, MAX_INSTANCES, sizeof(IndirectCommand), 0);
+			m_MeshObjectCullingUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeap, m_MeshObjectCullingBuffer, MAX_INSTANCES, sizeof(IndirectCommand), 0);
 
 			m_PassedMeshCountBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(uint32_t), D3D12_HEAP_TYPE_DEFAULT, true, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT));
-			m_PassedMeshCountUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeapNew, m_PassedMeshCountBuffer, 1, sizeof(uint32_t), 0);
+			m_PassedMeshCountUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeap, m_PassedMeshCountBuffer, 1, sizeof(uint32_t), 0);
 
 #ifdef USE_DEBUG
 			m_MeshObjectCullingBuffer.GetResource()->SetName(L"m_MeshObjectCullingBuffer");
@@ -127,7 +126,7 @@ namespace aZero
 			m_diDevice->CreateCommandSignature(&meshletDrawDesc, nullptr, IID_PPV_ARGS(m_MeshletDrawSignature.GetAddressOf()));
 
 			m_MeshletDrawArgumentBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(D3D12_DISPATCH_MESH_ARGUMENTS) * 1, D3D12_HEAP_TYPE_DEFAULT, true, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT));
-			m_MeshletDrawArgumentUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeapNew, m_MeshletDrawArgumentBuffer, 1, sizeof(D3D12_DISPATCH_MESH_ARGUMENTS), 0);
+			m_MeshletDrawArgumentUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeap, m_MeshletDrawArgumentBuffer, 1, sizeof(D3D12_DISPATCH_MESH_ARGUMENTS), 0);
 
 			struct MeshletCulling_To_MeshShader_Data
 			{
@@ -135,8 +134,8 @@ namespace aZero
 				uint32_t LocalMeshletIndex;
 			};
 
-			m_MeshletInstanceBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(MeshletCulling_To_MeshShader_Data) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true));
-			m_MeshletInstanceUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeapNew, m_MeshletInstanceBuffer, MAX_INSTANCES, sizeof(MeshletCulling_To_MeshShader_Data), 0);
+			m_MeshletInstanceBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(MeshletCulling_To_MeshShader_Data) * MAX_MESHLETS, D3D12_HEAP_TYPE_DEFAULT, true));
+			m_MeshletInstanceUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeap, m_MeshletInstanceBuffer, MAX_MESHLETS, sizeof(MeshletCulling_To_MeshShader_Data), 0);
 
 #ifdef USE_DEBUG
 			m_MeshletDrawArgumentBuffer.GetResource()->SetName(L"m_MeshletDrawArgumentBuffer");
@@ -165,9 +164,9 @@ namespace aZero
 			{
 				m_FrameIndex = static_cast<uint32_t>(m_FrameCount % m_FrameContexts.size());
 				m_FrameCount++;
-				m_NewResourceRecycler.SetFrameIndex(m_FrameIndex);
-				m_NewResourceRecycler.Clear();
-				m_WireframeRenderer->BeginFrame(*this); // TODO: Move to renderer
+				m_ResourceRecycler.SetFrameIndex(m_FrameIndex);
+				m_ResourceRecycler.Clear();
+				m_WireframeRenderer->BeginFrame(m_FrameIndex);
 			}
 
 			return hasNewFrameStarted;
@@ -192,7 +191,6 @@ namespace aZero
 		void Renderer::RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-
 			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Mesh object culling pass");
 
 			auto& cmdList = frameContext.m_DirectCmdList;
@@ -210,7 +208,7 @@ namespace aZero
 			barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshObjectCullingBuffer.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 			cmdList->ResourceBarrier(1, &barrier);
 
-			m_MeshObjectCullingPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew);
+			m_MeshObjectCullingPass.Begin(cmdList, m_ResourceHeap, m_SamplerHeap);
 
 			struct MeshObjectCullingConstants
 			{
@@ -237,7 +235,6 @@ namespace aZero
 		void Renderer::RecordMeshLetCullingPass(const BindingConstants& bindings)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-
 			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet culling pass");
 
 			auto& cmdList = frameContext.m_DirectCmdList;
@@ -256,7 +253,7 @@ namespace aZero
 			cmdList->ResourceBarrier(1, &barrier);
 
 			auto bindingsBinding = m_MeshletCullingPass.GetConstantBindingIndex("Bindings");
-			m_MeshletCullingPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew);
+			m_MeshletCullingPass.Begin(cmdList, m_ResourceHeap, m_SamplerHeap);
 			cmdList.SetComputeRoot32BitConstantsSafe(bindingsBinding.GetRootIndex(), bindingsBinding.GetNumConstants(), &bindings, 0);
 
 			// TODO: Handle so we only dispatch up to the number of meshes that passed the first pass
@@ -268,7 +265,7 @@ namespace aZero
 			FrameContext& frameContext = this->GetCurrentContext();
 			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 255, 0), "Clear render surfaces");
 
-			std::array<ID3D12DescriptorHeap*, 2> heaps{ m_ResourceHeapNew.Get(), m_SamplerHeapNew.Get() };
+			std::array<ID3D12DescriptorHeap*, 2> heaps{ m_ResourceHeap.Get(), m_SamplerHeap.Get() };
 			frameContext.m_DirectCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
 
 			if (camera.m_RenderTarget.has_value())
@@ -320,7 +317,7 @@ namespace aZero
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 
-			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet culling pass");
+			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet drawing pass");
 
 			auto& cmdList = frameContext.m_DirectCmdList;
 
@@ -333,7 +330,7 @@ namespace aZero
 				renderTargets.push_back(&camera.m_RenderTarget.value()->GetDescriptor());
 			}
 			RenderAPI::Descriptor* dsv = camera.m_DepthStencilTarget.has_value() ? &camera.m_DepthStencilTarget.value()->GetDescriptor() : nullptr;
-			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeapNew, m_SamplerHeapNew, renderTargets, camera.m_DepthStencilTarget.has_value() ? dsv : std::optional<RenderAPI::Descriptor*>());
+			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeap, m_SamplerHeap, renderTargets, camera.m_DepthStencilTarget.has_value() ? dsv : std::optional<RenderAPI::Descriptor*>());
 
 			auto msBindings = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
 			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &bindings, 0);
@@ -362,7 +359,7 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 		}
 
-		void Renderer::Render(const Scene::SceneNew& scene)
+		void Renderer::Render(const Scene::Scene& scene)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 
@@ -384,7 +381,6 @@ namespace aZero
 
 			const auto& directionalLights = scene.GetProxy()->m_DirectionalLights.GetData();
 			frameContext.m_DirectionalLightBuffer.Write(directionalLights.data(), directionalLights.size() * sizeof(directionalLights[0]), 0);
-
 
 			// Sort cameras based on layer
 			auto cameras = scene.GetProxy()->m_Cameras.GetData();
@@ -421,7 +417,10 @@ namespace aZero
 
 		void Renderer::RenderWireframes(const ECS::CameraComponent& camera, Rendering::RenderTarget& rtv, Rendering::DepthStencilTarget& dsv)
 		{
-			m_WireframeRenderer->Render(*this, camera, rtv, dsv);
+			FrameContext& frameContext = this->GetCurrentContext();
+			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 255, 255), "Render debug colliders");
+			m_WireframeRenderer->Render(frameContext.m_DirectCmdList, m_ResourceHeap, m_SamplerHeap, camera, rtv, dsv);
+			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList);
 		}
 
 		void Renderer::FlushGPU()
@@ -454,78 +453,60 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
 		}
 
-		void Renderer::UpdateRenderState(Asset::Mesh* mesh)
+		void Renderer::UpdateRenderState(Asset::Mesh& mesh)
 		{
-			if (!mesh)
-			{
-				DEBUG_PRINT("Invalid mesh handle.");
-				throw;
-			}
-
 			FrameContext& context = this->GetCurrentContext();
-			m_ResourceManager.UpdateRenderState(m_diDevice, context.m_DirectCmdList, context.m_FrameAllocator, m_NewResourceRecycler, m_ResourceHeapNew, *mesh);
+			m_ResourceManager.UpdateRenderState(m_diDevice, context.m_DirectCmdList, context.m_FrameAllocator, m_ResourceRecycler, m_ResourceHeap, mesh);
 			m_DirectCommandQueue.ExecuteCommandList(context.m_DirectCmdList);
 		}
 
-		void Renderer::UpdateRenderState(Asset::Material* material)
+		void Renderer::UpdateRenderState(Asset::Material& material)
 		{
-			if (!material)
-			{
-				DEBUG_PRINT("Invalid material handle.");
-				throw;
-			}
-
-			m_ResourceManager.UpdateRenderState(this->GetCurrentContext().m_FrameAllocator, m_NewResourceRecycler, m_ResourceHeapNew, *material);
+			m_ResourceManager.UpdateRenderState(this->GetCurrentContext().m_FrameAllocator, m_ResourceRecycler, m_ResourceHeap, material);
 		}
 
-		void Renderer::UpdateRenderState(Asset::Texture* texture)
+		void Renderer::UpdateRenderState(Asset::Texture& texture)
 		{
-			if (!texture)
-			{
-				DEBUG_PRINT("Invalid texture handle.");
-				throw;
-			}
-
 			FrameContext& context = this->GetCurrentContext();
-			m_ResourceManager.UpdateRenderState(m_diDevice, context.m_DirectCmdList, m_NewResourceRecycler, m_ResourceHeapNew, *texture);
+			m_ResourceManager.UpdateRenderState(m_diDevice, context.m_DirectCmdList, m_ResourceRecycler, m_ResourceHeap, texture);
 			m_DirectCommandQueue.ExecuteCommandList(context.m_DirectCmdList);
 		}
 
-		void Renderer::RemoveRenderState(Asset::Mesh* mesh)
+		void Renderer::RemoveRenderState(Asset::Mesh& mesh)
 		{
 			//m_ResourceManager.
 		}
 
-		void Renderer::RemoveRenderState(Asset::Material* material)
+		void Renderer::RemoveRenderState(Asset::Material& material)
 		{
 			//m_ResourceManager.
 		}
 
-		void Renderer::RemoveRenderState(Asset::Texture* texture)
+		void Renderer::RemoveRenderState(Asset::Texture& texture)
 		{
 			//m_ResourceManager.
 		}
 
 		Rendering::RenderTarget Renderer::CreateRenderTarget(const Rendering::RenderTarget::Desc& desc)
 		{
-			return Rendering::RenderTarget(desc, m_diDevice, m_RTVHeapNew, &m_NewResourceRecycler);
+			return Rendering::RenderTarget(desc, m_diDevice, m_RTVHeap, &m_ResourceRecycler);
 		}
 
 		Rendering::DepthStencilTarget Renderer::CreateDepthStencilTarget(const Rendering::DepthStencilTarget::Desc& desc)
 		{
-			return Rendering::DepthStencilTarget(desc, m_diDevice, m_DSVHeapNew, &m_NewResourceRecycler);
+			return Rendering::DepthStencilTarget(desc, m_diDevice, m_DSVHeap, &m_ResourceRecycler);
 		}
 
-		void Renderer::ExecuteRenderPasses()
+		Rendering::WireframeRenderer& Renderer::GetWireframeRenderer() { return *m_WireframeRenderer.get(); }
+
+		/*void Renderer::ExecuteRenderPasses()
 		{
 			FrameContext& context = this->GetCurrentContext();
 			RenderAPI::CommandList& cmdList = context.m_DirectCmdList;
 			for (const auto pass : m_RenderPasses)
 			{
-				pass->Execute(m_DirectCommandQueue, context.m_DirectCmdList, m_ResourceHeapNew, m_SamplerHeapNew);
+				pass->Execute(m_DirectCommandQueue, context.m_DirectCmdList, m_ResourceHeap, m_SamplerHeap);
 			}
-		}
-
-		Rendering::WireframeRenderer& Renderer::GetWireframeRenderer() { return *m_WireframeRenderer.get(); }
+		}*/
 	}
 }

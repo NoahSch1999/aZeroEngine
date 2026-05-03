@@ -27,19 +27,17 @@ VertexOut GetVertex(uint vertexIndex, float4x4 vpMatrix, StructuredBuffer<Vertex
     output.Position = position;
     
 #if !NORMAL_MAP
-    const float3 normal = mul(transform, float4(genericVertexData[vertexIndex].Normal, 0.f)).xyz;
-    float3 tangent = mul(transform, float4(genericVertexData[vertexIndex].Tangent, 0.f)).xyz;
+    const float3 normal = normalize(mul(transform, float4(genericVertexData[vertexIndex].Normal, 0.f))).xyz;
+    float3 tangent = normalize(mul(transform, float4(genericVertexData[vertexIndex].Tangent, 0.f))).xyz;
     
     // Re-ortogonalize the tangent since they might not be ortogonal anymore after transform and precision changes. 
     // n * dot(n, t) creates a vector which when you subtract from the tangent creates the new ortogonalized tangent. So its like the "error" vector.
     tangent = tangent - normal * dot(normal, tangent);
     tangent = normalize(tangent);
     
-   // tangent = cross(normal, -normal);
-    
     output.Normal = normal;
     
-    const float3 biTangent = normalize(cross(tangent, normal));
+    const float3 biTangent = normalize(cross(normal, tangent));
     output.TBN = float3x3(tangent, biTangent, normal);
 #endif
     

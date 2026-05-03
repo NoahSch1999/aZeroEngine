@@ -80,6 +80,7 @@ bool aZero::Pipeline::VertexShaderPass::CreatePipelineState(ID3D12DeviceX* devic
 	// TODO: wrong usage of the depth?
 	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
 	depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 	if (description.m_DepthStencil.m_Format == DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
 	{
 		depthStencilDesc.DepthEnable = false;

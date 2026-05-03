@@ -16,11 +16,15 @@ namespace aZero
 		class WireframeRenderer;
 	}
 
+	class Engine;
+
 	namespace Scene
 	{
-		class SceneNew
+		using SceneID = uint32_t;
+
+		class Scene
 		{
-			ECS::Entity m_RootEntity;
+			friend class Engine;
 		public:
 			enum class ComponentFlag
 			{
@@ -35,7 +39,13 @@ namespace aZero
 				None = 1338
 			};
 
+			bool Save(const std::string& filePath);
+
+			bool Load(const std::string& filePath);
+
 			SceneProxy* GetProxy() const { return m_Proxy.get(); }
+
+			SceneID GetSceneID() const { return m_SceneID; }
 
 			void UpdatePhysics(bool applyImmediate = true);
 
@@ -47,9 +57,7 @@ namespace aZero
 
 			void AddDebugDrawArguments(Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
 
-			SceneNew() = default;
-
-			SceneNew(Physics::PhysicsEngine& physicsEngine);
+			Scene();
 
 			ECS::Entity AddEntity()
 			{
@@ -84,6 +92,9 @@ namespace aZero
 				// TODO: Cleanup and make it safe
 				if constexpr (std::is_same_v<ComponentType, ECS::RigidbodyComponent>)
 				{
+					if (!m_PhysicsWorld.get())
+						return;
+
 					m_ComponentManager.AddComponent(entity, component);
 					ECS::RigidbodyComponent* rb = m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(entity);
 					this->AddRigidbody(entity, rb);
@@ -104,6 +115,9 @@ namespace aZero
 				// TODO: Cleanup and make it safe
 				if constexpr (std::is_same_v<ComponentType, ECS::RigidbodyComponent>)
 				{
+					if (!m_PhysicsWorld.get())
+						return;
+
 					ECS::RigidbodyComponent* rb = m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(entity);
 					if (rb)
 					{
@@ -127,6 +141,21 @@ namespace aZero
 			{
 				ECS::TransformComponent* transformComp = m_ComponentManager.GetComponent<ECS::TransformComponent>(entity);
 				DXM::Matrix entityTransform = transformComp->GetTransform();
+
+				if (m_PhysicsWorld.get())
+				{
+					ECS::ColliderComponent* colliderComponent = m_ComponentManager.GetComponent<ECS::ColliderComponent>(entity);
+					if (colliderComponent && transformComp)
+					{
+						for (auto& collider : colliderComponent->m_Colliders)
+						{
+							collider.m_Body.SetPositionAndRotation(
+								Math::Convert(entityTransform.Translation()),
+								Math::Convert(DXM::Quaternion::CreateFromRotationMatrix(entityTransform)),
+								JPH::EActivation::Activate);
+						}
+					}
+				}
 				
 				// TODO: Fix parenting transform calculations
 				//DXM::Matrix entityTransform = DXM::Matrix::Identity;
@@ -198,6 +227,7 @@ namespace aZero
 				parentComp->AddChild(*childComp);
 			}
 
+			bool HasPhysics() const { return m_PhysicsWorld.get() != nullptr; }
 			std::optional<ECS::Entity> GetEntity(const std::string& name) { return m_Entities.count(name) == 1 ? m_Entities.at(name) : std::optional<ECS::Entity>{}; }
 			const std::unordered_map<std::string, ECS::Entity>& GetEntities() const { return m_Entities; }
 			std::optional<ECS::Entity> GetEntityFromBody(const aZero::Physics::Body& body) const { return m_BodyID_To_Entity.count(body.GetBodyID()) == 1 ? m_BodyID_To_Entity.at(body.GetBodyID()) : std::optional<ECS::Entity>{}; }
@@ -220,6 +250,10 @@ namespace aZero
 				return "Entity_" + std::to_string(nameDummy++);
 			}
 
+			void Init();
+
+			Scene(Physics::PhysicsEngine& physicsEngine);
+
 			/*void OnDestroy(){}
 			void CreateRenderUpdates(){}
 			void ClearRenderUpdates(){}*/
@@ -236,6 +270,8 @@ namespace aZero
 			DS::SparseSet<ECS::EntityID, ComponentUpdateInfo> m_DirtyEntities;*/
 			//
 
+			ECS::Entity m_RootEntity;
+
 			std::unique_ptr<SceneProxy> m_Proxy;
 
 			std::unordered_map<std::string, ECS::Entity> m_Entities;
@@ -243,6 +279,10 @@ namespace aZero
 
 			std::unique_ptr<Physics::PhysicsWorld> m_PhysicsWorld;
 			std::unordered_map<JPH::BodyID, ECS::Entity> m_BodyID_To_Entity;
+
+			SceneID m_SceneID;
+
+			static inline std::atomic<SceneID> m_IncrementingID = 0;
 		};
 	}
 }

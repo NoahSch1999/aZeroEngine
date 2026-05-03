@@ -42,19 +42,17 @@ namespace aZero
 			DirectX::BoundingSphere Bounds;
 		};
 
-		std::vector<MeshletMeshData> LoadFromFile(const std::string& filename);
+		std::vector<MeshletMeshData> LoadFromFile(const std::string& filePath);
 
 		class Mesh : public AssetBase
 		{
 			friend struct Scene::RenderData;
 		public:
 			Mesh() = default;
-			Mesh(AssetID id)
-				:AssetBase(id) { }
 
 			const MeshletMeshData& GetVertexData() const { return m_VertexData; }
 
-			bool LoadFromFile(const std::string& filename);
+			bool LoadFromFile(const std::string& filePath);
 		private:
 			MeshletMeshData m_VertexData;
 		};

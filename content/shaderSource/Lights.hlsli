@@ -15,7 +15,9 @@ struct PointLight
     
     float3 CalculateLighting_BlinnPhong(float3 surfacePosition, float3 surfaceNormal, float3 cameraDirection)
     {
-        return Color; // TODO
+        float3 surfaceToLight = Position - surfacePosition;
+        float3 color = Color * Intensity * dot(normalize(surfaceToLight), surfaceNormal);
+        return color; // TODO
     }
 };
 

@@ -1,7 +1,9 @@
-#include "aZeroEditor.hpp"
-#include "RenderWindow.hpp"
+#include "aZeroEngine/Engine.hpp"
 
-#include "apiExamples.hpp"
+#include "src/RenderWindow.hpp"
+#include "src/apiExamples.hpp"
+#include "src/EditorGUI.hpp"
+#include "assets/AssetManager.hpp"
 
 #ifdef RUN_TESTS
 #include "tests/Tests.hpp"
@@ -16,8 +18,6 @@ extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
 
 using namespace aZero;
-
-#define USE_DEBUG true
 
 int main(int argc, char* argv[])
 {
@@ -68,80 +68,18 @@ int main(int argc, char* argv[])
 		auto dsv = renderer.CreateDepthStencilTarget(Rendering::DepthStencilTarget::Desc(width, height, 1, 0, true, true));
 		//
 
-		Asset::Mesh mesh(0);
-		Asset::Material material(0);
-		Asset::Texture albedo(0);
-		Asset::Texture normalMap(1);
-		LoadAssets(engine, mesh, material, albedo, normalMap);
-		
-		Scene::SceneNew scene = engine.CreateScene();
-		CreateScene(scene, mesh, material, { (float)width, (float)height });
+		Input::KeyboardListener keyboardListener;
+		Scene::Scene scene = engine.CreateScene(true);
+		Example::Setup(engine, scene, { (float)width, (float)height }, rtv, dsv, window, keyboardListener);
 		//
 
 		renderer.FlushFrameAllocations();
-		
-		ECS::Entity camEnt2 = scene.GetEntity("CameraEntity2").value();
-		ECS::CameraComponent& cam2 = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt2);
-		cam2.m_RenderTarget = &rtv;
-		cam2.m_DepthStencilTarget = &dsv;
-		cam2.m_Position = { -10, 0, -15 };
-		cam2.m_IsActive = false;
-		scene.MarkRenderStateDirty(camEnt2, aZero::Scene::SceneNew::ComponentFlag());
-
-		ECS::Entity camEnt = scene.GetEntity("CameraEntity").value();
-		ECS::CameraComponent& cam = *scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(camEnt);
-		cam.m_RenderTarget = &rtv;
-		cam.m_DepthStencilTarget = &dsv;
-		JPH::BoxShapeSettings cameraCollider(JPH::Vec3(1, 1, 1));
-		JPH::BodyCreationSettings cameraColliderSettings(cameraCollider.Create().Get(), JPH::RVec3(0.0, 0.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Kinematic, Physics::Layers::DYNAMIC);
-		cameraColliderSettings.mPosition = JPH::RVec3(Math::Convert(cam.m_Position));
-		scene.AddComponent(camEnt, ECS::RigidbodyComponent(cameraColliderSettings));
-		scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
-		{
-			auto* rb = scene.m_ComponentManager.GetComponent<aZero::ECS::RigidbodyComponent>(camEnt);
-			rb->SetOnBodyActivated([camEnt] {std::cout << camEnt.GetID() << " activated!\n"; });
-			rb->SetOnBodyDeactivated([camEnt] {std::cout << camEnt.GetID() << " deactivated!\n"; });
-			rb->SetOnContactAdded([camEnt, &scene](aZero::Physics::Body& body, const JPH::ContactManifold& man, const JPH::ContactSettings& sett) {
-				std::cout << "Entity " << camEnt.GetID() << " had contact with entity " << scene.GetEntityFromBody(body).value().GetID() << "\n";
-				});
-		}
-
-		bool showGrid = true;
-		bool showColliders = true;
-
-		Input::KeyboardListener listener = window.GetDeviceManager().ListenKeyboard({
-			[&window, &scene, &showGrid, &showColliders](const SDL_Event& event, Input::Keyboard& keyboard) {
-				if (event.type == SDL_EVENT_KEY_DOWN)
-				{
-					if (event.key.key == SDLK_RETURN)
-						window.Close();
-
-					if (event.key.key == SDLK_R)
-					{
-						auto resetEntity = scene.GetEntity("resetEntity").value();
-						ECS::RigidbodyComponent& rbDropping = *scene.m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(resetEntity);
-						rbDropping.GetBody().SetPosition(JPH::Vec3(0, 50, 0), JPH::EActivation::Activate);
-						rbDropping.GetBody().SetRotation(JPH::Quat::sEulerAngles(JPH::Vec3(0.5, 0.5, 0).Normalized()), JPH::EActivation::Activate);
-					}
-
-					if (event.key.key == SDLK_C)
-					{
-						showColliders = !showColliders;
-					}
-
-					if (event.key.key == SDLK_G)
-					{
-						showGrid = !showGrid;
-					}
-				}
-			},
-			[](const SDL_Event& event, Input::Keyboard& keyboard) { }
-			});
 
 		int frame = 0;
 
-		constexpr int gridOffset = 5;
-		constexpr int gridDimensions = 200;
+		aZero::ImGui_Wrapper::Init(renderer, window.GetSDLWindow());
+
+		Editor::GUI::EditorGUI editorGUI(window.GetDeviceManager(), renderer.GetWireframeRenderer());
 
 		while (window.IsOpen())
 		{
@@ -154,77 +92,35 @@ int main(int argc, char* argv[])
 				// Do some stuff while waiting, ex. queue physics calcs on a seperate thread
 			}
 
+			aZero::ImGui_Wrapper::BeginFrame();
+
 			if (frame % 3 == 0)
 			{
 				scene.UpdatePhysics(true);
 			}
 
-			// Camera controls
-			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_W))
-			{
-				cam.m_Position += DXM::Vector3(0, 0, 0.01f);
-			}
+			editorGUI.Update(scene);
 
-			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_S))
-			{
-				cam.m_Position += DXM::Vector3(0, 0, -0.03f);
-			}
+			Example::ControlCamera(keyboardListener, scene);
 
-			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_D))
-			{
-				cam.m_Position += DXM::Vector3(-0.01f, 0, 0);
-			}
-
-			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_A))
-			{
-				cam.m_Position += DXM::Vector3(0.01f, 0, 0);
-			}
-
-			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_SPACE))
-			{
-				cam.m_Position += DXM::Vector3(0, 0.01f, 0);
-			}
-
-			if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_LSHIFT))
-			{
-				cam.m_Position += DXM::Vector3(0, -0.01f, 0);
-			}
-
-			{
-				ECS::RigidbodyComponent& camBody = *scene.m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(camEnt);
-				camBody.GetBody().SetPosition(Math::Convert(cam.m_Position), JPH::EActivation::Activate);
-			}
-
-			scene.MarkRenderStateDirty(camEnt, aZero::Scene::SceneNew::ComponentFlag());
-			//
-
-			// Rendering the scene
 			renderer.Render(scene);
+			
+			renderer.RenderWireframes(*scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(scene.GetEntity("CameraEntity").value()), rtv, dsv);
 
-			if (showGrid)
-			{
-				Rendering::WireframeShape::LineShape gridLines;
-				for (int i = -gridDimensions; i < gridDimensions; i += gridOffset)
-				{
-					gridLines.m_Lines.emplace_back(Rendering::WireframeShape::Line(DXM::Vector3(-gridDimensions, 0, i), DXM::Vector3(gridDimensions, 0, i), DXM::Vector3(70, 70, 70)));
-					gridLines.m_Lines.emplace_back(Rendering::WireframeShape::Line(DXM::Vector3(i, 0, -gridDimensions), DXM::Vector3(i, 0, gridDimensions), DXM::Vector3(70, 70, 70)));
-				}
-
-				renderer.GetWireframeRenderer().AddShape(gridLines);
-			}
-
-			scene.AddDebugDrawArguments(renderer.GetWireframeRenderer(), showColliders, false);
-			renderer.RenderWireframes(cam, rtv, dsv);
-
+			editorGUI.Render(renderer, rtv);
+			
 			renderer.CopyRenderTargetToSwapChain(window.GetSwapChain(), rtv);
 
-			// Declares end of current frame
 			renderer.EndFrame();
 
 			window.Present();
 		}
 
 		renderer.FlushGPU();
+
+		ImGui_ImplDX12_Shutdown();
+		ImGui_ImplSDL3_Shutdown();
+		ImGui::DestroyContext();
 	}
 	catch (std::invalid_argument& e)
 	{

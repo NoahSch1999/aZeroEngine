@@ -39,6 +39,7 @@ Output main(VertexOut pin)
     {
         const Texture2D<float4> normalMap = ResourceDescriptorHeap[material.NormalMap];
         fragmentNormal = normalMap.Sample(samplerState, pin.UV).xyz;
+        //fragmentNormal.y = -fragmentNormal.y;
         fragmentNormal = normalize(fragmentNormal * 2.f - 1.f);
         fragmentNormal = normalize(mul(fragmentNormal, pin.TBN));
     }
@@ -51,17 +52,20 @@ Output main(VertexOut pin)
 #endif
     
     // TODO: Calc lighting
-    float3 dir = float3(0, -3, 1);
-    dir = normalize(dir);
+    surfaceColor = float3(0, 0, 0);
+    float3 ambient = float3(0.4, 0.4, 0.4);
+    surfaceColor *= ambient;
     
-    float intensity = dot(-dir, fragmentNormal) * 4;
-    float3 lightColor = float3(1, 1, 1) * intensity;
-    
-    float3 ambient = float3(0.1, 0.1, 0.1);
-    surfaceColor += ambient * lightColor;
+    PointLight p;
+    p.Color = float3(1, 0, 0);
+    p.Position = float3(0, 2, -3);
+    p.Intensity = 1.f;
+    surfaceColor += p.CalculateLighting_BlinnPhong(pin.Position.xyz, fragmentNormal, float3(0, 0, 0));
     
     Output output;
-    output.color = float4(surfaceColor, 1.f);
+    // convert from [-1,1] to [0,1]
+    output.color = float4(surfaceColor, 1); // normal
     //output.color = float4(pin.MeshletColor, 1.f);
+    
     return output;
 }

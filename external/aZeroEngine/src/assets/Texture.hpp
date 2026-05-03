@@ -25,13 +25,8 @@ namespace aZero
 		public:
 
 			Texture() = default;
-			Texture(AssetID id)
-				: AssetBase(id)
-			{
 
-			}
-
-			bool Load(const std::string& filePath, DXGI_FORMAT format);
+			bool LoadFromFile(const std::string& filePath, DXGI_FORMAT format);
 
 			const TextureData& GetData() {
 				return m_Data;

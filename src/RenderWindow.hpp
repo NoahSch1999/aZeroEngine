@@ -3,8 +3,7 @@
 #include "aZeroInput.hpp"
 #include "graphics_api/SwapChain.hpp"
 #include "renderer/Renderer.hpp"
-
-LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+#include "ImguiInclude.hpp"
 
 class RenderWindow : public aZero::Window::Window_Win32 {
 public:
@@ -13,7 +12,7 @@ public:
 		:Window_Win32(desc), di_Renderer(&renderer)
 	{
 		m_SwapChain = aZero::RenderAPI::SwapChain(this->GetNativeHandle(), renderer.GetGraphicsCommandQueue(), { static_cast<float>(desc.rect.w), static_cast<float>(desc.rect.h) }, renderer.GetBufferingCount(), DXGI_FORMAT_R8G8B8A8_UNORM);
-
+		
 		UINT latency = 2;
 		m_SwapChain.Get()->GetMaximumFrameLatency(&latency);
 		m_WaitableHandle = m_SwapChain.Get()->GetFrameLatencyWaitableObject();
@@ -35,12 +34,11 @@ public:
 
 private:
 	void PollEventImpl(const SDL_Event& event) final {
-		if (event.key.type == SDL_EVENT_KEY_DOWN) {
-			if (event.key.key == SDLK_ESCAPE) {
-				this->Close(); // Close window
-			}
-		}
 
+		if (event.type == SDL_EVENT_QUIT) {
+			this->Close();
+		}
+		ImGui_ImplSDL3_ProcessEvent(&event);
 		m_DeviceManager.ProcessEvent(event);
 	}
 

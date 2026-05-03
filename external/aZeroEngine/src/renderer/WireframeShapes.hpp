@@ -1,4 +1,6 @@
 #pragma once
+#include <array>
+
 #include "graphics_api/D3D12Include.hpp"
 
 namespace aZero
@@ -122,7 +124,7 @@ namespace aZero
                     const DXM::Matrix world = DXM::Matrix::CreateFromQuaternion(rotation) * DXM::Matrix::CreateTranslation(center);
                     for (auto& p : points)
                     {
-                        p *= DXM::Vector3(1.002f);
+                        p *= DXM::Vector3(1.01f);
                         p = DXM::Vector3::Transform(p, world);
                     }
 

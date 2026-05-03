@@ -50,6 +50,7 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 	// todo Make this a setting
 	CD3DX12_RASTERIZER_DESC rasterDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	rasterDesc.CullMode = D3D12_CULL_MODE_NONE;
+	rasterDesc.FrontCounterClockwise = true;
 	stream.RasterizerState = rasterDesc;
 
 	// todo Make this a setting
@@ -58,10 +59,17 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 	// todo Make this a setting
 	stream.SampleMask = std::numeric_limits<uint32_t>::max();
 
-
 	if (pixelShader.has_value())
 	{
-		stream.DepthStencil = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+		D3D12_DEPTH_STENCIL_DESC depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+		depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+		if (description.m_DepthStencil.m_Format == DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
+		{
+			depthStencilDesc.DepthEnable = false;
+		}
+
+		CD3DX12_DEPTH_STENCIL_DESC cddepthStencilDesc(depthStencilDesc);
+		stream.DepthStencil = cddepthStencilDesc;
 
 		Pipeline::PixelShader& ps = *pixelShader.value();
 		stream.PS = {

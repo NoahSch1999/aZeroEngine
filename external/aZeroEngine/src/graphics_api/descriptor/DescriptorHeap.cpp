@@ -58,7 +58,7 @@ aZero::RenderAPI::DescriptorHeap& aZero::RenderAPI::DescriptorHeap::operator=(De
 	return *this;
 }
 
-aZero::RenderAPI::Descriptor aZero::RenderAPI::DescriptorHeap::CreateDescriptor()
+aZero::RenderAPI::Descriptor aZero::RenderAPI::DescriptorHeap::CreateDescriptor(bool destroyOnScope)
 {
 	const DescriptorIndex descriptorIndex = m_Freelist.New();
 	if (descriptorIndex >= m_Heap->GetDesc().NumDescriptors)
@@ -75,7 +75,7 @@ aZero::RenderAPI::Descriptor aZero::RenderAPI::DescriptorHeap::CreateDescriptor(
 		gpuHandle.ptr = m_GpuHeapStart.ptr + descriptorIndex * m_DescriptorSize;
 	}
 
-	return Descriptor(cpuHandle, gpuHandle, descriptorIndex, this);
+	return Descriptor(cpuHandle, gpuHandle, descriptorIndex, this, destroyOnScope);
 }
 
 D3D12_DESCRIPTOR_HEAP_TYPE aZero::RenderAPI::DescriptorHeap::GetType() const
