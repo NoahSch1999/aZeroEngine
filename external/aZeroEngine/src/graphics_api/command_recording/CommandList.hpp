@@ -28,6 +28,14 @@ namespace aZero
 			bool IsInitiated() const { return m_Allocator != nullptr; }
 			bool IsRecording() const { return m_IsRecording; }
 
+			void SetGraphicsRootShaderResourceViewSafe(uint32_t rootParameterIndex, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())
+				{
+					m_CommandList->SetGraphicsRootShaderResourceView(rootParameterIndex, address);
+				}
+			}
+
 			void SetGraphicsRoot32BitConstantsSafe(uint32_t rootParameterIndex, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues)
 			{
 				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())

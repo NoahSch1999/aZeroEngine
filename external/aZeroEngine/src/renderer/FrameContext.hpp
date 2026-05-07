@@ -74,9 +74,9 @@ namespace aZero
 			}
 
 			FrameContext() = default;
-			FrameContext(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
+			FrameContext(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler, uint32_t maxInstances)
 			{
-				this->Init(device, resourceHeap, recycler);
+				this->Init(device, resourceHeap, recycler, maxInstances);
 			}
 
 			FrameContext(FrameContext&&) noexcept {
@@ -85,13 +85,13 @@ namespace aZero
 			FrameContext& operator=(FrameContext&&) noexcept = default;
 
 			// TODO: Support dynamic resizing, or atleast easy resizing
-			void Init(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler)
+			void Init(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler, uint32_t maxInstances)
 			{
 				const uint32_t frameBufferSize = 1000000;
 				m_FrameAllocator = LinearFrameAllocator(device, frameBufferSize, recycler);
 
 				RenderAPI::Buffer::Desc primitiveBufferDesc(0, D3D12_HEAP_TYPE_UPLOAD);
-				primitiveBufferDesc.NumBytes = sizeof(GPUProxy::StaticMesh) * 100000;
+				primitiveBufferDesc.NumBytes = sizeof(GPUProxy::StaticMesh) * maxInstances;
 				m_StaticMeshBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 
 				//primitiveBufferDesc.NumBytes = sizeof(GPUProxy::PointLight) * 1000;
@@ -108,7 +108,7 @@ namespace aZero
 				m_CopyCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COPY);
 				m_ComputeCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
 
-				m_StaticMeshDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_StaticMeshBuffer, 100000, sizeof(GPUProxy::StaticMesh), 0);
+				m_StaticMeshDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_StaticMeshBuffer, maxInstances, sizeof(GPUProxy::StaticMesh), 0);
 
 				//m_PointLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_PointLightBuffer, 1000, sizeof(Scene::RenderData::PointLight), 0);
 				//m_SpotLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_SpotLightBuffer, 1000, sizeof(Scene::RenderData::SpotLight), 0);

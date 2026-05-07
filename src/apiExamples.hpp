@@ -43,8 +43,8 @@ namespace Example {
 		}
 
 		{
-			for (int i = 0; i < 4; i+=3) {
-				for (int j = 0; j < 4; j += 3)
+			for (int i = 0; i < 1; i+=3) {
+				for (int j = 0; j < 300; j += 3)
 				{
 					flecs::entity ent = scene.GetEntityWorld().entity().is_a(scene.GetStaticMeshPrefab());
 					std::string name = std::string("Mesh") + std::to_string(i) + std::to_string(j);
@@ -82,8 +82,8 @@ namespace Example {
 				{
 					if (event.key.key == SDLK_R)
 					{
-						flecs::entity ent = scene.GetEntityWorld().lookup("Mesh00");
-						ent.get_mut<Component::Rigidbody>().GetBody().SetPosition(Math::Convert(DXM::Vector3(0, 100, 0)), JPH::EActivation::Activate);
+						//flecs::entity ent = scene.GetEntityWorld().lookup("Mesh00");
+						//ent.get_mut<Component::Rigidbody>().GetBody().SetPosition(Math::Convert(DXM::Vector3(0, 100, 0)), JPH::EActivation::Activate);
 					}
 				}
 			}

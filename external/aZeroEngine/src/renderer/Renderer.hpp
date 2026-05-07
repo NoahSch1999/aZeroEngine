@@ -58,7 +58,7 @@ namespace aZero
 			bool TryBeginFrame();
 			void EndFrame();
 
-			void Render_New(const Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget);
+			void Render(const Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget);
 
 			void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget);
 
@@ -114,13 +114,14 @@ namespace aZero
 				uint32_t spotLightBufferIndex, 
 				uint32_t directionalLightBufferIndex);
 
-			uint32_t MAX_INSTANCES = 1000; // TODO: Make configurable
-			uint32_t MAX_MESHLETS = 100000; // TODO: Make configurable
+			uint32_t MAX_INSTANCES = 1000000; // TODO: Make configurable
+			uint32_t MAX_MESHLETS = 1000000; // TODO: Make configurable
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
 			RenderAPI::Buffer m_MeshletDrawArgumentBuffer;
 			RenderAPI::UnorderedAccessView m_MeshletDrawArgumentUAV;
 			RenderAPI::Buffer m_MeshletInstanceBuffer;
 			RenderAPI::UnorderedAccessView m_MeshletInstanceUAV;
+			RenderAPI::ShaderResourceView m_MeshletInstanceSRV;
 			Pipeline::MeshShaderPass m_MeshletDrawPass;
 			Pipeline::MeshShader m_MeshletDrawMS;
 			Pipeline::PixelShader m_MeshletDrawPS;

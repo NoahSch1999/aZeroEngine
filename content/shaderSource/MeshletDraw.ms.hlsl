@@ -3,9 +3,9 @@
 
 ConstantBuffer<BindingConstants> Bindings : register(b0);
 
-uint3 GetPrimitive(Meshlet meshlet, uint localIndex, StructuredBuffer<uint> primitives)
+uint3 GetPrimitive(uint primOffset, uint localIndex, StructuredBuffer<uint> primitives)
 {
-    const uint primitive = primitives[meshlet.PrimOffset + localIndex];
+    const uint primitive = primitives[primOffset + localIndex];
     uint ch1, ch2, ch3;
     ch1 = (primitive & 0x000000ff);
     ch2 = (primitive & 0x0000ff00) >> 8;
@@ -13,9 +13,9 @@ uint3 GetPrimitive(Meshlet meshlet, uint localIndex, StructuredBuffer<uint> prim
     return uint3(ch1, ch2, ch3);
 }
 
-uint GetVertexIndex(Meshlet meshlet, uint localIndex, StructuredBuffer<uint> indices)
+uint GetVertexIndex(uint vertOffset, uint localIndex, StructuredBuffer<uint> indices)
 {
-    localIndex = meshlet.VertOffset + localIndex;
+    localIndex = vertOffset + localIndex;
     return indices[localIndex];
 }
 
@@ -57,55 +57,46 @@ float3 HashColor(uint id)
     return float3(r, g, b);
 }
 
-[NumThreads(126, 1, 1)]
+[NumThreads(88, 1, 1)]
 [OutputTopology("triangle")]
 void main(
     uint gtid : SV_GroupThreadID,
     uint gid : SV_GroupID,
     uint dtid : SV_DispatchThreadID,
     out vertices VertexOut verts[64],
-    out indices uint3 tris[126]
+    out indices uint3 tris[84]
 )
 {
-    RWStructuredBuffer<MeshletCulling_To_MeshShader_Data> meshletInstanceBuffer = ResourceDescriptorHeap[Bindings.MeshletInstanceBuffer];
+    StructuredBuffer<MeshletCulling_To_MeshShader_Data> meshletInstanceBuffer = ResourceDescriptorHeap[Bindings.MeshletInstanceBuffer];
     
     MeshletCulling_To_MeshShader_Data meshletInfo = meshletInstanceBuffer[gid];
     
-    const StructuredBuffer<InstanceData> instances = ResourceDescriptorHeap[Bindings.InstanceBuffer];
-    const InstanceData instance = instances[meshletInfo.InstanceID];
-    
     min16uint meshIndex, materialIndex;
-    UnpackBatchID(instance.BatchID, meshIndex, materialIndex);
+    UnpackBatchID(meshletInfo.BatchID, meshIndex, materialIndex);
     
-    const StructuredBuffer<Mesh> meshes = ResourceDescriptorHeap[Bindings.MeshBuffer];
-    const Mesh mesh = meshes[meshIndex];
+    SetMeshOutputCounts(meshletInfo.VertCount, meshletInfo.PrimCount);
     
-    const StructuredBuffer<Meshlet> meshlets = ResourceDescriptorHeap[mesh.MeshletBuffer];
-    const Meshlet meshlet = meshlets[meshletInfo.LocalMeshletIndex];
-    
-    const StructuredBuffer<VertexPosition> vertexPositionBuffer = ResourceDescriptorHeap[mesh.PositionBuffer];
-    const StructuredBuffer<GenericVertexData> genericVertexDataBuffer = ResourceDescriptorHeap[mesh.VertexDataBuffer];
-    const StructuredBuffer<uint> indicesBuffer = ResourceDescriptorHeap[mesh.IndicesBuffer];
-    const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[mesh.PrimitiveBuffer];
+    const StructuredBuffer<VertexPosition> vertexPositionBuffer = ResourceDescriptorHeap[meshletInfo.PositionBuffer];
+    const StructuredBuffer<GenericVertexData> genericVertexDataBuffer = ResourceDescriptorHeap[meshletInfo.VertexDataBuffer];
+    const StructuredBuffer<uint> indicesBuffer = ResourceDescriptorHeap[meshletInfo.IndicesBuffer];
+    const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[meshletInfo.PrimitiveBuffer];
    
     const StructuredBuffer<CameraData> CameraBuffer = ResourceDescriptorHeap[Bindings.CameraBuffer];
     const CameraData camera = CameraBuffer[Bindings.CameraID];
     const float4x4 vpMatrix = mul(camera.Projection, camera.View);
     
-    SetMeshOutputCounts(meshlet.VertCount, meshlet.PrimCount);
-    
-    if (gtid < meshlet.PrimCount)
+    if (gtid < meshletInfo.PrimCount)
     {
-        tris[gtid] = GetPrimitive(meshlet, gtid, primitiveBuffer);
+        tris[gtid] = GetPrimitive(meshletInfo.PrimOffset, gtid, primitiveBuffer);
     }
     
-    if (gtid < meshlet.VertCount)
+    if (gtid < meshletInfo.VertCount)
     {
-        uint vertexIndex = GetVertexIndex(meshlet, gtid, indicesBuffer);
-        verts[gtid] = GetVertex(vertexIndex, vpMatrix, vertexPositionBuffer, genericVertexDataBuffer, instance.Transform, materialIndex);
+        uint vertexIndex = GetVertexIndex(meshletInfo.VertOffset, gtid, indicesBuffer);
+        verts[gtid] = GetVertex(vertexIndex, vpMatrix, vertexPositionBuffer, genericVertexDataBuffer, meshletInfo.Transform, materialIndex);
         
         // TODO: Make setting
-        float3 meshletColor = HashColor(meshletInfo.LocalMeshletIndex);
-        verts[gtid].MeshletColor = meshletColor;
+        //float3 meshletColor = HashColor(meshletInfo.LocalMeshletIndex);
+        verts[gtid].MeshletColor = float3(1, 1, 1);
     }
 }

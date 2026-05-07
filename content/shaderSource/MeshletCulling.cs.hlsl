@@ -40,8 +40,19 @@ void main(uint3 dtid : SV_DispatchThreadID)
             uint meshletInstanceIndex;
             InterlockedAdd(indirectArgumentsBuffer[0].GroupsX, 1, meshletInstanceIndex);
 
-            meshletInstanceBuffer[meshletInstanceIndex].InstanceID = Instance.ID;
-            meshletInstanceBuffer[meshletInstanceIndex].LocalMeshletIndex = dtid.x;
+            meshletInstanceBuffer[meshletInstanceIndex].Transform = instance.Transform;
+            meshletInstanceBuffer[meshletInstanceIndex].BatchID = instance.BatchID;
+            
+            meshletInstanceBuffer[meshletInstanceIndex].VertCount = meshlet.VertCount;
+            meshletInstanceBuffer[meshletInstanceIndex].VertOffset = meshlet.VertOffset;
+            meshletInstanceBuffer[meshletInstanceIndex].PrimCount = meshlet.PrimCount;
+            meshletInstanceBuffer[meshletInstanceIndex].PrimOffset = meshlet.PrimOffset;
+            
+            meshletInstanceBuffer[meshletInstanceIndex].PrimitiveBuffer = mesh.PrimitiveBuffer;
+            meshletInstanceBuffer[meshletInstanceIndex].IndicesBuffer = mesh.IndicesBuffer;
+            meshletInstanceBuffer[meshletInstanceIndex].PositionBuffer = mesh.PositionBuffer;
+            meshletInstanceBuffer[meshletInstanceIndex].VertexDataBuffer = mesh.VertexDataBuffer;
+
         }
     }
 }

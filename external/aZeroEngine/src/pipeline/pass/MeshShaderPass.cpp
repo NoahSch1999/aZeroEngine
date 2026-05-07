@@ -49,7 +49,7 @@ bool aZero::Pipeline::MeshShaderPass::CreatePipelineState(ID3D12DeviceX* device,
 
 	// todo Make this a setting
 	CD3DX12_RASTERIZER_DESC rasterDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	rasterDesc.CullMode = D3D12_CULL_MODE_NONE;
+	rasterDesc.CullMode = D3D12_CULL_MODE_BACK;
 	rasterDesc.FrontCounterClockwise = true;
 	stream.RasterizerState = rasterDesc;
 

@@ -34,7 +34,7 @@ namespace aZero
 			m_FrameContexts.reserve(bufferCount);
 			for (int32_t i = 0; i < bufferCount; i++)
 			{
-				m_FrameContexts.emplace_back(device, m_ResourceHeap, m_ResourceRecycler);
+				m_FrameContexts.emplace_back(device, m_ResourceHeap, m_ResourceRecycler, MAX_INSTANCES);
 			}
 
 			m_SamplerManager = SamplerManager(device, m_SamplerHeap);
@@ -130,12 +130,23 @@ namespace aZero
 
 			struct MeshletCulling_To_MeshShader_Data
 			{
-				uint32_t InstanceID;
-				uint32_t LocalMeshletIndex;
+				DXM::Matrix Transform;
+				uint32_t BatchID;
+
+				uint32_t VertCount;
+				uint32_t VertOffset;
+				uint32_t PrimCount;
+				uint32_t PrimOffset;
+
+				uint32_t PrimitiveBuffer;
+				uint32_t IndicesBuffer;
+				uint32_t PositionBuffer;
+				uint32_t VertexDataBuffer;
 			};
 
 			m_MeshletInstanceBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(MeshletCulling_To_MeshShader_Data) * MAX_MESHLETS, D3D12_HEAP_TYPE_DEFAULT, true));
 			m_MeshletInstanceUAV = RenderAPI::UnorderedAccessView(m_diDevice, m_ResourceHeap, m_MeshletInstanceBuffer, MAX_MESHLETS, sizeof(MeshletCulling_To_MeshShader_Data), 0);
+			m_MeshletInstanceSRV = RenderAPI::ShaderResourceView(m_diDevice, m_ResourceHeap, m_MeshletInstanceBuffer, MAX_MESHLETS, sizeof(MeshletCulling_To_MeshShader_Data), 0);
 
 #ifdef USE_DEBUG
 			m_MeshletDrawArgumentBuffer.GetResource()->SetName(L"m_MeshletDrawArgumentBuffer");
@@ -230,6 +241,7 @@ namespace aZero
 
 			barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshObjectCullingBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 			cmdList->ResourceBarrier(1, &barrier);
+			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 		}
 
 		void Renderer::RecordMeshLetCullingPass(const BindingConstants& bindings)
@@ -258,6 +270,7 @@ namespace aZero
 
 			// TODO: Handle so we only dispatch up to the number of meshes that passed the first pass
 			cmdList->ExecuteIndirect(m_MeshObjectCullSignature.Get(), MAX_INSTANCES, m_MeshObjectCullingBuffer.GetResource(), 0, m_PassedMeshCountBuffer.GetResource(), 0);
+			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 		}
 
 		void Renderer::ClearRenderSurfaces(const Scene::RenderData::Camera& camera)
@@ -313,60 +326,8 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
 		}
 
-		void Renderer::RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, uint32_t pointLightBufferIndex, uint32_t spotLightBufferIndex, uint32_t directionalLightBufferIndex)
-		{
-			FrameContext& frameContext = this->GetCurrentContext();
-
-			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet drawing pass");
-
-			auto& cmdList = frameContext.m_DirectCmdList;
-
-			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-			cmdList->ResourceBarrier(1, &barrier);
-
-			std::vector<RenderAPI::Descriptor*> renderTargets;
-			if (camera.m_RenderTarget.has_value())
-			{
-				renderTargets.push_back(&camera.m_RenderTarget.value()->GetDescriptor());
-			}
-			RenderAPI::Descriptor* dsv = camera.m_DepthStencilTarget.has_value() ? &camera.m_DepthStencilTarget.value()->GetDescriptor() : nullptr;
-			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeap, m_SamplerHeap, renderTargets, camera.m_DepthStencilTarget.has_value() ? dsv : std::optional<RenderAPI::Descriptor*>());
-
-			auto msBindings = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
-			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &bindings, 0);
-
-			struct PixelShaderConstantsData
-			{
-				uint32_t SamplerIndex;
-				uint32_t MaterialBuffer;
-				uint32_t PointLightBuffer;
-				uint32_t SpotLightBuffer;
-				uint32_t DirectionalLightBuffer;
-				float Time;
-			} pixelbindings;
-
-			static float time = 0.f;
-			time += 0.0005;
-			pixelbindings.Time = time;
-
-			pixelbindings.SamplerIndex = m_SamplerManager.GetSampler(aZero::Rendering::SamplerManager::Anisotropic_8x_Wrap).GetHeapIndex();
-			pixelbindings.MaterialBuffer = m_ResourceManager.m_MaterialBufferView.GetHeapIndex();
-			pixelbindings.PointLightBuffer = pointLightBufferIndex;
-			pixelbindings.SpotLightBuffer = spotLightBufferIndex;
-			pixelbindings.DirectionalLightBuffer = directionalLightBufferIndex;
-
-			auto psConstants = m_MeshletDrawPass.GetConstantBindingIndex("PixelShaderConstants");
-			cmdList.SetGraphicsRoot32BitConstantsSafe(psConstants.GetRootIndex(), psConstants.GetNumConstants(), &pixelbindings, 0);
-
-			cmdList->RSSetScissorRects(1, &camera.m_ScizzorRect);
-			cmdList->RSSetViewports(1, &camera.m_Viewport);
-
-			cmdList->ExecuteIndirect(m_MeshletDrawSignature.Get(), 1, m_MeshletDrawArgumentBuffer.GetResource(), 0, nullptr, 0);
-			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
-		}
-
 		// TODO: Change so not only the camera at index[0] will be used.
-		void Renderer::Render_New(const Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget)
+		void Renderer::Render(const Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 
@@ -445,8 +406,10 @@ namespace aZero
 			RenderAPI::Descriptor* dsv = &depthStencilTarget.GetDescriptor();
 			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeap, m_SamplerHeap, renderTargets, dsv);
 
+			BindingConstants b = bindings;
+			b.MeshletInstanceBuffer = m_MeshletInstanceSRV.GetHeapIndex();
 			auto msBindings = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
-			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &bindings, 0);
+			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &b, 0);
 
 			struct PixelShaderConstantsData
 			{

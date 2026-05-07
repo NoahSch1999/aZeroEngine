@@ -106,11 +106,9 @@ int main(int argc, char* argv[])
 
 			editorGUI.Update(scene);
 
-			//Example::ControlCamera(keyboardListener, scene);
 			Example::ControlCamera(scene, keyboardListener);
 
-			//renderer.Render(scene);
-			renderer.Render_New(scene, rtv, dsv);
+			renderer.Render(scene, rtv, dsv);
 
 			flecs::entity camEnt = scene.GetEntityWorld().lookup("Camera");
 			wireframeRenderer.Render(camEnt.get<Component::Camera>(), camEnt.get<Component::Position>(), camEnt.get<Component::Rotation>(), rtv, dsv);

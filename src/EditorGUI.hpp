@@ -2,6 +2,7 @@
 #include "aZeroEngine/Engine.hpp"
 #include "aZeroInput.hpp"
 #include "ImguiInclude.hpp"
+#include <chrono>
 
 namespace aZero::Editor::GUI
 {
@@ -43,8 +44,22 @@ namespace aZero::Editor::GUI
 
 		void Update(Scene::Scene& scene)
 		{
+			m_FrameCount++;
+			auto now = std::chrono::high_resolution_clock::now();
+			float elapsed =
+				std::chrono::duration<float>(now - m_LastTime).count();
+
+			if (elapsed >= 1.0f)
+			{
+				m_FPS = m_FrameCount / elapsed;
+				m_FrameCount = 0;
+				m_LastTime = now;
+			}
+
 			if (m_ShowEditorGUI)
 			{
+				ImGui::Text(std::to_string(m_FPS).c_str());
+
 				// Debug settings
 				ImGui::Begin("Debug");
 
@@ -136,6 +151,11 @@ namespace aZero::Editor::GUI
 		}
 
 	private:
+		uint64_t m_FrameCount = 0;
+		float m_FPS = 0.f;
+		std::chrono::high_resolution_clock::time_point m_LastTime =
+			std::chrono::high_resolution_clock::now();
+
 		bool m_ShowEditorGUI = true;
 		bool m_ShowColliders = false;
 		bool m_ShowMeshBounds = false;

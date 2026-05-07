@@ -15,7 +15,7 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 )
 {
 	const size_t max_vertices = 64;
-	const size_t max_triangles = 126;
+	const size_t max_triangles = 84;
 
 	const size_t max_meshlets = meshopt_buildMeshletsBound(
 		positions.size(), max_vertices, max_triangles);
