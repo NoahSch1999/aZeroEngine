@@ -103,6 +103,16 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(joltPhysics)
 #
 
+# Flecs
+FetchContent_Declare(
+    flecs
+    GIT_REPOSITORY https://github.com/SanderMertens/flecs.git
+    GIT_TAG master
+)
+ 
+FetchContent_MakeAvailable(flecs)
+#
+
 # aZero Audio
 FetchContent_Declare(
     aZeroAudio
@@ -146,7 +156,7 @@ file(GLOB ENGINE_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.hpp"
 )
 
-add_library(aZeroEngine
+add_library(${PROJECT_NAME}
     "src/misc/HelperFunctions.cpp"
     "src/misc/STBIHack.cpp"
     "src/renderer/Renderer.cpp"
@@ -175,22 +185,22 @@ add_library(aZeroEngine
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
     "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp" "src/ecs/components/ColliderComponent.cpp" "src/renderer/WireframeRenderer.cpp")
 
-target_sources(aZeroEngine PUBLIC ${ENGINE_HEADERS})
+target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS})
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_definitions(aZeroEngine PUBLIC USE_DEBUG USE_PIX)
-    target_compile_options(aZeroEngine PRIVATE -O0 -g)   # Disable optimization, enable debug info
+    target_compile_definitions(${PROJECT_NAME} PUBLIC USE_DEBUG USE_PIX)
+    target_compile_options(${PROJECT_NAME} PRIVATE -O0 -g)   # Disable optimization, enable debug info
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(aZeroEngine PRIVATE -O3)      # Full optimization
+    target_compile_options(${PROJECT_NAME} PRIVATE -O2)      # Full optimization
 endif()
 
 # PRE-PROCESSOR SETTINGS
-target_compile_definitions(aZeroEngine PUBLIC 
+target_compile_definitions(${PROJECT_NAME} PUBLIC 
     PROJECT_DIRECTORY="${PROJECT_DIRECTORY}"
     NOMINMAX
 )
 
-target_include_directories(aZeroEngine
+target_include_directories(${PROJECT_NAME}
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-sparse-set-src/src/include
@@ -199,12 +209,12 @@ target_include_directories(aZeroEngine
     PUBLIC ${winpix_SOURCE_DIR}/Include
 )
 
-target_link_directories(aZeroEngine
+target_link_directories(${PROJECT_NAME}
     PUBLIC ${winpix_SOURCE_DIR}/bin/x64
 )
 
 # Linking
-target_link_libraries(aZeroEngine 
+target_link_libraries(${PROJECT_NAME} 
     PUBLIC d3d12
     PUBLIC dxgi
     PUBLIC DirectX-Headers
@@ -217,6 +227,7 @@ target_link_libraries(aZeroEngine
     PUBLIC meshoptimizer
     PUBLIC Jolt
     PUBLIC WinPixEventRuntime
+    PUBLIC flecs::flecs_static
     #PUBLIC DXGIDebug.dll
 )
 #

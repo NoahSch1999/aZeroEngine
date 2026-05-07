@@ -4,8 +4,15 @@
 #include "misc/HelperFunctions.hpp"
 #include "misc/SparseSet.hpp"
 
+#include "renderer/SceneRenderData_New.hpp"
+
 namespace aZero
 {
+	namespace Asset
+	{
+		class AssetManager;
+	}
+
 	namespace Physics
 	{
 		class PhysicsEngine;
@@ -22,266 +29,60 @@ namespace aZero
 	{
 		using SceneID = uint32_t;
 
+		/*  ------------------------------------------------------------
+									WARNING!
+			The app will crash if the entity is destroyed or a rigidbody component is removed before unregistered using ::UnregisterFromPhysics().
+			The design choice is questionable, but this keeps the API clean...
+			------------------------------------------------------------
+		*/
 		class Scene
 		{
-			friend class Engine;
 		public:
-			enum class ComponentFlag
-			{
-				Transform = 0,
-				StaticMesh = 1,
-				DirectionalLight = 2,
-				PointLight = 3,
-				SpotLight = 4,
-				Camera = 5,
-
-				All = 1337,
-				None = 1338
-			};
-
-			bool Save(const std::string& filePath);
-
-			bool Load(const std::string& filePath);
-
-			SceneProxy* GetProxy() const { return m_Proxy.get(); }
-
-			SceneID GetSceneID() const { return m_SceneID; }
-
-			void UpdatePhysics(bool applyImmediate = true);
-
-			void ResolveCollisionEvents();
-
-			void OptimizePhysics();
-
-			void ApplyPhysics();
-
-			void AddDebugDrawArguments(Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
-
 			Scene();
+			Scene(Physics::PhysicsEngine& physicsEngine);
+			~Scene();
 
-			ECS::Entity AddEntity()
-			{
-				ECS::Entity entity = m_EntityManager.CreateEntity();
-				std::string newName = Helper::HandleNameCollision(this->GenerateEntityName(), m_Entities);
-				m_Entities[newName] = entity;
-				m_Entity_To_Name[entity.GetID()] = newName;
-				m_ComponentManager.AddComponent(entity, aZero::ECS::TransformComponent(entity));
-				
-				this->ParentEntity(m_RootEntity, entity);
+			flecs::world& GetEntityWorld() { return m_World; }
+			SceneID GetSceneID() const { return m_SceneID; }
+			flecs::entity GetStaticMeshPrefab() const { return m_StaticMeshPrefab; }
+			flecs::entity GetRigidbodyStaticMeshPrefab() const { return m_RigidbodyStaticMeshPrefab; }
+			flecs::entity GetCameraPrefab() const { return m_CameraPrefab; }
 
-				return entity;
-			}
+			std::tuple<std::vector<Rendering::GPUProxy::StaticMesh>, std::vector<Rendering::GPUProxy::Camera>, std::vector<Rendering::GPUProxy::Camera::RasterInfo>> GetWorldRenderData() const;
 
-			void RemoveEntity(const std::string& entity)
-			{
-				this->RemoveEntity(m_Entities.at(entity));
-			}
-
-			void RemoveEntity(const ECS::Entity& entity)
-			{
-
-			}
-
-			template<typename ComponentType>
-			void AddComponent(const ECS::Entity& entity, ComponentType&& component)
-			{
-				// Add the component to ecs
-				
-				// Remove the component if the entity is in m_DirtyEntities and the component is flagged in m_RemovedFlag
-
-				// TODO: Cleanup and make it safe
-				if constexpr (std::is_same_v<ComponentType, ECS::RigidbodyComponent>)
-				{
-					if (!m_PhysicsWorld.get())
-						return;
-
-					m_ComponentManager.AddComponent(entity, component);
-					ECS::RigidbodyComponent* rb = m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(entity);
-					this->AddRigidbody(entity, rb);
-				}
-				else
-				{
-					m_ComponentManager.AddComponent(entity, component);
-				}
-			}
-
-			template<typename ComponentType>
-			void RemoveComponent(const ECS::Entity& entity)
-			{
-				// Remove the component from ecs
-				
-				// Add entity to m_DirtyEntities and modify the component flag in m_RemovedFlag
-
-				// TODO: Cleanup and make it safe
-				if constexpr (std::is_same_v<ComponentType, ECS::RigidbodyComponent>)
-				{
-					if (!m_PhysicsWorld.get())
-						return;
-
-					ECS::RigidbodyComponent* rb = m_ComponentManager.GetComponent<ECS::RigidbodyComponent>(entity);
-					if (rb)
-					{
-						this->RemoveRigidbody(rb);
-						m_ComponentManager.RemoveComponent<ECS::RigidbodyComponent>(entity);
-					}
-				}
-				else
-				{
-					m_ComponentManager.RemoveComponent<ComponentType>(entity);
-				}
-			}
-
-			template<typename ComponentType>
-			void HasComponent(const ECS::Entity& entity) const
-			{
-				return m_ComponentManager.HasComponent<ComponentType>(entity);
-			}
-
-			void MarkRenderStateDirty(const ECS::Entity& entity, ComponentFlag flag)
-			{
-				ECS::TransformComponent* transformComp = m_ComponentManager.GetComponent<ECS::TransformComponent>(entity);
-				DXM::Matrix entityTransform = transformComp->GetTransform();
-
-				if (m_PhysicsWorld.get())
-				{
-					ECS::ColliderComponent* colliderComponent = m_ComponentManager.GetComponent<ECS::ColliderComponent>(entity);
-					if (colliderComponent && transformComp)
-					{
-						for (auto& collider : colliderComponent->m_Colliders)
-						{
-							collider.m_Body.SetPositionAndRotation(
-								Math::Convert(entityTransform.Translation()),
-								Math::Convert(DXM::Quaternion::CreateFromRotationMatrix(entityTransform)),
-								JPH::EActivation::Activate);
-						}
-					}
-				}
-				
-				// TODO: Fix parenting transform calculations
-				//DXM::Matrix entityTransform = DXM::Matrix::Identity;
-				//if (transformComp)
-				//{
-
-				//	if (transformComp->m_ParentID.GetID() != ECS::InvalidEntityID)
-				//	{
-				//		// TODO: Go up parent chain and update transformComp accordinly
-				//		ECS::TransformComponent* parentTransfrom = m_ComponentManager.GetComponent<ECS::TransformComponent>(transformComp->m_ParentID);
-				//		entityTransform = parentTransfrom->GetTransform() * transformComp->GetTransform();
-
-				//		for (auto& child : transformComp->m_ChildrenIDs)
-				//		{
-				//			this->MarkRenderStateDirty(child, ComponentFlag());
-				//		}
-				//	}
-				//}
-
-				ECS::EntityID id = entity.GetID();
-
-				// NOTE: When we have SkeletalMeshComp we will make this if-statement be one or the other
-				ECS::StaticMeshComponent* staticMeshComp = m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity);
-				m_Proxy->UpdateStaticMesh(id, transformComp, staticMeshComp, entityTransform);
-
-				ECS::PointLightComponent* pointLightComp = m_ComponentManager.GetComponent<ECS::PointLightComponent>(entity);
-				m_Proxy->UpdatePointLight(id, pointLightComp, entityTransform);
-
-				ECS::SpotLightComponent* spotLightComp = m_ComponentManager.GetComponent<ECS::SpotLightComponent>(entity);
-				m_Proxy->UpdateSpotLight(id, spotLightComp, entityTransform);
-
-				ECS::CameraComponent* cameraComp = m_ComponentManager.GetComponent<ECS::CameraComponent>(entity);
-				m_Proxy->UpdateCamera(id, cameraComp, entityTransform);
-
-				ECS::DirectionalLightComponent* DirLightComp = m_ComponentManager.GetComponent<ECS::DirectionalLightComponent>(entity);
-				m_Proxy->UpdateDirectionalLight(id, DirLightComp);
-			}
-
-			void RenameEntity(ECS::Entity entity, const std::string& newName)
-			{
-				std::string entityName = Helper::HandleNameCollision(newName, m_Entities);
-				m_Entities[entityName] = entity;
-				m_Entities.erase(m_Entity_To_Name.at(entity.GetID()));
-				m_Entity_To_Name[entity.GetID()] = entityName;
-			}
-
-			void ParentEntity(std::optional<ECS::Entity> parent, ECS::Entity child)
-			{
-				auto& arr = m_ComponentManager.GetComponentArray<ECS::TransformComponent>();
-				ECS::TransformComponent* childComp = arr.GetComponent(child.GetID());
-				ECS::TransformComponent* parentComp = arr.GetComponent(parent.value().GetID());
-
-				if (!childComp || !parentComp)
-					return;
-
-				if (!parent.has_value())
-				{
-					ECS::TransformComponent nullComponent;
-					childComp->SetParent(nullComponent);
-				}
-
-				ECS::Entity previousParent = childComp->GetParent();
-				if (previousParent.GetID() != ECS::InvalidEntityID)
-				{
-					ECS::TransformComponent& prevParentComp = *arr.GetComponent(previousParent);
-					prevParentComp.RemoveChild(*childComp);
-				}
-
-				parentComp->AddChild(*childComp);
-			}
+			void AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
 
 			bool HasPhysics() const { return m_PhysicsWorld.get() != nullptr; }
-			std::optional<ECS::Entity> GetEntity(const std::string& name) { return m_Entities.count(name) == 1 ? m_Entities.at(name) : std::optional<ECS::Entity>{}; }
-			const std::unordered_map<std::string, ECS::Entity>& GetEntities() const { return m_Entities; }
-			std::optional<ECS::Entity> GetEntityFromBody(const aZero::Physics::Body& body) const { return m_BodyID_To_Entity.count(body.GetBodyID()) == 1 ? m_BodyID_To_Entity.at(body.GetBodyID()) : std::optional<ECS::Entity>{}; }
+			void ApplyPhysics();
+			void UpdatePhysics(bool applyImmediate = true);
+			void OptimizePhysics();
+			void RegisterToPhysics(flecs::entity entity);
+			void UnregisterFromPhysics(flecs::entity entity);
 
-			// TODO: Make these private
-			ECS::ComponentManagerDecl m_ComponentManager;
-			ECS::EntityManager m_EntityManager;
+			void UpdateTemp();
 
-			void AddRigidbody(const ECS::Entity& entity, Physics::Body& body, JPH::BodyCreationSettings& tempBodySettings);
-			void RemoveRigidbody(const Physics::Body& body);
-			//
+			void RemoveMeshesWith(Asset::RenderID withID);
+			void RemoveMeshesWithMaterial(Asset::RenderID withID);
 
+			const std::unordered_map<JPH::BodyID, flecs::entity_t>& GetBodyID_To_EntityID_Map() const { return m_BodyID_To_EntityID; } // This name...
 		private:
-			void AddRigidbody(const ECS::Entity& entity, ECS::RigidbodyComponent* rb);
-			void RemoveRigidbody(ECS::RigidbodyComponent* rb);
-
-			std::string GenerateEntityName()
-			{
-				static uint32_t nameDummy = 0;
-				return "Entity_" + std::to_string(nameDummy++);
-			}
-
 			void Init();
+			void ResolveCollisionEvents();
 
-			Scene(Physics::PhysicsEngine& physicsEngine);
+			flecs::world m_World;
 
-			/*void OnDestroy(){}
-			void CreateRenderUpdates(){}
-			void ClearRenderUpdates(){}*/
+			flecs::query<Component::Mesh, Component::Position, Component::Rotation, Component::Scale> m_StaticMeshQuery;
+			flecs::query<Component::Camera, Component::Position, Component::Rotation> m_CameraQuery;
+			flecs::query<Component::Rigidbody, Component::Position, Component::Rotation> m_ApplyPhysicsQuery;
 
-			// More mem than necessary, but quick add/remove + itteration
-			/*DS::SparseSet<ECS::EntityID, ECS::EntityID> m_NewEntities;
-			DS::SparseSet<ECS::EntityID, ECS::EntityID> m_RemovedEntities;
-
-			struct ComponentUpdateInfo
-			{
-				std::bitset<sizeof(int32_t)> m_UpdateFlag;
-				std::bitset<sizeof(int32_t)> m_RemovedFlag;
-			};
-			DS::SparseSet<ECS::EntityID, ComponentUpdateInfo> m_DirtyEntities;*/
-			//
-
-			ECS::Entity m_RootEntity;
-
-			std::unique_ptr<SceneProxy> m_Proxy;
-
-			std::unordered_map<std::string, ECS::Entity> m_Entities;
-			std::unordered_map<ECS::EntityID, std::string> m_Entity_To_Name;
+			flecs::entity m_StaticMeshPrefab;
+			flecs::entity m_RigidbodyStaticMeshPrefab;
+			flecs::entity m_CameraPrefab;
 
 			std::unique_ptr<Physics::PhysicsWorld> m_PhysicsWorld;
-			std::unordered_map<JPH::BodyID, ECS::Entity> m_BodyID_To_Entity;
+			std::unordered_map<JPH::BodyID, flecs::entity_t> m_BodyID_To_EntityID;
 
 			SceneID m_SceneID;
-
 			static inline std::atomic<SceneID> m_IncrementingID = 0;
 		};
 	}

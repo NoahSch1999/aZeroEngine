@@ -177,7 +177,6 @@ namespace aZero::Asset
 			return &m_Materials[name];
 		}
 
-		// THIS IS HORRID!!!! :P
 		// Removing assets
 		void RemoveMesh(const std::string& name)
 		{
@@ -187,15 +186,7 @@ namespace aZero::Asset
 
 				for (auto& [id, scene] : m_DependentScenes)
 				{
-					for (auto& [name, entity] : scene->GetEntities())
-					{
-						ECS::StaticMeshComponent* comp = scene->m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity);
-						if (comp->GetMesh() == mesh)
-						{
-							comp->SetMesh(nullptr);
-							scene->MarkRenderStateDirty(entity, aZero::Scene::Scene::ComponentFlag());
-						}
-					}
+					scene->RemoveMeshesWith(mesh->GetRenderID());
 				}
 
 				m_diRenderer->RemoveRenderState(m_Meshes[name]);
@@ -209,6 +200,7 @@ namespace aZero::Asset
 			{
 				Asset::Texture* texture = &m_Textures[name];
 
+				// THIS IS HORRID!!!! :P
 				for (auto& [name, material] : m_Materials)
 				{
 					bool updated = false;
@@ -243,15 +235,7 @@ namespace aZero::Asset
 
 				for (auto& [id, scene] : m_DependentScenes)
 				{
-					for (auto& [name, entity] : scene->GetEntities())
-					{
-						ECS::StaticMeshComponent* comp = scene->m_ComponentManager.GetComponent<ECS::StaticMeshComponent>(entity);
-						if (comp->GetMaterial() == material)
-						{
-							comp->SetMaterial(nullptr);
-							scene->MarkRenderStateDirty(entity, aZero::Scene::Scene::ComponentFlag());
-						}
-					}
+					scene->RemoveMeshesWithMaterial(material->GetRenderID());
 				}
 
 				m_diRenderer->RemoveRenderState(m_Materials[name]);
@@ -275,11 +259,16 @@ namespace aZero::Asset
 				m_DependentScenes.erase(scene.GetSceneID());
 			}
 		}
+		//
+
+		const std::unordered_map<std::string, Asset::Mesh>& GetAllMeshes() const { return m_Meshes; }
 
 	private:
 		Rendering::Renderer* m_diRenderer = nullptr;
 		std::unordered_map<std::string, Asset::Mesh> m_Meshes;
+
 		std::unordered_map<std::string, Asset::Texture> m_Textures;
+
 		std::unordered_map<std::string, Asset::Material> m_Materials;
 
 		std::unordered_map<Scene::SceneID, Scene::Scene*> m_DependentScenes;

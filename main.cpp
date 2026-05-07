@@ -17,7 +17,9 @@ extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
 
+#include "renderer/SceneRenderData_NEW.hpp"
 using namespace aZero;
+
 
 int main(int argc, char* argv[])
 {
@@ -49,6 +51,8 @@ int main(int argc, char* argv[])
 		// API Interfaces
 		aZero::Engine engine(3);
 		Rendering::Renderer& renderer = engine.GetRenderer();
+		Rendering::WireframeRenderer& wireframeRenderer = renderer.GetWireframeRenderer();
+		Asset::AssetManager& assetManager = engine.GetAssetManager();
 		Audio::AudioEngine& audioEngine = engine.GetAudioEngine();
 		Physics::PhysicsEngine& pEngine = engine.GetPhysicsEngine();
 		//
@@ -69,24 +73,24 @@ int main(int argc, char* argv[])
 		auto dsv = renderer.CreateDepthStencilTarget(Rendering::DepthStencilTarget::Desc(width, height, 1, 0, true, true));
 		//
 
+		aZero::ImGui_Wrapper::Init(renderer, window.GetSDLWindow());
+
+		Editor::GUI::EditorGUI editorGUI(window.GetDeviceManager(), renderer.GetWireframeRenderer(), engine.GetAssetManager());
+
 		Input::KeyboardListener keyboardListener;
-		Scene::Scene scene = engine.CreateScene(true);
+		Scene::Scene scene = engine.CreateScene_New(true);
 		Example::Setup(engine, scene, { (float)width, (float)height }, rtv, dsv, window, keyboardListener);
-		//
+
+		assetManager.RegisterScene(scene);
 
 		renderer.FlushFrameAllocations();
 
 		int frame = 0;
-
-		aZero::ImGui_Wrapper::Init(renderer, window.GetSDLWindow());
-
-		Editor::GUI::EditorGUI editorGUI(window.GetDeviceManager(), renderer.GetWireframeRenderer());
-
 		while (window.IsOpen())
 		{
 			window.Update();
+			scene.UpdateTemp();
 
-			frame++;
 			// Declares start of new frame and loops until the new frame can be rendered
 			while (!renderer.TryBeginFrame())
 			{
@@ -95,18 +99,21 @@ int main(int argc, char* argv[])
 
 			aZero::ImGui_Wrapper::BeginFrame();
 
-			if (frame % 3 == 0)
+			if (frame % 3 == 2)
 			{
 				scene.UpdatePhysics(true);
 			}
 
 			editorGUI.Update(scene);
 
-			Example::ControlCamera(keyboardListener, scene);
+			//Example::ControlCamera(keyboardListener, scene);
+			Example::ControlCamera(scene, keyboardListener);
 
-			renderer.Render(scene);
-			
-			renderer.RenderWireframes(*scene.m_ComponentManager.GetComponent<ECS::CameraComponent>(scene.GetEntity("CameraEntity").value()), rtv, dsv);
+			//renderer.Render(scene);
+			renderer.Render_New(scene, rtv, dsv);
+
+			flecs::entity camEnt = scene.GetEntityWorld().lookup("Camera");
+			wireframeRenderer.Render(camEnt.get<Component::Camera>(), camEnt.get<Component::Position>(), camEnt.get<Component::Rotation>(), rtv, dsv);
 
 			editorGUI.Render(renderer, rtv);
 			
@@ -115,6 +122,7 @@ int main(int argc, char* argv[])
 			renderer.EndFrame();
 
 			window.Present();
+			frame++;
 		}
 
 		renderer.FlushGPU();

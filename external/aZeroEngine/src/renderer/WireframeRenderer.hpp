@@ -3,10 +3,10 @@
 #include "WireframeShapes.hpp"
 #include "WinPixEventRuntime/pix3.h"
 #include "pipeline/pass/VertexShaderPass.hpp"
+#include "ecs/Components.hpp"
 
 namespace aZero
 {
-    namespace ECS { class CameraComponent; }
     namespace Rendering
     {
         class Renderer;
@@ -18,7 +18,7 @@ namespace aZero
             friend class Renderer;
         public:
             WireframeRenderer() = default;
-            WireframeRenderer(ID3D12DeviceX* device, IDxcCompilerX& compiler);
+            WireframeRenderer(Rendering::Renderer& renderer, ID3D12DeviceX* device, IDxcCompilerX& compiler);
 
             template<typename Shape>
             void AddShape(const Shape& shape)
@@ -30,10 +30,10 @@ namespace aZero
                 }
             }
 
+            void Render(const Component::Camera& camera, const Component::Position& cameraPosition, const Component::Rotation& cameraRotation, RenderTarget& rtv, DepthStencilTarget& dsv);
+
         private:
             void BeginFrame(uint32_t frameIndex)  { m_VertCount = 0; m_FrameIndex = frameIndex; }
-
-            void Render(RenderAPI::CommandList& cmdList, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::DescriptorHeap& samplerHeap, const ECS::CameraComponent& camera, RenderTarget& rtv, DepthStencilTarget& dsv);
 
             Pipeline::VertexShaderPass m_Pass;
 
@@ -41,6 +41,8 @@ namespace aZero
             D3D12_VERTEX_BUFFER_VIEW m_VBView;
             uint32_t m_VertCount = 0;
             uint32_t m_FrameIndex = 0;
+
+            Rendering::Renderer* m_diRenderer;
         };
     }
 }

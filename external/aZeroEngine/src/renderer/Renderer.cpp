@@ -41,7 +41,7 @@ namespace aZero
 
 			m_ResourceManager = ResourceManager(device, &m_ResourceRecycler, m_ResourceHeap);
 
-			m_WireframeRenderer = std::make_unique<Rendering::WireframeRenderer>(device, compiler);
+			m_WireframeRenderer = std::make_unique<Rendering::WireframeRenderer>(*this, device, compiler);
 
 			this->InitPipeline();
 		}
@@ -365,68 +365,117 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 		}
 
-		void Renderer::Render(const Scene::Scene& scene)
+		// TODO: Change so not only the camera at index[0] will be used.
+		void Renderer::Render_New(const Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 
 			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(255, 0, 0), "Render scene");
 
-			// Perform uploads for all updated/new assets and other stagings
 			frameContext.RecordFrameAllocations(frameContext.m_DirectCmdList);
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
 
-			// todo Save start offset for the instances inside the buffer so each scene has its own portion
-			const auto& staticMeshInstances = scene.GetProxy()->m_StaticMeshes.GetData();
-			frameContext.m_StaticMeshBuffer.Write(staticMeshInstances.data(), staticMeshInstances.size() * sizeof(staticMeshInstances[0]), 0);
+			std::array<ID3D12DescriptorHeap*, 2> heaps{ m_ResourceHeap.Get(), m_SamplerHeap.Get() };
+			frameContext.m_DirectCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
 
-			const auto& pointLights = scene.GetProxy()->m_PointLights.GetData();
-			frameContext.m_PointLightBuffer.Write(pointLights.data(), pointLights.size() * sizeof(pointLights[0]), 0);
-
-			const auto& spotLights = scene.GetProxy()->m_SpotLights.GetData();
-			frameContext.m_SpotLightBuffer.Write(spotLights.data(), spotLights.size() * sizeof(spotLights[0]), 0);
-
-			const auto& directionalLights = scene.GetProxy()->m_DirectionalLights.GetData();
-			frameContext.m_DirectionalLightBuffer.Write(directionalLights.data(), directionalLights.size() * sizeof(directionalLights[0]), 0);
-
-			// Sort cameras based on layer
-			auto cameras = scene.GetProxy()->m_Cameras.GetData();
-			struct { bool operator()(const Scene::RenderData::Camera& a, const Scene::RenderData::Camera& b) const { return a.m_Layer < b.m_Layer; } } customLess;
-			std::sort(cameras.begin(), cameras.end(), customLess);
-
-			uint32_t lastCameraIndex = 0;
-			for (const auto& camera : cameras)
+			if (renderTarget.GetTexture().GetState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 			{
-				if (camera.m_RenderTarget.has_value() || camera.m_DepthStencilTarget.has_value())
-				{
-					BindingConstants constants;
-					constants.InstanceBuffer = frameContext.m_StaticMeshDescriptor.GetHeapIndex();
-					constants.MeshBuffer = m_ResourceManager.m_MeshBufferView.GetHeapIndex();
-					constants.CameraBuffer = frameContext.m_CameraDescriptor.GetHeapIndex();
-					constants.CameraID = lastCameraIndex;
-					constants.IndirectArgumentMeshletCullingBuffer = m_MeshletDrawArgumentUAV.GetHeapIndex();
-					constants.MeshletInstanceBuffer = m_MeshletInstanceUAV.GetHeapIndex();
-
-					const auto gpuCamera = camera.CreateGPUVersion();
-					frameContext.m_CameraBuffer.Write(&gpuCamera, sizeof(gpuCamera), sizeof(gpuCamera) * lastCameraIndex);
-					lastCameraIndex++;
-
-					this->ClearRenderSurfaces(camera);
-
-					this->RecordMeshObjectCullingPass(constants, staticMeshInstances.size());
-
-					this->RecordMeshLetCullingPass(constants);
-
-					this->RecordMeshDrawingPass(constants, camera, frameContext.m_PointLightDescriptor.GetHeapIndex(), frameContext.m_SpotLightDescriptor.GetHeapIndex(), frameContext.m_DirectionalLightDescriptor.GetHeapIndex());
-				}
+				auto barrier = renderTarget.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_RENDER_TARGET);
+				frameContext.m_DirectCmdList->ResourceBarrier(1, &barrier);
 			}
+			frameContext.m_DirectCmdList->ClearRenderTargetView(renderTarget.GetCpuHandle(), renderTarget.GetClearValue().Color, 0, nullptr);
+
+			if (depthStencilTarget.GetTexture().GetState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
+			{
+				auto barrier = depthStencilTarget.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				frameContext.m_DirectCmdList->ResourceBarrier(1, &barrier);
+			}
+			const auto value = depthStencilTarget.GetClearValue().DepthStencil;
+			frameContext.m_DirectCmdList->ClearDepthStencilView(depthStencilTarget.GetCpuHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, value.Depth, value.Stencil, 0, nullptr);
+			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
+
+			auto [staticMeshes, cameras, cameraRasterInfo] = scene.GetWorldRenderData();
+			if (staticMeshes.size() == 0 || cameras.size() == 0) { return; }
+
+			frameContext.m_StaticMeshBuffer.Write(staticMeshes.data(), staticMeshes.size() * sizeof(staticMeshes[0]), 0);
+			frameContext.m_CameraBuffer.Write(cameras.data(), cameras.size() * sizeof(cameras[0]), 0);
+
+			BindingConstants constants;
+			constants.InstanceBuffer = frameContext.m_StaticMeshDescriptor.GetHeapIndex();
+			constants.MeshBuffer = m_ResourceManager.m_MeshBufferView.GetHeapIndex();
+			constants.CameraBuffer = frameContext.m_CameraDescriptor.GetHeapIndex();
+			constants.CameraID = 0;
+			constants.IndirectArgumentMeshletCullingBuffer = m_MeshletDrawArgumentUAV.GetHeapIndex();
+			constants.MeshletInstanceBuffer = m_MeshletInstanceUAV.GetHeapIndex();
+
+			this->RecordMeshObjectCullingPass(constants, staticMeshes.size());
+
+			this->RecordMeshLetCullingPass(constants);
+
+			this->RecordMeshDrawingPass_New(constants, 
+				renderTarget, depthStencilTarget, 
+				cameraRasterInfo[0].Viewport, cameraRasterInfo[0].ScizzorRect,
+				frameContext.m_PointLightDescriptor.GetHeapIndex(), 
+				frameContext.m_SpotLightDescriptor.GetHeapIndex(), 
+				frameContext.m_DirectionalLightDescriptor.GetHeapIndex()
+			);
+
 		}
 
-		void Renderer::RenderWireframes(const ECS::CameraComponent& camera, Rendering::RenderTarget& rtv, Rendering::DepthStencilTarget& dsv)
+		void Renderer::RecordMeshDrawingPass_New(
+			const BindingConstants& bindings,
+			Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget,
+			const D3D12_VIEWPORT& viewport, const D3D12_RECT& scizzorRect,
+			uint32_t pointLightBufferIndex,
+			uint32_t spotLightBufferIndex,
+			uint32_t directionalLightBufferIndex)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 255, 255), "Render debug colliders");
-			m_WireframeRenderer->Render(frameContext.m_DirectCmdList, m_ResourceHeap, m_SamplerHeap, camera, rtv, dsv);
-			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList);
+
+			PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet drawing pass");
+
+			auto& cmdList = frameContext.m_DirectCmdList;
+
+			D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletDrawArgumentBuffer.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+			cmdList->ResourceBarrier(1, &barrier);
+
+			std::vector<RenderAPI::Descriptor*> renderTargets;
+			renderTargets.push_back(&renderTarget.GetDescriptor());
+
+			RenderAPI::Descriptor* dsv = &depthStencilTarget.GetDescriptor();
+			m_MeshletDrawPass.Begin(cmdList, m_ResourceHeap, m_SamplerHeap, renderTargets, dsv);
+
+			auto msBindings = m_MeshletDrawPass.GetConstantBindingIndex("Bindings");
+			cmdList.SetGraphicsRoot32BitConstantsSafe(msBindings.GetRootIndex(), msBindings.GetNumConstants(), &bindings, 0);
+
+			struct PixelShaderConstantsData
+			{
+				uint32_t SamplerIndex;
+				uint32_t MaterialBuffer;
+				uint32_t PointLightBuffer;
+				uint32_t SpotLightBuffer;
+				uint32_t DirectionalLightBuffer;
+				float Time;
+			} pixelbindings;
+
+			static float time = 0.f;
+			time += 0.0005;
+			pixelbindings.Time = time;
+
+			pixelbindings.SamplerIndex = m_SamplerManager.GetSampler(aZero::Rendering::SamplerManager::Anisotropic_8x_Wrap).GetHeapIndex();
+			pixelbindings.MaterialBuffer = m_ResourceManager.m_MaterialBufferView.GetHeapIndex();
+			pixelbindings.PointLightBuffer = pointLightBufferIndex;
+			pixelbindings.SpotLightBuffer = spotLightBufferIndex;
+			pixelbindings.DirectionalLightBuffer = directionalLightBufferIndex;
+
+			auto psConstants = m_MeshletDrawPass.GetConstantBindingIndex("PixelShaderConstants");
+			cmdList.SetGraphicsRoot32BitConstantsSafe(psConstants.GetRootIndex(), psConstants.GetNumConstants(), &pixelbindings, 0);
+
+			cmdList->RSSetScissorRects(1, &scizzorRect);
+			cmdList->RSSetViewports(1, &viewport);
+
+			cmdList->ExecuteIndirect(m_MeshletDrawSignature.Get(), 1, m_MeshletDrawArgumentBuffer.GetResource(), 0, nullptr, 0);
+			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 		}
 
 		void Renderer::FlushGPU()

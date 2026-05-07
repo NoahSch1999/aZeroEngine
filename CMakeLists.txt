@@ -65,7 +65,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_options(aZeroEditor PRIVATE -O0 -g)   # Disable optimization, enable debug info
     target_link_libraries(aZeroEditor PRIVATE dxguid)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(aZeroEditor PRIVATE -O3)      # Full optimization
+    target_compile_options(aZeroEditor PRIVATE -O2)      # Full optimization
 endif()
 
 target_compile_definitions(aZeroEditor PUBLIC TEST_PATH="${CMAKE_SOURCE_DIR}/tests/")

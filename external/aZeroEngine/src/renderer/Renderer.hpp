@@ -19,6 +19,8 @@
 #include "graphics_api/SwapChain.hpp"
 #include "renderer/RenderPass.hpp"
 
+#include "SceneRenderData_NEW.hpp"
+
 namespace aZero
 {
 	class Engine;
@@ -56,8 +58,8 @@ namespace aZero
 			bool TryBeginFrame();
 			void EndFrame();
 
-			void Render(const Scene::Scene& scene);
-			void RenderWireframes(const ECS::CameraComponent& camera, Rendering::RenderTarget& rtv, Rendering::DepthStencilTarget& dsv);
+			void Render_New(const Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget);
+
 			void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget);
 
 			void UpdateRenderState(Asset::Mesh& mesh);
@@ -105,8 +107,15 @@ namespace aZero
 			void RecordMeshLetCullingPass(const BindingConstants& bindings);
 			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, uint32_t pointLightBufferIndex, uint32_t spotLightBufferIndex, uint32_t directionalLightBufferIndex);
 
-			uint32_t MAX_INSTANCES = 4000; // TODO: Make configurable
-			uint32_t MAX_MESHLETS = 10000; // TODO: Make configurable
+			void RecordMeshDrawingPass_New(const BindingConstants& bindings, 
+				Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget,
+				const D3D12_VIEWPORT& viewport, const D3D12_RECT& scizzorRect,
+				uint32_t pointLightBufferIndex, 
+				uint32_t spotLightBufferIndex, 
+				uint32_t directionalLightBufferIndex);
+
+			uint32_t MAX_INSTANCES = 1000; // TODO: Make configurable
+			uint32_t MAX_MESHLETS = 100000; // TODO: Make configurable
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
 			RenderAPI::Buffer m_MeshletDrawArgumentBuffer;
 			RenderAPI::UnorderedAccessView m_MeshletDrawArgumentUAV;

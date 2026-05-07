@@ -67,6 +67,7 @@ void aZero::Physics::PhysicsWorld::DestroyBodies(const std::vector<Body>& bodies
 	{
 		tempBodies.emplace_back(body.m_ID);
 	}
+	m_BodyInterface->RemoveBodies(tempBodies.data(), tempBodies.size());
 	m_BodyInterface->DestroyBodies(tempBodies.data(), tempBodies.size());
 }
 
@@ -85,13 +86,13 @@ MyBodyActivationListener
 void aZero::Physics::PhysicsWorld::MyBodyActivationListener::OnBodyActivated(const JPH::BodyID& inBodyID, uint64_t inBodyUserData)
 {
 	std::unique_lock<std::mutex> lock(m_BodyActivationMutex);
-	m_ActivatedEvents.emplace_back(static_cast<uint32_t>(inBodyUserData >> 32));
+	m_ActivatedEvents.emplace_back(inBodyUserData);
 }
 
 void aZero::Physics::PhysicsWorld::MyBodyActivationListener::OnBodyDeactivated(const JPH::BodyID& inBodyID, uint64_t inBodyUserData)
 {
 	std::unique_lock<std::mutex> lock(m_BodyActivationMutex);
-	m_DeactivatedEvents.emplace_back(static_cast<uint32_t>(inBodyUserData >> 32));
+	m_DeactivatedEvents.emplace_back(inBodyUserData);
 }
 
 void aZero::Physics::PhysicsWorld::MyBodyActivationListener::ResetEvents()
@@ -110,8 +111,8 @@ JPH::ValidateResult aZero::Physics::PhysicsWorld::MyContactListener::OnContactVa
 {
 	std::unique_lock<std::mutex> lock(m_ContactMutex);
 	m_ContactValidateEvents.emplace_back(
-		static_cast<uint32_t>((inBody1.GetUserData()) >> 32),
-		static_cast<uint32_t>((inBody2.GetUserData()) >> 32),
+		static_cast<uint64_t>(inBody1.GetUserData()),
+		static_cast<uint64_t>(inBody2.GetUserData()),
 		inBaseOffset,
 		std::make_unique<JPH::CollideShapeResult>(inCollisionResult));
 
@@ -123,8 +124,8 @@ void aZero::Physics::PhysicsWorld::MyContactListener::OnContactAdded(const JPH::
 {
 	std::unique_lock<std::mutex> lock(m_ContactMutex);
 	m_ContactAddedEvents.emplace_back(
-		static_cast<uint32_t>((inBody1.GetUserData()) >> 32),
-		static_cast<uint32_t>((inBody2.GetUserData()) >> 32),
+		static_cast<uint64_t>(inBody1.GetUserData()),
+		static_cast<uint64_t>(inBody2.GetUserData()),
 		inManifold,
 		ioSettings);
 }
@@ -133,8 +134,8 @@ void aZero::Physics::PhysicsWorld::MyContactListener::OnContactPersisted(const J
 {
 	std::unique_lock<std::mutex> lock(m_ContactMutex);
 	m_ContactPersistedEvents.emplace_back(
-		static_cast<uint32_t>((inBody1.GetUserData()) >> 32),
-		static_cast<uint32_t>((inBody2.GetUserData()) >> 32),
+		static_cast<uint64_t>(inBody1.GetUserData()),
+		static_cast<uint64_t>(inBody2.GetUserData()),
 		inManifold,
 		ioSettings);
 }

@@ -1,7 +1,11 @@
 #include "WireframeRenderer.hpp"
-#include "ecs/components/CameraComponent.hpp"
+#include "ecs/Components.hpp"
+#include "graphics_api/resource/texture/RenderTarget.hpp"
+#include "graphics_api/resource/texture/DepthStencilTarget.hpp"
+#include "Renderer.hpp"
 
-aZero::Rendering::WireframeRenderer::WireframeRenderer(ID3D12DeviceX* device, IDxcCompilerX& compiler)
+aZero::Rendering::WireframeRenderer::WireframeRenderer(Rendering::Renderer& renderer, ID3D12DeviceX* device, IDxcCompilerX& compiler)
+    :m_diRenderer(&renderer)
 {
     Pipeline::VertexShader vs(compiler, PROJECT_DIRECTORY + std::string("shaderSource/DebugLine.vs.hlsl"));
     Pipeline::PixelShader ps(compiler, PROJECT_DIRECTORY + std::string("shaderSource/DebugLine.ps.hlsl"));
@@ -23,9 +27,13 @@ aZero::Rendering::WireframeRenderer::WireframeRenderer(ID3D12DeviceX* device, ID
     m_VBView.SizeInBytes = m_VertexBuffers[0].GetResource()->GetDesc().Width;
 }
 
-void aZero::Rendering::WireframeRenderer::Render(RenderAPI::CommandList& cmdList, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::DescriptorHeap& samplerHeap, const ECS::CameraComponent& camera, RenderTarget& rtv, DepthStencilTarget& dsv)
+void aZero::Rendering::WireframeRenderer::Render(const Component::Camera& camera, const Component::Position& cameraPosition, const Component::Rotation& cameraRotation, RenderTarget& rtv, DepthStencilTarget& dsv)
 {
-    m_Pass.Begin(cmdList, resourceHeap, samplerHeap, { &rtv.GetDescriptor() }, &dsv.GetDescriptor());
+    FrameContext& frameContext = m_diRenderer->GetCurrentContext();
+    PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 255, 255), "Render debug colliders");
+    RenderAPI::CommandList& cmdList = frameContext.m_DirectCmdList;
+
+    m_Pass.Begin(cmdList, m_diRenderer->GetResourceHeap(), m_diRenderer->GetSamplerHeap(), {&rtv.GetDescriptor()}, &dsv.GetDescriptor());
 
     auto binding = m_Pass.GetConstantBindingIndex("VP");
     struct Constants
@@ -33,7 +41,7 @@ void aZero::Rendering::WireframeRenderer::Render(RenderAPI::CommandList& cmdList
         DXM::Matrix vp;
     }constants;
 
-    constants.vp = camera.GetViewProjectionMatrix();
+    constants.vp = camera.GetViewProjectionMatrix(cameraPosition, cameraRotation);
     cmdList.SetGraphicsRoot32BitConstantsSafe(binding.GetRootIndex(), binding.GetNumConstants(), &constants, 0);
 
     auto viewport = camera.GetViewport();
@@ -45,4 +53,6 @@ void aZero::Rendering::WireframeRenderer::Render(RenderAPI::CommandList& cmdList
     cmdList->IASetVertexBuffers(0, 1, &m_VBView);
 
     cmdList->DrawInstanced(m_VertCount, 1, 0, 0);
+
+    m_diRenderer->GetGraphicsCommandQueue().ExecuteCommandList(frameContext.m_DirectCmdList);
 }

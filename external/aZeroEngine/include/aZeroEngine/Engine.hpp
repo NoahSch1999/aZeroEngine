@@ -17,7 +17,7 @@ namespace aZero
 		Engine& operator=(Engine&&) noexcept = default;
 		~Engine();
 
-		Scene::Scene CreateScene(bool hasPhysics)
+		Scene::Scene CreateScene_New(bool hasPhysics)
 		{
 			if (hasPhysics)
 			{

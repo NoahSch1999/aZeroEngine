@@ -17,7 +17,7 @@ namespace aZero
 			{
 				friend class PhysicsWorld;
 			public:
-				struct Event_BodyActivation { uint32_t EntityID; };
+				struct Event_BodyActivation { uint64_t EntityID; };
 
 				MyBodyActivationListener() = default;
 				virtual void OnBodyActivated(const JPH::BodyID& inBodyID, uint64_t inBodyUserData) override;
@@ -35,19 +35,19 @@ namespace aZero
 				friend PhysicsWorld;
 			public:
 				struct Event_ContactValidate {
-					uint32_t FirstEntityID, SecondEntityID;
+					uint64_t FirstEntityID, SecondEntityID;
 					JPH::RVec3Arg InBaseOffset;
 					std::unique_ptr<JPH::CollideShapeResult> InCollisionResult; // TODO: Avoid dynamic mem alloc
 				};
 
 				struct Event_ContactAdded {
-					uint32_t FirstEntityID, SecondEntityID;
+					uint64_t FirstEntityID, SecondEntityID;
 					JPH::ContactManifold ContactManifold;
 					JPH::ContactSettings ContactSettings;
 				};
 
 				struct Event_ContactPersisted {
-					uint32_t FirstEntityID, SecondEntityID;
+					uint64_t FirstEntityID, SecondEntityID;
 					JPH::ContactManifold ContactManifold;
 					JPH::ContactSettings ContactSettings;
 				};
@@ -76,7 +76,7 @@ namespace aZero
 			Body CreateBody(const JPH::BodyCreationSettings& settings, bool addToPhysics = true);
 			void AddBodiesToPhysics(const std::vector<Body>& bodies);
 			void FreezeBodies(const std::vector<Body>& bodies);
-			void DestroyBody(const Body& body) { m_BodyInterface->DestroyBody(body.m_ID); }
+			void DestroyBody(const Body& body) { m_BodyInterface->RemoveBody(body.m_ID); m_BodyInterface->DestroyBody(body.m_ID); }
 			void DestroyBodies(const std::vector<Body>& bodies);
 			void OptimizeBroadPhase() { m_System.OptimizeBroadPhase(); }
 			void Update() { m_System.Update(m_UpdateFrequency, 1, m_Allocator.get(), di_JobSystem); }
