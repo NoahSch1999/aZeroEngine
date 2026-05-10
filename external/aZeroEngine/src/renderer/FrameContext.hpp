@@ -22,17 +22,14 @@ namespace aZero
 			RenderAPI::Buffer m_StaticMeshBuffer;
 			RenderAPI::ShaderResourceView m_StaticMeshDescriptor;
 
-			RenderAPI::Buffer m_PointLightBuffer;
+			/*RenderAPI::Buffer m_PointLightBuffer;
 			RenderAPI::ShaderResourceView m_PointLightDescriptor;
 
 			RenderAPI::Buffer m_SpotLightBuffer;
 			RenderAPI::ShaderResourceView m_SpotLightDescriptor;
 
 			RenderAPI::Buffer m_DirectionalLightBuffer;
-			RenderAPI::ShaderResourceView m_DirectionalLightDescriptor;
-
-			RenderAPI::Buffer m_CameraBuffer;
-			RenderAPI::ShaderResourceView m_CameraDescriptor;
+			RenderAPI::ShaderResourceView m_DirectionalLightDescriptor;*/
 			//
 
 			// Commandlist stuff
@@ -91,7 +88,7 @@ namespace aZero
 				m_FrameAllocator = LinearFrameAllocator(device, frameBufferSize, recycler);
 
 				RenderAPI::Buffer::Desc primitiveBufferDesc(0, D3D12_HEAP_TYPE_UPLOAD);
-				primitiveBufferDesc.NumBytes = sizeof(GPUProxy::StaticMesh) * maxInstances;
+				primitiveBufferDesc.NumBytes = sizeof(GPUProxy::StaticMeshInstance) * maxInstances;
 				m_StaticMeshBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 
 				//primitiveBufferDesc.NumBytes = sizeof(GPUProxy::PointLight) * 1000;
@@ -101,29 +98,22 @@ namespace aZero
 				primitiveBufferDesc.NumBytes = sizeof(GPUProxy::DirectionalLight) * 100;
 				m_DirectionalLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);*/
 
-				primitiveBufferDesc.NumBytes = sizeof(GPUProxy::Camera) * 100;
-				m_CameraBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
-
 				m_DirectCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 				m_CopyCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COPY);
 				m_ComputeCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
 
-				m_StaticMeshDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_StaticMeshBuffer, maxInstances, sizeof(GPUProxy::StaticMesh), 0);
+				m_StaticMeshDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_StaticMeshBuffer, maxInstances, sizeof(GPUProxy::StaticMeshInstance), 0);
 
 				//m_PointLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_PointLightBuffer, 1000, sizeof(Scene::RenderData::PointLight), 0);
 				//m_SpotLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_SpotLightBuffer, 1000, sizeof(Scene::RenderData::SpotLight), 0);
 				//m_DirectionalLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_DirectionalLightBuffer, 100, sizeof(Scene::RenderData::DirectionalLight), 0);
 
-				m_CameraDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_CameraBuffer, 100, sizeof(GPUProxy::Camera), 0);
-
 #ifdef USE_DEBUG
-				m_StaticMeshBuffer.GetResource()->SetName(L"m_StaticMeshBuffer");
+				m_StaticMeshBuffer.GetResource()->SetName(L"m_StaticMeshInstanceBuffer");
 
 				/*m_PointLightBuffer.GetResource()->SetName(L"m_PointLightBuffer");
 				m_SpotLightBuffer.GetResource()->SetName(L"m_SpotLightBuffer");
 				m_DirectionalLightBuffer.GetResource()->SetName(L"m_DirectionalLightBuffer");*/
-
-				m_CameraBuffer.GetResource()->SetName(L"m_CameraBuffer");
 #endif
 			};
 

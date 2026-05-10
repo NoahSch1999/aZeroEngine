@@ -15,17 +15,15 @@ namespace aZero
 
 		struct Meshlet
 		{
-			uint32_t VerticesCount;
 			uint32_t VertexOffset;
-			uint32_t PrimitivesCount;
-			uint32_t PrimitiveOffset;
+			//uint32_t VerticesCount;
+			uint32_t TriangleCount;
 			DirectX::BoundingSphere Bounds;
 		};
 
-		using VertexPosition = DXM::Vector3;
-
-		struct GenericVertexData
+		struct Vertex
 		{
+			DXM::Vector3 Position;
 			DXM::Vector2 UV;
 			DXM::Vector3 Normal;
 			DXM::Vector3 Tangent;
@@ -35,10 +33,7 @@ namespace aZero
 		{
 			std::string Name;
 			std::vector<Meshlet> Meshlets;
-			std::vector<VertexIndex> MeshletIndices;
-			std::vector<uint32_t> MeshletPrimitives;
-			std::vector<VertexPosition> Positions;
-			std::vector<GenericVertexData> GenericVertexData;
+			std::vector<Vertex> Vertices;
 			DirectX::BoundingSphere Bounds;
 		};
 

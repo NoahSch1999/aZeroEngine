@@ -49,6 +49,8 @@ int main(int argc, char* argv[])
 	try
 	{
 		// API Interfaces
+		Asset::Mesh mesh;
+		mesh.LoadFromFile(Asset::GetMeshDirectoryPath() + "cube2.fbx");
 		aZero::Engine engine(3);
 		Rendering::Renderer& renderer = engine.GetRenderer();
 		Rendering::WireframeRenderer& wireframeRenderer = renderer.GetWireframeRenderer();

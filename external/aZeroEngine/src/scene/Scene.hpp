@@ -48,7 +48,7 @@ namespace aZero
 			flecs::entity GetRigidbodyStaticMeshPrefab() const { return m_RigidbodyStaticMeshPrefab; }
 			flecs::entity GetCameraPrefab() const { return m_CameraPrefab; }
 
-			std::tuple<std::vector<Rendering::GPUProxy::StaticMesh>, std::vector<Rendering::GPUProxy::Camera>, std::vector<Rendering::GPUProxy::Camera::RasterInfo>> GetWorldRenderData() const;
+			std::tuple<std::vector<Rendering::GPUProxy::StaticMeshInstance>, std::vector<Rendering::GPUProxy::Camera>> GetWorldRenderData() const;
 
 			void AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
 

@@ -1,8 +1,8 @@
-#include "VertexDefinitions.hlsli"
+#include "SceneRenderCommon.hlsli"
 #include "Materials.hlsli"
 #include "Lights.hlsli"
 
-struct PixelShaderConstantsData
+struct PassConstantData
 {
     uint SamplerIndex;
     uint MaterialBuffer;
@@ -12,19 +12,19 @@ struct PixelShaderConstantsData
     float Time;
 };
 
-ConstantBuffer<PixelShaderConstantsData> PixelShaderConstants : register(b0);
+ConstantBuffer<PassConstantData> Default_Phong_Constants : register(b1);
 
 struct Output
 {
     float4 color : SV_TARGET0;
 };
 
-Output main(VertexOut pin)
+Output main(PipelineVertex pin)
 {
-    const SamplerState samplerState = SamplerDescriptorHeap[PixelShaderConstants.SamplerIndex];
-    const StructuredBuffer<DefaultMaterial> MaterialBuffer = ResourceDescriptorHeap[PixelShaderConstants.MaterialBuffer];
+    const SamplerState samplerState = SamplerDescriptorHeap[Default_Phong_Constants.SamplerIndex];
+    const StructuredBuffer<DefaultMaterial> MaterialBuffer = ResourceDescriptorHeap[Default_Phong_Constants.MaterialBuffer];
     
-    const DefaultMaterial material = MaterialBuffer[pin.MaterialID];
+    const DefaultMaterial material = MaterialBuffer[pin.MaterialIndex];
     
     float3 surfaceColor = float3(1, 0, 1);
     
@@ -58,7 +58,7 @@ Output main(VertexOut pin)
     
     PointLight p;
     p.Color = float3(1, 0, 0);
-    p.Position = float3(sin(PixelShaderConstants.Time * 8), 3, 0);
+    p.Position = float3(sin(Default_Phong_Constants.Time * 8), 3, 0);
     p.Intensity = 1.f;
     surfaceColor += p.CalculateLighting_BlinnPhong(pin.WorldPosition.xyz, fragmentNormal, float3(0, 0, 0));
     

@@ -32,6 +32,11 @@ namespace aZero
 				return m_NextFreeIndex++;
 			}
 
+			IndexType NewNext()
+			{
+				return m_NextFreeIndex++;
+			}
+
 			void Recycle(IndexType index)
 			{
 				m_FreeIndices.push(index);

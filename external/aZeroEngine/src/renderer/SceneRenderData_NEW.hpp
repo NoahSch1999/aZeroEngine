@@ -7,16 +7,23 @@ namespace aZero::Rendering {
 		using MeshMaterialID = uint32_t;
 		constexpr static MeshMaterialID InvalidMeshMaterialID = std::numeric_limits<MeshMaterialID>::max();
 
-		struct StaticMesh {
-			DXM::Matrix m_Transform;
-			MeshMaterialID m_MeshMaterialID;
+		struct StaticMeshInstance {
 
-			StaticMesh() = default;
-			StaticMesh(const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
+			DXM::Matrix m_WorldTransform;
+			uint32_t m_MeshletBuffer_Bindless;
+			uint32_t m_MeshletCount;
+			uint32_t m_MaterialIndex;
+			DirectX::BoundingSphere m_MeshBounds;
+
+			StaticMeshInstance() = default;
+			StaticMeshInstance(const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
 			{
-				// TODO: Populate members correctly
-				m_Transform = /*DXM::Matrix::CreateScale(scale.vec), */DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
-				m_MeshMaterialID = Helper::Pack16To32(mesh.GetMeshID(), mesh.GetMaterialID());
+				// TODO: Avoid this much data
+				m_WorldTransform = /*DXM::Matrix::CreateScale(scale.vec), */DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
+				m_MeshletBuffer_Bindless = mesh.GetMeshID();
+				m_MeshletCount = mesh.GetMeshletCount();
+				m_MaterialIndex = mesh.GetMaterialID();
+				m_MeshBounds = mesh.GetBounds();
 			}
 		};
 
@@ -34,18 +41,19 @@ namespace aZero::Rendering {
 		};
 
 		struct Camera {
-			DXM::Matrix m_View;
-			DXM::Matrix m_Projection;
-			DirectX::BoundingFrustum m_Frustrum;
-
-			struct RasterInfo {
+			struct RSInfo {
 				D3D12_VIEWPORT Viewport;
 				D3D12_RECT ScizzorRect;
 
-				RasterInfo() = default;
-				RasterInfo(const D3D12_VIEWPORT& viewport, const D3D12_RECT& scizzorRect)
-					:Viewport(viewport), ScizzorRect(scizzorRect){}
+				RSInfo() = default;
+				RSInfo(const D3D12_VIEWPORT& viewport, const D3D12_RECT& scizzorRect)
+					:Viewport(viewport), ScizzorRect(scizzorRect) {}
 			};
+
+			DXM::Matrix m_View;
+			DXM::Matrix m_Projection;
+			DirectX::BoundingFrustum m_Frustrum;
+			RSInfo m_RSInfo;
 
 			Camera() = default;
 			Camera(const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
@@ -54,6 +62,7 @@ namespace aZero::Rendering {
 				m_View = camera.GetViewMatrix(position, rotation);
 				m_Projection = camera.GetProjectionMatrix();
 				m_Frustrum = DirectX::BoundingFrustum(m_Projection, true);
+				m_RSInfo = RSInfo(camera.GetViewport(), camera.GetScizzorRect());
 			}
 		};
 

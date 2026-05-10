@@ -21,6 +21,7 @@ namespace aZero
 			DescriptorHeap& operator=(DescriptorHeap&& other) noexcept;
 
 			Descriptor CreateDescriptor(bool destroyOnScope = true);
+			std::vector<Descriptor> CreateContiguousDescriptors(uint32_t count, bool destroyOnScope = true);
 
 			uint32_t GetMaxDescriptors() const;
 			uint32_t GetDescriptorSize() const;

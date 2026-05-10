@@ -83,65 +83,77 @@ namespace aZero
 			// Returns true if the frame context for the next frame has completed and is open for reuse
 			bool AdvanceFrameIfReady();
 
-			void InitPipeline();
-			void ClearRenderSurfaces(const Scene::RenderData::Camera& camera);
-
 			/*
 			---------------------------------------------------------------------------------------------------------------------------------------------
-			Instance -> Meshlet -> Mesh shader pipeline
+			GPU Types
 			---------------------------------------------------------------------------------------------------------------------------------------------
 			*/
-			struct BindingConstants
-			{
-				uint32_t InstanceBuffer;
-				uint32_t MeshBuffer;
-				uint32_t CameraBuffer;
-				uint32_t CameraID;
-				uint32_t IndirectArgumentMeshletCullingBuffer;
-				uint32_t MeshletInstanceBuffer;
-			};
-			void InitMeshObjectCullPipeline();
-			void InitMeshletCullPipeline();
-			void InitMeshletDrawPipeline();
-			void RecordMeshObjectCullingPass(const BindingConstants& bindings, uint32_t numStaticMeshes);
-			void RecordMeshLetCullingPass(const BindingConstants& bindings);
-			void RecordMeshDrawingPass(const BindingConstants& bindings, const Scene::RenderData::Camera& camera, uint32_t pointLightBufferIndex, uint32_t spotLightBufferIndex, uint32_t directionalLightBufferIndex);
+			
 
-			void RecordMeshDrawingPass_New(const BindingConstants& bindings, 
+			//
+			void InitGPUDrivenRenderPipeline();
+			void RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, const Rendering::GPUProxy::Camera& camera, uint32_t numStaticMeshes);
+
+			/*void RecordMeshObjectCullingPass(const GPUProxy::Camera& camera, uint32_t numStaticMeshes);
+			void RecordMeshLetCullingPass(const GPUProxy::Camera& camera);
+			void RecordMeshDrawingPass(
 				Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget,
-				const D3D12_VIEWPORT& viewport, const D3D12_RECT& scizzorRect,
-				uint32_t pointLightBufferIndex, 
-				uint32_t spotLightBufferIndex, 
-				uint32_t directionalLightBufferIndex);
+				const GPUProxy::Camera& camera
+			);*/
 
 			uint32_t MAX_INSTANCES = 1000000; // TODO: Make configurable
 			uint32_t MAX_MESHLETS = 1000000; // TODO: Make configurable
+
+			// Geometry render pipeline
+			Pipeline::ComputeShaderPass m_MeshCullPass;
+			Pipeline::ComputeShader m_MeshCullCS;
+
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletCullSignature;
+			Pipeline::ComputeShaderPass m_MeshletCullPass;
+			Pipeline::ComputeShader m_MeshletCullCS;
+
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
-			RenderAPI::Buffer m_MeshletDrawArgumentBuffer;
-			RenderAPI::UnorderedAccessView m_MeshletDrawArgumentUAV;
-			RenderAPI::Buffer m_MeshletInstanceBuffer;
-			RenderAPI::UnorderedAccessView m_MeshletInstanceUAV;
-			RenderAPI::ShaderResourceView m_MeshletInstanceSRV;
 			Pipeline::MeshShaderPass m_MeshletDrawPass;
 			Pipeline::MeshShader m_MeshletDrawMS;
 			Pipeline::PixelShader m_MeshletDrawPS;
 
-			Pipeline::ComputeShaderPass m_MeshletCullingPass;
-			Pipeline::ComputeShader m_MeshletCullingCS;
+			struct GPUDrivenRenderConstants
+			{
+				DXM::Matrix CameraView; // Camera view matrix
+				DirectX::BoundingFrustum CameraFrustum; // Camera frustum
+				uint32_t MeshInstancesCount; // Num meshinstances to perform frustum-culling with
+			};
 
-			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshObjectCullSignature;
-			Pipeline::ComputeShaderPass m_MeshObjectCullingPass;
-			Pipeline::ComputeShader m_MeshObjectCullingCS;
-			RenderAPI::Buffer m_MeshObjectCullingBuffer;
-			RenderAPI::UnorderedAccessView m_MeshObjectCullingUAV;
-			RenderAPI::Buffer m_PassedMeshCountBuffer;
-			RenderAPI::UnorderedAccessView m_PassedMeshCountUAV;
+			struct MeshCull_Count {
+				uint32_t Count;
+			};
+			RenderAPI::Buffer m_MeshCull_Count_B; // - MeshCull_Count - Used to interlock_add and get the IA argument index for the MeshletCull_IA_B buffer - Read/Written to in the MeshCull pass via UAV
+
+			struct MeshletCull_IA {
+				uint32_t MeshInstance; // Index into the framecontext's meshinstance buffer
+				uint32_t GroupsX; // Doesn't need to be reset since it's overwritten fully each time it's used
+				uint32_t GroupsY; // Always 1
+				uint32_t GroupsZ; // Always 1
+			};
+			RenderAPI::Buffer m_MeshletCull_IA_B; // - MeshletCull_IA - Contains IA arguments for the MeshletCull pass - Written to in the MeshCull pass via UAV and consumed by executeindirect by the MeshletCull pass
+
+			struct MeshletDraw_IA {
+				uint32_t GroupsX; // Reset to 0 each frame and icnr
+				uint32_t GroupsY; // Always 1
+				uint32_t GroupsZ; // Always 1
+			};
+			RenderAPI::Buffer m_MeshletDraw_IA_B; // Used to interlock_add with the threadgroup X value - Written to by the MeshletCull pass via UAV and consumed by executeindirect by the MeshletDraw pass
+
+			struct MeshletDrawInstance {
+				uint32_t MeshInstanceIndex;
+				uint32_t VertexOffset;
+				uint32_t VertexCount;
+			};
+			RenderAPI::Buffer m_MeshletDrawInstance_B; // Contains info of each passed meshlet - Written to by the MeshletCull pass and consumed by the MeshletDraw pass via UAV
 
 			/*
 			---------------------------------------------------------------------------------------------------------------------------------------------
 			*/
-
-
 			
 			ID3D12DeviceX* m_diDevice;
 			uint32_t m_BufferCount;

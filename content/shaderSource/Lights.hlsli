@@ -1,3 +1,6 @@
+#ifndef LIGHTS_INCLUDED
+#define LIGHTS_INCLUDED
+
 #include "Volumes.hlsli"
 
 struct PointLight
@@ -52,3 +55,4 @@ struct DirectionalLight
         return Color; // TODO
     }
 };
+#endif

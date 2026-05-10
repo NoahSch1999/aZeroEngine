@@ -1,3 +1,6 @@
+#ifndef VOLUMES_INCLUDED
+#define VOLUMES_INCLUDED
+
 struct BoundingSphere
 {
     float3 Position;
@@ -14,7 +17,7 @@ BoundingSphere CreateBoundingSphere(float3 Position, float Radius)
     return sphere;
 }
 
-struct Frustum
+struct BoundingFrustum
 {
     float3 Position;
     float4 Rotation;
@@ -58,9 +61,9 @@ struct Frustum
     }
 };
 
-Frustum CreateFrustum(float3 position, float4 rotation, float rightSlope, float leftSlope, float topSlope, float bottomSlope, float near, float far)
+BoundingFrustum CreateFrustum(float3 position, float4 rotation, float rightSlope, float leftSlope, float topSlope, float bottomSlope, float near, float far)
 {
-    Frustum frustum;
+    BoundingFrustum frustum;
     frustum.Position = position;
     frustum.Rotation = rotation;
     frustum.RightSlope = rightSlope;
@@ -71,3 +74,4 @@ Frustum CreateFrustum(float3 position, float4 rotation, float rightSlope, float 
     frustum.Far = far;
     return frustum;
 }
+#endif

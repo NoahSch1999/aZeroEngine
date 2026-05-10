@@ -37,38 +37,20 @@ namespace aZero
 
 			ResourceManager(ID3D12DeviceX* device, RenderAPI::ResourceRecycler* recycler, RenderAPI::DescriptorHeap& descriptorHeap)
 			{
-				m_MeshDataBuffer = RenderAPI::IndexedBuffer<GPUMesh>(device, 1000, recycler);
-				m_MeshBufferView = RenderAPI::ShaderResourceView(device, descriptorHeap, m_MeshDataBuffer.GetBuffer(), 1000, sizeof(GPUMesh), 0);
-
 				m_MaterialDataBuffer = RenderAPI::IndexedBuffer<MaterialData>(device, 1000, recycler);
 				m_MaterialBufferView = RenderAPI::ShaderResourceView(device, descriptorHeap, m_MaterialDataBuffer.GetBuffer(), 1000, sizeof(MaterialData), 0);
 			}
 
 			void UpdateRenderState(ID3D12DeviceX* device, RenderAPI::CommandList& cmdList, LinearFrameAllocator& frameAllocator, RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Mesh& mesh)
 			{
-				// TODO: Validate mesh data
-				// TODO: Handle overwriting of the data... defer actual resource destruction until last usage or something...
 				if (mesh.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
-					mesh.m_RenderID = m_MeshDataBuffer.Allocate();
+					aZero::RenderAPI::MeshletBuffer meshletBuffer(device, recycler, descriptorHeap, cmdList, mesh.GetVertexData());
+					Asset::RenderID renderID = meshletBuffer.GetMeshletsIndex();
+					m_MeshMap[mesh.GetAssetID()] = renderID;
+					m_MeshletBufferMap[renderID] = std::move(meshletBuffer);
+					mesh.m_RenderID = renderID; // Set to the meshletbuffer bindless index. The vertex buffer bindless index will always be meshletbindlessindex + 1.
 				}
-
-				auto& data = mesh.GetVertexData();
-				m_MeshletBufferMap[mesh.GetRenderID()] = aZero::RenderAPI::MeshletBuffer(device, recycler, descriptorHeap, cmdList, data);
-				m_MeshMap[mesh.GetAssetID()] = mesh.GetRenderID();
-
-				auto& meshletBuffer = m_MeshletBufferMap[mesh.GetAssetID()];
-
-				GPUMesh gpuMesh;
-				gpuMesh.Bounds = data.Bounds;
-				gpuMesh.IndicesBuffer = meshletBuffer.GetIndicesIndex();
-				gpuMesh.MeshletBuffer = meshletBuffer.GetMeshletsIndex();
-				gpuMesh.PositionBuffer = meshletBuffer.GetPositionsIndex();
-				gpuMesh.PrimitiveBuffer = meshletBuffer.GetPrimitivesIndex();
-				gpuMesh.VertexDataBuffer = meshletBuffer.GetGenericVertexDataIndex();
-				gpuMesh.MeshletCount = data.Meshlets.size();
-
-				frameAllocator.AddAllocation(&gpuMesh, &m_MeshDataBuffer.GetBuffer(), mesh.GetRenderID() * sizeof(gpuMesh), sizeof(gpuMesh));
 			}
 
 			void UpdateRenderState(LinearFrameAllocator& frameAllocator, RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Material& material)
@@ -130,8 +112,7 @@ namespace aZero
 			{
 				if (mesh.GetRenderID() != Asset::InvalidRenderID)
 				{
-					m_MeshDataBuffer.Deallocate(mesh.GetRenderID()); // OK to remove this instantly?
-					m_MeshletBufferMap.erase(mesh.GetAssetID());
+					m_MeshletBufferMap.erase(mesh.GetRenderID());
 					m_MeshMap.erase(mesh.GetAssetID());
 					mesh.m_RenderID = Asset::InvalidRenderID;
 				}
@@ -157,13 +138,6 @@ namespace aZero
 				}
 			}
 
-			/*
-			I WANT: 
-				A buffer that can be indexed into
-				Has max size of max meshes/materials
-			*/
-			RenderAPI::IndexedBuffer<GPUMesh> m_MeshDataBuffer;
-			RenderAPI::ShaderResourceView m_MeshBufferView;
 			std::unordered_map<Asset::AssetID, Asset::RenderID> m_MeshMap;
 			std::unordered_map<Asset::RenderID, RenderAPI::MeshletBuffer> m_MeshletBufferMap;
 

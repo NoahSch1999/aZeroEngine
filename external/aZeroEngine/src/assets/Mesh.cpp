@@ -8,39 +8,19 @@
 
 aZero::Asset::MeshletMeshData GenerateMeshletData(
 	const std::string& name, 
-	const std::vector<aZero::Asset::VertexPosition>& positions, 
-	const std::vector<aZero::Asset::GenericVertexData>& genericVertexData, 
-	std::vector<aZero::Asset::VertexIndex>& meshIndices,
+	const std::vector<aZero::Asset::Vertex>& vertices,
+	std::vector<aZero::Asset::VertexIndex>& indices,
 	const DirectX::BoundingSphere& bounds
 )
 {
-	const size_t max_vertices = 64;
-	const size_t max_triangles = 84;
+	std::vector<aZero::Asset::Meshlet> finalMeshlets;
+	std::vector<aZero::Asset::Vertex> finalVertices;
+
+	const size_t max_vertices = 63;
+	const size_t max_triangles = 21;
 
 	const size_t max_meshlets = meshopt_buildMeshletsBound(
-		positions.size(), max_vertices, max_triangles);
-
-	// TODO: Take a look if there's any unneccessary ops
-	meshopt_optimizeVertexCache(meshIndices.data(), meshIndices.data(), meshIndices.size(), positions.size());
-	meshopt_optimizeOverdraw(meshIndices.data(), meshIndices.data(), meshIndices.size(), &positions[0].x, positions.size(), sizeof(aZero::Asset::VertexPosition), 1.05f);
-	
-	std::vector<unsigned int> remap(positions.size());
-
-	meshopt_optimizeVertexFetchRemap(
-		remap.data(),
-		meshIndices.data(),
-		meshIndices.size(),
-		positions.size()
-	);
-
-	std::vector<aZero::Asset::VertexPosition> newPositions(positions.size());
-	meshopt_remapVertexBuffer(newPositions.data(), positions.data(), positions.size(), sizeof(aZero::Asset::VertexPosition), remap.data());
-
-	std::vector<aZero::Asset::GenericVertexData> newGeneric(genericVertexData.size());
-	meshopt_remapVertexBuffer(newGeneric.data(), genericVertexData.data(), genericVertexData.size(), sizeof(aZero::Asset::GenericVertexData), remap.data());
-
-
-	meshopt_remapIndexBuffer(meshIndices.data(), meshIndices.data(), meshIndices.size(), remap.data());
+		indices.size(), max_vertices, max_triangles);
 
 	std::vector<meshopt_Meshlet> tempMeshlets;
 	std::vector<aZero::Asset::VertexIndex> local_indices;
@@ -48,66 +28,62 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 	tempMeshlets.resize(max_meshlets);
 	local_indices.resize(max_meshlets * max_vertices);
 	primitives.resize(max_meshlets * max_triangles * 3);
-	size_t meshlet_count = meshopt_buildMeshlets(tempMeshlets.data(), local_indices.data(), primitives.data(), meshIndices.data(), meshIndices.size(), &newPositions[0].x, newPositions.size(), sizeof(aZero::Asset::VertexPosition), max_vertices, max_triangles, 0.f);
+	size_t meshlet_count = meshopt_buildMeshlets(tempMeshlets.data(), local_indices.data(), primitives.data(), indices.data(), indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(aZero::Asset::Vertex), max_vertices, max_triangles, 0.f);
 
 	const meshopt_Meshlet& last = tempMeshlets[meshlet_count - 1];
 
-	local_indices.resize(last.vertex_offset + last.vertex_count);
+	/*local_indices.resize(last.vertex_offset + last.vertex_count);
 	primitives.resize(last.triangle_offset + last.triangle_count * 3);
-	tempMeshlets.resize(meshlet_count);
+	tempMeshlets.resize(meshlet_count);*/
 
-	std::vector<aZero::Asset::Meshlet> finalMeshlets;
-	finalMeshlets.reserve(tempMeshlets.size());
 	for (const meshopt_Meshlet& meshlet : tempMeshlets)
 	{
-		meshopt_optimizeMeshlet(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset], meshlet.triangle_count, meshlet.vertex_count);
-		meshopt_Bounds bounds = meshopt_computeMeshletBounds(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset],
-			meshlet.triangle_count, &newPositions[0].x, newPositions.size(), sizeof(aZero::Asset::VertexPosition));
+		uint32_t triangleOffset = meshlet.triangle_offset;
+		uint32_t vertexOffset = meshlet.vertex_offset;
 
-		// Divide meshlet.triangle_offset with 3 since we pack the primitive indices in a 32bit uint
-		finalMeshlets.emplace_back(meshlet.vertex_count, meshlet.vertex_offset, meshlet.triangle_count, meshlet.triangle_offset / 3, DirectX::BoundingSphere(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius));
-	}
-
-	std::vector<uint32_t> newPrims;
-	newPrims.reserve(primitives.size() + primitives.size() / 3);
-	for (int i = 0; i < primitives.size(); i += 3)
-	{
-		newPrims.emplace_back(aZero::Helper::Pack8To32(primitives[i], primitives[i + 1], primitives[i + 2], 0));
-	}
-
-	std::vector<uint8_t> newPrimsa;
-	newPrimsa.reserve(primitives.size() + primitives.size() / 3);
-
-	for (int i = 0; i < primitives.size(); i++)
-	{
-		newPrimsa.emplace_back(primitives[i]);
-		if ((i + 1) % 3 == 0)
+		for(int i = 0; i < meshlet.triangle_count * 3; i+=3)
 		{
-			newPrimsa.emplace_back(0);
+			uint8_t a = primitives[meshlet.triangle_offset + i];
+			uint8_t b = primitives[meshlet.triangle_offset + i + 1];
+			uint8_t c = primitives[meshlet.triangle_offset + i + 2];
+			aZero::Asset::VertexIndex a2 = local_indices[vertexOffset + a];
+			aZero::Asset::VertexIndex b2 = local_indices[vertexOffset + b];
+			aZero::Asset::VertexIndex c2 = local_indices[vertexOffset + c];
+
+			finalVertices.emplace_back(vertices[a2]);
+			finalVertices.emplace_back(vertices[b2]);
+			finalVertices.emplace_back(vertices[c2]);
 		}
+
+		aZero::Asset::Meshlet newMeshlet;
+		newMeshlet.VertexOffset = vertexOffset;
+		newMeshlet.TriangleCount = meshlet.triangle_count;
+
+		meshopt_Bounds bounds = meshopt_computeMeshletBounds(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset],
+			meshlet.triangle_count, &vertices[0].Position.x, vertices.size(), sizeof(aZero::Asset::Vertex));
+		newMeshlet.Bounds = DirectX::BoundingSphere(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius);
+
+		finalMeshlets.emplace_back(newMeshlet);
 	}
 
 	return {
 		.Name = name,
 		.Meshlets = std::move(finalMeshlets),
-		.MeshletIndices = std::move(local_indices),
-		.MeshletPrimitives = std::move(newPrims),
-		.Positions = std::move(newPositions),
-		.GenericVertexData = std::move(newGeneric),
+		.Vertices = std::move(finalVertices),
 		.Bounds = bounds
 	};
 }
 
-DirectX::BoundingSphere ComputeBoundingSphere(const std::vector<aZero::Asset::VertexPosition>& points)
+DirectX::BoundingSphere ComputeBoundingSphere(const std::vector<aZero::Asset::Vertex>& points)
 {
-	aZero::Asset::VertexPosition p0 = points[0];
+	aZero::Asset::Vertex p0 = points[0];
 
 	int i1 = 0;
 	float maxDist = 0.0f;
 
 	for (int i = 0; i < points.size(); i++)
 	{
-		float d = (points[i] - p0).LengthSquared();
+		float d = (points[i].Position - p0.Position).LengthSquared();
 		if (d > maxDist)
 		{
 			maxDist = d;
@@ -121,7 +97,7 @@ DirectX::BoundingSphere ComputeBoundingSphere(const std::vector<aZero::Asset::Ve
 
 	for (int i = 0; i < points.size(); i++)
 	{
-		float d = (points[i] - points[i1]).LengthSquared();
+		float d = (points[i].Position - points[i1].Position).LengthSquared();
 		if (d > maxDist)
 		{
 			maxDist = d;
@@ -130,13 +106,13 @@ DirectX::BoundingSphere ComputeBoundingSphere(const std::vector<aZero::Asset::Ve
 	}
 
 	// 4. Initial sphere
-	aZero::Asset::VertexPosition center = (points[i1] + points[i2]) * 0.5f;
-	float radius = (points[i2] - center).Length();
+	DXM::Vector3 center = (points[i1].Position + points[i2].Position) * 0.5f;
+	float radius = (points[i2].Position - center).Length();
 
 	// 5. Expand sphere
 	for (const auto& p : points)
 	{
-		aZero::Asset::VertexPosition d = p - center;
+		DXM::Vector3 d = p.Position - center;
 		float dist = d.Length();
 
 		if (dist > radius)
@@ -172,38 +148,34 @@ std::vector<aZero::Asset::MeshletMeshData> LoadFBX(const std::string& path)
 		{
 			const aiMesh* const mesh = scene->mMeshes[meshIndex];
 
-			std::vector<aZero::Asset::VertexPosition> positions;
-			std::vector<aZero::Asset::GenericVertexData> genericVertexData;
+			std::vector<aZero::Asset::Vertex> vertices;
 			std::vector<aZero::Asset::VertexIndex> indices;
 
-			positions.reserve(mesh->mNumVertices);
-			genericVertexData.reserve(mesh->mNumVertices);
+			vertices.reserve(mesh->mNumVertices);
 
 			for (int i = 0; i < mesh->mNumVertices; i++)
 			{
-				aiVector3D tempData = mesh->mVertices[i];
-				positions.emplace_back(tempData.x, tempData.y, tempData.z);
-				genericVertexData.emplace_back();
+				aZero::Asset::Vertex tempVertex;
+				tempVertex.Position = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
 
 				if (mesh->HasTextureCoords(0))
 				{
-					tempData = mesh->mTextureCoords[0][i];
-					genericVertexData[genericVertexData.size() - 1].UV = { tempData.x, tempData.y };
+					tempVertex.UV = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
 				}
 
 				if (mesh->HasNormals())
 				{
-					tempData = mesh->mNormals[i];
-					tempData.Normalize();
-					genericVertexData[genericVertexData.size() - 1].Normal = { tempData.x, tempData.y, tempData.z };
+					tempVertex.Normal = { mesh->mNormals[i].x,  mesh->mNormals[i].y,  mesh->mNormals[i].y };
+					tempVertex.Normal.Normalize();
 				}
 
 				if (mesh->HasTangentsAndBitangents())
 				{
-					tempData = mesh->mTangents[i];
-					tempData.Normalize();
-					genericVertexData[genericVertexData.size() - 1].Tangent = { tempData.x, tempData.y, tempData.z };
+					tempVertex.Tangent = { mesh->mTangents[i].x,  mesh->mTangents[i].y,  mesh->mTangents[i].y };
+					tempVertex.Tangent.Normalize();
 				}
+
+				vertices.emplace_back(tempVertex);
 			}
 
 			indices.reserve(mesh->mNumFaces * 3);
@@ -216,7 +188,7 @@ std::vector<aZero::Asset::MeshletMeshData> LoadFBX(const std::string& path)
 				indices.emplace_back(face.mIndices[2]);
 			}
 
-			output.emplace_back(GenerateMeshletData(mesh->mName.C_Str(), positions, genericVertexData, indices, ComputeBoundingSphere(positions)));
+			output.emplace_back(GenerateMeshletData(mesh->mName.C_Str(), vertices, indices, ComputeBoundingSphere(vertices)));
 		}
 	}
 	return output;

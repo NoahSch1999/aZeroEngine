@@ -51,6 +51,7 @@ namespace Example {
 					ent.set_name(name.c_str());
 					ent.set(Component::Mesh(*aManager.GetMesh("goblin").value(), *aManager.GetMaterial("TestMaterial").value()));
 					ent.set<Component::Position>(DXM::Vector3(i, 2, j));
+					ent.set<Component::Rotation>(DXM::Vector3(0, 3.14, 0));
 					//Component::Rigidbody& rb = ent.get_mut<Component::Rigidbody>();
 					//rb.SetCreationSettings(boxSettings);
 					//scene.RegisterToPhysics(ent);

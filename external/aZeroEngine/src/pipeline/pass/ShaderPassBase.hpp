@@ -121,46 +121,37 @@ namespace aZero
 			template<typename T>
 			void GenerateBindingsImpl(BindingCombo<BufferBinding>& bufferBindings, BindingCombo<ConstantBinding>& constantBindings, const T& shader, uint32_t& rootParamIndexOffset) const
 			{
-				const std::vector<D3D12_ROOT_PARAMETER>& params = shader.GetRootParameters();
+				uint32_t nextRootIndex = rootParamIndexOffset;
 				for (const auto& [name, bindingInfo] : shader.GetResourceBindings())
 				{
-					if (bindingInfo.m_ResourceType != D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS)
+					switch (bindingInfo.m_ResourceType)
 					{
-						// Ugly but consise!!!! :)
-						const BindingType descriptorType = 
-							bindingInfo.m_ResourceType == D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_SRV ? BindingType::SRV
-							: bindingInfo.m_ResourceType == D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_UAV ? BindingType::UAV : throw std::runtime_error("Invalid shader binding reflected.");
-
-						// Very ugly but not really a problem atm since we dont have a bajillion number of pipeline states to compile
-						for (int32_t localRootParamIndex = 0; localRootParamIndex < params.size(); localRootParamIndex++)
-						{
-							const D3D12_ROOT_PARAMETER& param = params.at(localRootParamIndex);
-							// If the root parameter's register matches the bindings register then that root parameter index is the resource's binding slot for a commandlist
-							if (param.Descriptor.ShaderRegister == bindingInfo.m_RootIndex)
-							{
-								bufferBindings.m_Bindings.emplace_back(descriptorType, localRootParamIndex + rootParamIndexOffset);
-								bufferBindings.m_Name_To_Binding[name] = bufferBindings.m_Bindings.size() - 1;
-								break;
-							}
-						}
-					}
-					else
+					case D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
 					{
-						// Very ugly but not really a problem atm since we dont have a bajillion number of pipeline states to compile
-						for (int32_t localRootParamIndex = 0; localRootParamIndex < params.size(); localRootParamIndex++)
-						{
-							const D3D12_ROOT_PARAMETER& param = params.at(localRootParamIndex);
-							// If the root parameter's register matches the bindings register then that root parameter index is the resource's binding slot for a commandlist
-							if (param.Constants.ShaderRegister == bindingInfo.m_RootIndex)
-							{
-								constantBindings.m_Bindings.emplace_back(bindingInfo.m_Num32BitConstants, localRootParamIndex + rootParamIndexOffset);
-								constantBindings.m_Name_To_Binding[name] = constantBindings.m_Bindings.size() - 1;
-								break;
-							}
-						}
+						constantBindings.m_Bindings.emplace_back(bindingInfo.m_Num32BitConstants, rootParamIndexOffset + bindingInfo.m_RootIndex);
+						constantBindings.m_Name_To_Binding[name] = constantBindings.m_Bindings.size() - 1;
+						break;
 					}
+					case D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_SRV:
+					{
+						bufferBindings.m_Bindings.emplace_back(BindingType::SRV, rootParamIndexOffset + bindingInfo.m_RootIndex);
+						bufferBindings.m_Name_To_Binding[name] = bufferBindings.m_Bindings.size() - 1;
+						break;
+					}
+					case D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_UAV:
+					{
+						bufferBindings.m_Bindings.emplace_back(BindingType::UAV, rootParamIndexOffset + bindingInfo.m_RootIndex);
+						bufferBindings.m_Name_To_Binding[name] = bufferBindings.m_Bindings.size() - 1;
+						break;
+					}
+					default:
+					{
+						throw std::runtime_error("Binding type not supported!");
+					}
+					}
+					nextRootIndex++;
 				}
-				rootParamIndexOffset += params.size();
+				rootParamIndexOffset = nextRootIndex;
 			}
 
 			// I <3 fold expressions

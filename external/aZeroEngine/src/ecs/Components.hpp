@@ -103,6 +103,8 @@ namespace aZero
             void SetMesh(const Asset::Mesh& mesh) {
                 if (mesh.GetRenderID() != Asset::InvalidRenderID) {
                     m_MeshID = mesh.GetRenderID();
+                    m_MeshletCount = mesh.GetVertexData().Meshlets.size();
+                    m_MeshBounds = mesh.GetVertexData().Bounds;
                 }
             }
 
@@ -112,7 +114,7 @@ namespace aZero
                 }
             }
 
-            void SetMesh(Asset::RenderID renderID) {
+            /*void SetMesh(Asset::RenderID renderID) {
                 if (renderID != Asset::InvalidRenderID) {
                     m_MeshID = renderID;
                 }
@@ -122,12 +124,16 @@ namespace aZero
                 if (renderID != Asset::InvalidRenderID) {
                     m_MaterialID = renderID;
                 }
-            }
+            }*/
 
             Asset::RenderID GetMeshID() const { return m_MeshID; }
+            DirectX::BoundingSphere GetBounds() const { return m_MeshBounds; }
+            uint32_t GetMeshletCount() const { return m_MeshletCount; }
             Asset::RenderID GetMaterialID() const { return m_MaterialID; }
 
         private:
+            DirectX::BoundingSphere m_MeshBounds;
+            uint32_t m_MeshletCount;
             Asset::RenderID m_MeshID;
             Asset::RenderID m_MaterialID;
         };
@@ -211,7 +217,12 @@ namespace aZero
             DXM::Matrix GetViewProjectionMatrix(const Component::Position& cameraPosition, const Component::Rotation& cameraRotation) const
             {
                 // TODO: Use rotation to orient the view
-                return DXM::Matrix::CreateLookAt(cameraPosition, cameraPosition + DXM::Vector3(0, 0, 1), { 0,1,0 }) * this->GetProjectionMatrix();
+                return this->GetViewMatrix(cameraPosition, cameraRotation) * this->GetProjectionMatrix();
+            }
+
+            DirectX::BoundingFrustum GetFrustum() const
+            {
+                return DirectX::BoundingFrustum(this->GetProjectionMatrix(), true);
             }
         };
     }

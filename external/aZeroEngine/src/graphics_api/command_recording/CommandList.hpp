@@ -36,11 +36,35 @@ namespace aZero
 				}
 			}
 
+			void SetGraphicsRootUnorderedAccessViewSafe(uint32_t rootParameterIndex, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())
+				{
+					m_CommandList->SetGraphicsRootUnorderedAccessView(rootParameterIndex, address);
+				}
+			}
+
 			void SetGraphicsRoot32BitConstantsSafe(uint32_t rootParameterIndex, uint32_t num32BitValuesToSet, const void* pSrcData, uint32_t destOffsetIn32BitValues)
 			{
 				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())
 				{
 					m_CommandList->SetGraphicsRoot32BitConstants(rootParameterIndex, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+				}
+			}
+
+			void SetComputeRootShaderResourceViewSafe(uint32_t rootParameterIndex, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())
+				{
+					m_CommandList->SetComputeRootShaderResourceView(rootParameterIndex, address);
+				}
+			}
+
+			void SetComputeRootUnorderedAccessViewSafe(uint32_t rootParameterIndex, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())
+				{
+					m_CommandList->SetComputeRootUnorderedAccessView(rootParameterIndex, address);
 				}
 			}
 

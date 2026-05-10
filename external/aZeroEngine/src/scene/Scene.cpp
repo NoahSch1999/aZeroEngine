@@ -46,26 +46,26 @@ void aZero::Scene::Scene::UpdateTemp()
 		});*/
 }
 
-std::tuple<std::vector<aZero::Rendering::GPUProxy::StaticMesh>, std::vector<aZero::Rendering::GPUProxy::Camera>, std::vector<aZero::Rendering::GPUProxy::Camera::RasterInfo>> aZero::Scene::Scene::GetWorldRenderData() const
+std::tuple<std::vector<aZero::Rendering::GPUProxy::StaticMeshInstance>, std::vector<aZero::Rendering::GPUProxy::Camera>> aZero::Scene::Scene::GetWorldRenderData() const
 {
-	std::vector<Rendering::GPUProxy::StaticMesh> meshes;
-	meshes.reserve(m_StaticMeshQuery.count());
-	m_StaticMeshQuery.each([&meshes](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
+	std::vector<Rendering::GPUProxy::StaticMeshInstance> staticMeshes;
+	staticMeshes.reserve(m_StaticMeshQuery.count());
+	m_StaticMeshQuery.each([&staticMeshes](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
 		{
-			meshes.emplace_back(mesh, position, rotation, scale);
+			staticMeshes.emplace_back(mesh, position, rotation, scale);
 		});
 
 	std::vector<Rendering::GPUProxy::Camera> cameras;
-	std::vector<Rendering::GPUProxy::Camera::RasterInfo> cameraRasterInfos;
 	cameras.reserve(m_CameraQuery.count());
-	cameraRasterInfos.reserve(m_CameraQuery.count());
-	m_CameraQuery.each([&cameras, &cameraRasterInfos](const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
+	m_CameraQuery.each([&cameras](const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
 		{
-			cameras.emplace_back(camera, position, rotation);
-			cameraRasterInfos.emplace_back(camera.GetViewport(), camera.GetScizzorRect());
+			if (camera.isActive)
+			{
+				cameras.emplace_back(camera, position, rotation);
+			}
 		});
 
-	return std::make_tuple(std::move(meshes), std::move(cameras), std::move(cameraRasterInfos));
+	return std::make_tuple(std::move(staticMeshes), std::move(cameras));
 }
 
 void aZero::Scene::Scene::RemoveMeshesWith(Asset::RenderID withID)

@@ -78,6 +78,33 @@ aZero::RenderAPI::Descriptor aZero::RenderAPI::DescriptorHeap::CreateDescriptor(
 	return Descriptor(cpuHandle, gpuHandle, descriptorIndex, this, destroyOnScope);
 }
 
+std::vector<aZero::RenderAPI::Descriptor> aZero::RenderAPI::DescriptorHeap::CreateContiguousDescriptors(uint32_t count, bool destroyOnScope)
+{
+	std::vector<aZero::RenderAPI::Descriptor> descriptors;
+	descriptors.reserve(count);
+	for (uint32_t i = 0; i < count; i++)
+	{
+		const DescriptorIndex descriptorIndex = m_Freelist.NewNext();
+		if (descriptorIndex >= m_Heap->GetDesc().NumDescriptors)
+		{
+			throw std::invalid_argument("DescriptorHeap::GetDescriptor() => Out of descriptors");
+		}
+
+		D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = { 0 };
+		cpuHandle.ptr = m_CpuHeapStart.ptr + descriptorIndex * m_DescriptorSize;
+
+		D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = { 0 };
+		if (m_Heap->GetDesc().Flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
+		{
+			gpuHandle.ptr = m_GpuHeapStart.ptr + descriptorIndex * m_DescriptorSize;
+		}
+
+		descriptors.emplace_back(Descriptor(cpuHandle, gpuHandle, descriptorIndex, this, destroyOnScope));
+	}
+
+	return descriptors;
+}
+
 D3D12_DESCRIPTOR_HEAP_TYPE aZero::RenderAPI::DescriptorHeap::GetType() const
 {
 	const D3D12_DESCRIPTOR_HEAP_DESC desc = m_Heap->GetDesc();
