@@ -6,7 +6,7 @@
 struct GPUDrivenRenderConstants
 {
     float4x4 CameraView; // Camera view matrix
-    //BoundingFrustum CameraFrustum; // Camera frustum
+    BoundingFrustum CameraFrustum; // Camera frustum
     uint MeshInstancesCount; // Num meshinstances to perform frustum-culling with
 };
 
@@ -15,26 +15,26 @@ struct MeshCull_Count
     uint Count;
 };
 
+struct MeshletDrawConstantsData
+{
+    float4x4 WorldTransform;
+    uint MeshletBuffer_Bindless;
+    uint MeshletCount;
+    uint MaterialIndex;
+};
+
 struct MeshletCull_IA
 {
-    uint MeshInstanceIndex; // Index into the framecontext's meshinstance buffer
+    MeshletDrawConstantsData MeshInstance;
     uint GroupsX; // Doesn't need to be reset since it's overwritten fully each time it's used
     uint GroupsY; // Always 1
     uint GroupsZ; // Always 1
 };
 
-struct MeshletDraw_IA
+struct MeshletPayload
 {
-    uint GroupsX; // Reset to 0 each frame and icnr
-    uint GroupsY; // Always 1
-    uint GroupsZ; // Always 1
-};
-
-struct MeshletDrawInstance
-{
-    uint MeshInstanceIndex;
-    uint VertexOffset;
-    uint TriangleCount;
+    uint VertexOffset[THREADS_PER_X];
+    uint TriangleCount[THREADS_PER_X];
 };
 
 void GetVertex(out PipelineVertex output, uint vertexIndex, in float4x4 vpMatrix, in StructuredBuffer<MeshVertex> vertices, in float4x4 transform, uint materialIndex)

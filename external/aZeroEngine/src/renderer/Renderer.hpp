@@ -105,22 +105,25 @@ namespace aZero
 			uint32_t MAX_MESHLETS = 1000000; // TODO: Make configurable
 
 			// Geometry render pipeline
+			RenderAPI::Buffer m_MeshInstanceBuffer;
+
 			Pipeline::ComputeShaderPass m_MeshCullPass;
 			Pipeline::ComputeShader m_MeshCullCS;
 
 			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletCullSignature;
-			Pipeline::ComputeShaderPass m_MeshletCullPass;
-			Pipeline::ComputeShader m_MeshletCullCS;
 
-			Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
+			// Amp shader stuff
+
+			//Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature; // REMOVE
 			Pipeline::MeshShaderPass m_MeshletDrawPass;
+			Pipeline::AmplificationShader m_MeshletDrawAS;
 			Pipeline::MeshShader m_MeshletDrawMS;
 			Pipeline::PixelShader m_MeshletDrawPS;
 
 			struct GPUDrivenRenderConstants
 			{
 				DXM::Matrix CameraView; // Camera view matrix
-				//DirectX::BoundingFrustum CameraFrustum; // Camera frustum
+				DirectX::BoundingFrustum CameraFrustum; // Camera frustum
 				uint32_t MeshInstancesCount; // Num meshinstances to perform frustum-culling with
 			};
 
@@ -129,27 +132,21 @@ namespace aZero
 			};
 			RenderAPI::Buffer m_MeshCull_Count_B; // - MeshCull_Count - Used to interlock_add and get the IA argument index for the MeshletCull_IA_B buffer - Read/Written to in the MeshCull pass via UAV
 
+			struct MeshletDrawConstantsData
+			{
+				DXM::Matrix WorldTransform;
+				uint32_t MeshletBuffer_Bindless;
+				uint32_t MeshletCount;
+				uint32_t MaterialIndex;
+			};
+
 			struct MeshletCull_IA {
-				uint32_t MeshInstance; // Index into the framecontext's meshinstance buffer
+				MeshletDrawConstantsData MeshInstance; // Index into the framecontext's meshinstance buffer
 				uint32_t GroupsX; // Doesn't need to be reset since it's overwritten fully each time it's used
 				uint32_t GroupsY; // Always 1
 				uint32_t GroupsZ; // Always 1
 			};
 			RenderAPI::Buffer m_MeshletCull_IA_B; // - MeshletCull_IA - Contains IA arguments for the MeshletCull pass - Written to in the MeshCull pass via UAV and consumed by executeindirect by the MeshletCull pass
-
-			struct MeshletDraw_IA {
-				uint32_t GroupsX; // Reset to 0 each frame and icnr
-				uint32_t GroupsY; // Always 1
-				uint32_t GroupsZ; // Always 1
-			};
-			RenderAPI::Buffer m_MeshletDraw_IA_B; // Used to interlock_add with the threadgroup X value - Written to by the MeshletCull pass via UAV and consumed by executeindirect by the MeshletDraw pass
-
-			struct MeshletDrawInstance {
-				uint32_t MeshInstanceIndex;
-				uint32_t VertexOffset;
-				uint32_t VertexCount;
-			};
-			RenderAPI::Buffer m_MeshletDrawInstance_B; // Contains info of each passed meshlet - Written to by the MeshletCull pass and consumed by the MeshletDraw pass via UAV
 
 			/*
 			---------------------------------------------------------------------------------------------------------------------------------------------

@@ -24,7 +24,6 @@ void main(uint3 dtid : SV_DispatchThreadID)
         
         const float3 boundsWP = mul(meshInstance.WorldTransform, float4(meshlet.Bounds.Position, 1.f)).xyz;
         const BoundingSphere bounds = CreateBoundingSphere(boundsWP, meshlet.Bounds.Radius);
-        
         //if (Constants.CameraFrustum.Intersects(bounds, Constants.CameraView))
         {
             uint meshletInstanceIndex;

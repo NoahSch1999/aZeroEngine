@@ -181,7 +181,14 @@ bool aZero::Pipeline::MeshShaderPass::Compile(ID3D12DeviceX* device, const Descr
 
 	BindingCombo<BufferBinding> bufferBindings;
 	BindingCombo<ConstantBinding> constantBindings;
-	MultiShaderPass::GenerateBindings(bufferBindings, constantBindings, description, meshShader, pixelShader);
+	if (amplificationShader.has_value())
+	{
+		MultiShaderPass::GenerateBindingsAmp(bufferBindings, constantBindings, description, *amplificationShader.value(), meshShader, pixelShader);
+	}
+	else
+	{
+		MultiShaderPass::GenerateBindings(bufferBindings, constantBindings, description, meshShader, pixelShader);
+	}
 
 	MultiShaderPass::PostCompile(pipelineState, rootSignature, std::move(bufferBindings), std::move(constantBindings));
 

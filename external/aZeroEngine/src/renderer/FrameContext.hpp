@@ -87,8 +87,7 @@ namespace aZero
 				const uint32_t frameBufferSize = 1000000;
 				m_FrameAllocator = LinearFrameAllocator(device, frameBufferSize, recycler);
 
-				RenderAPI::Buffer::Desc primitiveBufferDesc(0, D3D12_HEAP_TYPE_UPLOAD);
-				primitiveBufferDesc.NumBytes = sizeof(GPUProxy::StaticMeshInstance) * maxInstances;
+				RenderAPI::Buffer::Desc primitiveBufferDesc(sizeof(GPUProxy::StaticMeshInstance) * maxInstances, D3D12_HEAP_TYPE_UPLOAD);
 				m_StaticMeshBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
 
 				//primitiveBufferDesc.NumBytes = sizeof(GPUProxy::PointLight) * 1000;

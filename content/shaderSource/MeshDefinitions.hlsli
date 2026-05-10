@@ -35,7 +35,6 @@ struct MeshInstance
 struct Meshlet
 {
     uint VertexOffset;
-    //uint VertexCount;
     uint TriangleCount;
     BoundingSphere Bounds;
 };

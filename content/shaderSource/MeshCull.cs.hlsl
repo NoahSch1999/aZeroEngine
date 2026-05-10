@@ -20,7 +20,10 @@ void main(uint3 dtid : SV_DispatchThreadID)
         {
             uint meshObjectIndex;
             InterlockedAdd(MeshInstanceIndexCounter[0].Count, 1, meshObjectIndex);
-            MeshletCullPass_IA[meshObjectIndex].MeshInstanceIndex = dtid.x; // Forwards the mesh instance index to the rest of the pipeline through a root constant index
+            MeshletCullPass_IA[meshObjectIndex].MeshInstance.WorldTransform = meshInstance.WorldTransform;
+            MeshletCullPass_IA[meshObjectIndex].MeshInstance.MeshletCount = meshInstance.MeshletCount;
+            MeshletCullPass_IA[meshObjectIndex].MeshInstance.MeshletBuffer_Bindless = meshInstance.MeshletBuffer_Bindless;
+            MeshletCullPass_IA[meshObjectIndex].MeshInstance.MaterialIndex = meshInstance.MaterialIndex;
             MeshletCullPass_IA[meshObjectIndex].GroupsX = ceil(meshInstance.MeshletCount / (float) THREADS_PER_X); // Splits the passed mesh instance's meshlets across THREADS_PER_X num groups (rounded up)
             MeshletCullPass_IA[meshObjectIndex].GroupsY = 1;
             MeshletCullPass_IA[meshObjectIndex].GroupsZ = 1;

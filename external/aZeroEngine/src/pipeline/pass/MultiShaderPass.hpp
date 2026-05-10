@@ -1,5 +1,7 @@
 #pragma once
 #include "ShaderPassBase.hpp"
+#include "pipeline/shader/AmplificationShader.hpp"
+#include "pipeline/shader/MeshShader.hpp"
 #include "pipeline/shader/PixelShader.hpp"
 #include "misc/SparseMappedVector.hpp"
 
@@ -48,6 +50,22 @@ namespace aZero
 				else
 				{
 					ShaderPassBase::GenerateBindings(bufferBindings, constantBindings, vertexGenerationShader);
+				}
+			}
+
+			template<typename DescriptionType>
+			void GenerateBindingsAmp(BindingCombo<BufferBinding>& bufferBindings,
+				BindingCombo<ConstantBinding>& constantBindings, const DescriptionType& description, const Pipeline::AmplificationShader& amplificationShader,
+				const Pipeline::MeshShader& meshShader, std::optional<Pipeline::PixelShader*> pixelShader) const
+			{
+				if (pixelShader.has_value())
+				{
+					Pipeline::PixelShader& pixelShaderRef = *pixelShader.value();
+					ShaderPassBase::GenerateBindings(bufferBindings, constantBindings, amplificationShader, meshShader, pixelShaderRef);
+				}
+				else
+				{
+					ShaderPassBase::GenerateBindings(bufferBindings, constantBindings, amplificationShader, meshShader);
 				}
 			}
 
