@@ -6,7 +6,7 @@
 struct GPUDrivenRenderConstants
 {
     float4x4 CameraView; // Camera view matrix
-    BoundingFrustum CameraFrustum; // Camera frustum
+    //BoundingFrustum CameraFrustum; // Camera frustum
     uint MeshInstancesCount; // Num meshinstances to perform frustum-culling with
 };
 

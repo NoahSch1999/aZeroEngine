@@ -52,18 +52,19 @@ Output main(PipelineVertex pin)
 #endif
     
     // TODO: Calc lighting
-    surfaceColor = float3(0, 0, 0);
-    float3 ambient = float3(0.4, 0.4, 0.4);
-    surfaceColor *= ambient;
+    //surfaceColor = float3(0, 0, 0);
+    //float3 ambient = float3(0.4, 0.4, 0.4);
+    //surfaceColor *= ambient;
     
-    PointLight p;
-    p.Color = float3(1, 0, 0);
-    p.Position = float3(sin(Default_Phong_Constants.Time * 8), 3, 0);
-    p.Intensity = 1.f;
-    surfaceColor += p.CalculateLighting_BlinnPhong(pin.WorldPosition.xyz, fragmentNormal, float3(0, 0, 0));
+    //PointLight p;
+    //p.Color = float3(1, 0, 0);
+    //p.Position = float3(sin(Default_Phong_Constants.Time * 8), 3, 0);
+    //p.Intensity = 1.f;
+    //surfaceColor += p.CalculateLighting_BlinnPhong(pin.WorldPosition.xyz, fragmentNormal, float3(0, 0, 0));
     
     Output output;
-    output.color = float4(surfaceColor, 1); // normal
+    output.color = float4(fragmentNormal.xyz, 1);
+    //output.color = float4(surfaceColor, 1); // normal
     //output.color = float4(pin.MeshletColor, 1.f);
     
     return output;

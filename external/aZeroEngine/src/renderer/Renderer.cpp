@@ -107,7 +107,7 @@ namespace aZero
 			auto& cmdList = frameContext.m_DirectCmdList;
 
 			GPUDrivenRenderConstants constants;
-			constants.CameraFrustum = camera.m_Frustrum;
+			//constants.CameraFrustum = camera.m_Frustrum;
 			constants.CameraView = camera.m_View;
 			constants.MeshInstancesCount = numStaticMeshes;
 			{

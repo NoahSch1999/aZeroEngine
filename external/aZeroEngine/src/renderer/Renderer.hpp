@@ -120,7 +120,7 @@ namespace aZero
 			struct GPUDrivenRenderConstants
 			{
 				DXM::Matrix CameraView; // Camera view matrix
-				DirectX::BoundingFrustum CameraFrustum; // Camera frustum
+				//DirectX::BoundingFrustum CameraFrustum; // Camera frustum
 				uint32_t MeshInstancesCount; // Num meshinstances to perform frustum-culling with
 			};
 
