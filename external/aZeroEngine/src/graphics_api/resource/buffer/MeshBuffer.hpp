@@ -19,7 +19,7 @@ namespace aZero
 				Buffer::Desc desc;
 				desc.AccessType = D3D12_HEAP_TYPE_DEFAULT;
 
-				std::vector<Descriptor> descriptors = heap.CreateContiguousDescriptors(3);
+				std::vector<Descriptor> descriptors = heap.CreateContiguousDescriptors(4);
 
 				desc.NumBytes = data.Meshlets.size() * sizeof(data.Meshlets[0]);
 				m_MeshBuffer = Buffer(device, desc, &resourceRecycler);
@@ -42,12 +42,21 @@ namespace aZero
 				str.assign(strN.begin(), strN.end());
 				m_VerticesBuffer.GetResource()->SetName(str.c_str());
 
+				desc.NumBytes = data.Indices.size() * sizeof(data.Indices[0]);
+				m_IndicesBuffer = Buffer(device, desc, &resourceRecycler);
+				m_IndicesDescriptor = ShaderResourceView(device, std::move(descriptors[3]), m_IndicesBuffer, data.Indices.size(), sizeof(data.Indices[0]));
+				strN = "IndicesBuffer: " + data.Name;
+				str.assign(strN.begin(), strN.end());
+				m_IndicesBuffer.GetResource()->SetName(str.c_str());
+
 				Buffer::Desc stagingDesc;
 				stagingDesc.AccessType = D3D12_HEAP_TYPE_UPLOAD;
 				stagingDesc.NumBytes =
 					data.Meshlets.size() * sizeof(data.Meshlets[0])
 					+ data.Primitives.size() * sizeof(data.Primitives[0])
-					+ data.Vertices.size() * sizeof(data.Vertices[0]);
+					+ data.Vertices.size() * sizeof(data.Vertices[0])
+					+ data.Indices.size() * sizeof(data.Indices[0])
+					;
 
 				RenderAPI::Buffer stagingBuffer(device, stagingDesc, &resourceRecycler);
 
@@ -64,6 +73,10 @@ namespace aZero
 				stagingBuffer.Write(data.Vertices.data(), data.Vertices.size() * sizeof(data.Vertices[0]), offset);
 				cmdList->CopyBufferRegion(m_VerticesBuffer.GetResource(), 0, stagingBuffer.GetResource(), offset, data.Vertices.size() * sizeof(data.Vertices[0]));
 				offset += data.Vertices.size() * sizeof(data.Vertices[0]);
+
+				stagingBuffer.Write(data.Indices.data(), data.Indices.size() * sizeof(data.Indices[0]), offset);
+				cmdList->CopyBufferRegion(m_IndicesBuffer.GetResource(), 0, stagingBuffer.GetResource(), offset, data.Indices.size() * sizeof(data.Indices[0]));
+				offset += data.Indices.size() * sizeof(data.Indices[0]);
 				
 			}
 
@@ -78,6 +91,8 @@ namespace aZero
 			Buffer m_PrimitivesBuffer;
 			ShaderResourceView m_VerticesDescriptor;
 			Buffer m_VerticesBuffer;
+			ShaderResourceView m_IndicesDescriptor;
+			Buffer m_IndicesBuffer;
 		};
 	}
 }

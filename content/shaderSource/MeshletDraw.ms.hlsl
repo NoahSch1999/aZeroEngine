@@ -21,19 +21,22 @@ void main(
 {
     if (payload.VisibleMeshletsCount > meshletIndex)
     {
-        SetMeshOutputCounts(payload.VertexCount[meshletIndex], payload.VertexCount[meshletIndex]);
+        SetMeshOutputCounts(payload.VertexCount[meshletIndex], payload.PrimitiveCount[meshletIndex]);
     
-        if (localThreadIndex < payload.VertexCount[meshletIndex] * 3)
+        if (localThreadIndex < payload.PrimitiveCount[meshletIndex])
         {
             const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[payload.MeshBuffer_Bindless + 1];
-            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[payload.VertexOffset[localThreadIndex] + localThreadIndex]);
+            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[payload.PrimitiveOffset[meshletIndex] + localThreadIndex]);
         }
     
         if (localThreadIndex < payload.VertexCount[meshletIndex])
         {
+            const StructuredBuffer<uint> indices = ResourceDescriptorHeap[payload.MeshBuffer_Bindless + 3];
+            uint vertexIndex = indices[payload.VertexOffset[meshletIndex] + localThreadIndex];
+            
             PipelineVertex newVertex;
             const StructuredBuffer<MeshVertex> vertexPositionBuffer = ResourceDescriptorHeap[payload.MeshBuffer_Bindless + 2];
-            GetVertex(newVertex, payload.VertexOffset[meshletIndex] + localThreadIndex, ConstantsMS.CameraVP, vertexPositionBuffer, payload.WorldTransform);
+            GetVertex(newVertex, vertexIndex, ConstantsMS.CameraVP, vertexPositionBuffer, payload.WorldTransform);
             verts[localThreadIndex] = newVertex;
         }
     }

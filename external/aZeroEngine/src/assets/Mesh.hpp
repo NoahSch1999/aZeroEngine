@@ -35,7 +35,8 @@ namespace aZero
 			std::string Name;
 			std::vector<Meshlet> Meshlets;
 			std::vector<Vertex> Vertices;
-			std::vector<uint8_t> Primitives;
+			std::vector<uint32_t> Primitives;
+			std::vector<VertexIndex> Indices;
 			DirectX::BoundingSphere Bounds;
 		};
 
