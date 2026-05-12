@@ -16,7 +16,9 @@ namespace aZero
 		struct Meshlet
 		{
 			uint32_t VertexOffset;
-			uint32_t TriangleCount;
+			uint32_t VertexCount;
+			uint32_t PrimitiveOffset;
+			uint32_t PrimitiveCount;
 			DirectX::BoundingSphere Bounds;
 		};
 
@@ -33,7 +35,7 @@ namespace aZero
 			std::string Name;
 			std::vector<Meshlet> Meshlets;
 			std::vector<Vertex> Vertices;
-			std::vector<uint8_t> LocalIndices;
+			std::vector<uint8_t> Primitives;
 			DirectX::BoundingSphere Bounds;
 		};
 

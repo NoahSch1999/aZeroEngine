@@ -12,7 +12,6 @@ struct PipelineVertex
 #if !NORMAL_MAP
     float3x3 TBN : TBN;
 #endif
-    uint MaterialIndex : MATERIAL;
 };
 
 struct MeshVertex
@@ -35,11 +34,10 @@ struct MeshInstance
 struct Meshlet
 {
     uint VertexOffset;
-    uint TriangleCount;
+    uint VertexCount;
+    uint PrimitiveOffset;
+    uint PrimitiveCount;
     BoundingSphere Bounds;
 };
-
-#define THREADS_PER_X 32
-#define THREADS_PER_MESHLET 64
 
 #endif

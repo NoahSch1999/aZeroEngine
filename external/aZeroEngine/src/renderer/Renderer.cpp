@@ -65,12 +65,16 @@ namespace aZero
 			m_MeshletDrawPass.Compile(m_diDevice, meshletDrawPassDesc, &m_MeshletDrawAS, m_MeshletDrawMS, &m_MeshletDrawPS);
 
 			// Indirect arguments written to in the MeshCull pass
-			std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> meshCullIA;
+			std::array<D3D12_INDIRECT_ARGUMENT_DESC, 3> meshCullIA;
 			meshCullIA[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
 			meshCullIA[0].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBindingIndex("MeshletDrawConstants").GetRootIndex();
 			meshCullIA[0].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBindingIndex("MeshletDrawConstants").GetNumConstants();
 			meshCullIA[0].Constant.DestOffsetIn32BitValues = 0;
-			meshCullIA[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+			meshCullIA[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+			meshCullIA[1].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBindingIndex("MaterialConstants").GetRootIndex();
+			meshCullIA[1].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBindingIndex("MaterialConstants").GetNumConstants();
+			meshCullIA[1].Constant.DestOffsetIn32BitValues = 0;
+			meshCullIA[2].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
 			D3D12_COMMAND_SIGNATURE_DESC meshCullIADesc{};
 			meshCullIADesc.pArgumentDescs = meshCullIA.data();
 			meshCullIADesc.NumArgumentDescs = meshCullIA.size();

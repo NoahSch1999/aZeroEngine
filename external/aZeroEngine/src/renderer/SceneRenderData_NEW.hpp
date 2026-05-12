@@ -19,10 +19,10 @@ namespace aZero::Rendering {
 			StaticMeshInstance(const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
 			{
 				// TODO: Avoid this much data
-				m_WorldTransform = /*DXM::Matrix::CreateScale(scale.vec), */DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
+				m_WorldTransform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
 				m_MeshBuffer_Bindless = mesh.GetMeshID();
 				m_MeshletCount = mesh.GetMeshletCount();
-				m_MaterialIndex = mesh.GetMaterialID();
+				m_MaterialIndex = 1337;// mesh.GetMaterialID();
 				m_MeshBounds = mesh.GetBounds();
 			}
 		};

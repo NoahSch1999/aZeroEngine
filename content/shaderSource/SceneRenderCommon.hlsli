@@ -3,6 +3,17 @@
 
 #include "MeshDefinitions.hlsli"
 
+// This needs to be 32 since we are using wave-intrinsic functions for visibility
+// I should test this on AMD that uses 64 threads per wave...
+#define THREADS_PER_X 32
+
+#define THREADS_PER_MESHLET 64
+
+struct MaterialConstantsData
+{
+    uint MaterialIndex;
+};
+
 struct GPUDrivenRenderConstants
 {
     float4x4 CameraView; // Camera view matrix
@@ -21,13 +32,13 @@ struct MeshletDrawConstantsData
     float4x4 WorldTransform;
     uint MeshBuffer_Bindless;
     uint MeshletCount;
-    uint MaterialIndex;
-    uint pad;
+    uint2 pad;
 };
 
 struct MeshletCull_IA
 {
     MeshletDrawConstantsData MeshInstance;
+    MaterialConstantsData MaterialConstants;
     uint GroupsX; // Doesn't need to be reset since it's overwritten fully each time it's used
     uint GroupsY; // Always 1
     uint GroupsZ; // Always 1
@@ -35,13 +46,16 @@ struct MeshletCull_IA
 
 struct MeshletPayload
 {
-    MeshletDrawConstantsData Constants;
-    uint VisibilityCount;
+    float4x4 WorldTransform;
+    uint MeshBuffer_Bindless;
+    uint VisibleMeshletsCount;
     uint VertexOffset[THREADS_PER_X];
-    uint TriangleCount[THREADS_PER_X];
+    uint VertexCount[THREADS_PER_X];
+    uint PrimitiveOffset[THREADS_PER_X];
+    uint PrimitiveCount[THREADS_PER_X];
 };
 
-void GetVertex(out PipelineVertex output, uint vertexIndex, in float4x4 vpMatrix, in StructuredBuffer<MeshVertex> vertices, in float4x4 transform, uint materialIndex)
+void GetVertex(out PipelineVertex output, uint vertexIndex, in float4x4 vpMatrix, in StructuredBuffer<MeshVertex> vertices, in float4x4 transform)
 {
     float4 position = mul(transform, float4(vertices[vertexIndex].Position, 1.f));
     output.WorldPosition = position.xyz;
@@ -64,7 +78,6 @@ void GetVertex(out PipelineVertex output, uint vertexIndex, in float4x4 vpMatrix
 #endif
     
     output.UV = vertices[vertexIndex].UV;
-    output.MaterialIndex = materialIndex;
 }
 
 #endif

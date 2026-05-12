@@ -29,7 +29,8 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 	tempMeshlets.resize(max_meshlets);
 	local_indices.resize(max_meshlets * max_vertices);
 	primitives.resize(max_meshlets * max_triangles * 3);
-	size_t meshlet_count = meshopt_buildMeshlets(tempMeshlets.data(), local_indices.data(), primitives.data(), indices.data(), indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(aZero::Asset::Vertex), max_vertices, max_triangles, 0.f);
+	size_t meshlet_count = meshopt_buildMeshlets(tempMeshlets.data(), local_indices.data(), primitives.data(), indices.data(), 
+		indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(aZero::Asset::Vertex), max_vertices, max_triangles, 0.f);
 
 	const meshopt_Meshlet& last = tempMeshlets[meshlet_count - 1];
 
@@ -37,32 +38,24 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 	primitives.resize(last.triangle_offset + last.triangle_count * 3);
 	tempMeshlets.resize(meshlet_count);*/
 
-	for (const meshopt_Meshlet& meshlet : tempMeshlets)
+	for (int i = 0 ; i < meshlet_count; i ++)
 	{
-		uint32_t triangleOffset = meshlet.triangle_offset;
-		uint32_t vertexOffset = meshlet.vertex_offset;
-
-		for(int i = 0; i < meshlet.triangle_count * 3; i+=3)
-		{
-			uint8_t a = primitives[meshlet.triangle_offset + i];
-			uint8_t b = primitives[meshlet.triangle_offset + i + 1];
-			uint8_t c = primitives[meshlet.triangle_offset + i + 2];
-			aZero::Asset::VertexIndex a2 = local_indices[vertexOffset + a];
-			aZero::Asset::VertexIndex b2 = local_indices[vertexOffset + b];
-			aZero::Asset::VertexIndex c2 = local_indices[vertexOffset + c];
-
-			finalVertices.emplace_back(vertices[a2]);
-			finalVertices.emplace_back(vertices[b2]);
-			finalVertices.emplace_back(vertices[c2]);
-		}
-
+		const meshopt_Meshlet& meshlet = tempMeshlets[i];
 		aZero::Asset::Meshlet newMeshlet;
-		newMeshlet.VertexOffset = vertexOffset;
-		newMeshlet.TriangleCount = meshlet.triangle_count;
 
 		meshopt_Bounds bounds = meshopt_computeMeshletBounds(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset],
 			meshlet.triangle_count, &vertices[0].Position.x, vertices.size(), sizeof(aZero::Asset::Vertex));
 		newMeshlet.Bounds = DirectX::BoundingSphere(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius);
+
+		newMeshlet.PrimitiveCount = meshlet.triangle_count;
+		newMeshlet.VertexCount = meshlet.vertex_offset;
+		newMeshlet.VertexOffset = meshlet.vertex_offset;
+		newMeshlet.PrimitiveOffset = meshlet.triangle_offset;
+
+		for (int j = 0; j < meshlet.triangle_count; j++)
+		{
+			finalIndices.emplace_back(aZero::Helper::Pack8To32(primitives[meshlet.triangle_offset + j], primitives[meshlet.triangle_offset + j + 1], primitives[meshlet.triangle_offset + j + 2], 0));
+		}
 
 		finalMeshlets.emplace_back(newMeshlet);
 	}
@@ -71,7 +64,7 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 		.Name = name,
 		.Meshlets = std::move(finalMeshlets),
 		.Vertices = std::move(finalVertices),
-		.LocalIndices = std::move(finalIndices),
+		.Primitives = std::move(finalIndices),
 		.Bounds = bounds
 	};
 }

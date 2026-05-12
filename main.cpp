@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 	{
 		// API Interfaces
 		Asset::Mesh mesh;
-		mesh.LoadFromFile(Asset::GetMeshDirectoryPath() + "cube2.fbx");
+		mesh.LoadFromFile(Asset::GetMeshDirectoryPath() + "soldier.fbx");
 		aZero::Engine engine(3);
 		Rendering::Renderer& renderer = engine.GetRenderer();
 		Rendering::WireframeRenderer& wireframeRenderer = renderer.GetWireframeRenderer();

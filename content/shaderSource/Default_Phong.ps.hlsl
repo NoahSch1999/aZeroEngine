@@ -2,6 +2,8 @@
 #include "Materials.hlsli"
 #include "Lights.hlsli"
 
+ConstantBuffer<MaterialConstantsData> MaterialConstants : register(b0);
+
 struct PassConstantData
 {
     uint SamplerIndex;
@@ -22,7 +24,7 @@ struct Output
 Output main(PipelineVertex pin)
 {
     Output output;
-    output.color = float4(pin.Normal.xyz, 1);
+    output.color = float4(pin.Normal.xy, MaterialConstants.MaterialIndex, 1);
 //output.color = float4(surfaceColor, 1); // normal
 //output.color = float4(pin.MeshletColor, 1.f);
 

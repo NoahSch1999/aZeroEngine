@@ -139,12 +139,17 @@ namespace aZero
 				DXM::Matrix WorldTransform;
 				uint32_t MeshBuffer_Bindless;
 				uint32_t MeshletCount;
+				uint32_t pad[2];
+			};
+
+			struct MaterialConstantsData
+			{
 				uint32_t MaterialIndex;
-				uint32_t pad;
 			};
 
 			struct MeshletCull_IA {
 				MeshletDrawConstantsData MeshInstance; // Index into the framecontext's meshinstance buffer
+				MaterialConstantsData MaterialConstants;
 				uint32_t GroupsX; // Doesn't need to be reset since it's overwritten fully each time it's used
 				uint32_t GroupsY; // Always 1
 				uint32_t GroupsZ; // Always 1
