@@ -9,7 +9,7 @@ namespace aZero
 	namespace Rendering
 	{
 		Renderer::Renderer(ID3D12DeviceX* device, uint32_t bufferCount, IDxcCompilerX& compiler)
-			:m_Compiler(compiler), m_diDevice(device), m_BufferCount(bufferCount)
+			:m_Compiler(compiler), m_diDevice(device)
 		{
 			D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureData = {};
 			device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &featureData, sizeof(featureData));
@@ -70,7 +70,7 @@ namespace aZero
 			meshCullIA[0].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBindingIndex("MeshletDrawConstants").GetRootIndex();
 			meshCullIA[0].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBindingIndex("MeshletDrawConstants").GetNumConstants();
 			meshCullIA[0].Constant.DestOffsetIn32BitValues = 0;
-			meshCullIA[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+			meshCullIA[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
 			D3D12_COMMAND_SIGNATURE_DESC meshCullIADesc{};
 			meshCullIADesc.pArgumentDescs = meshCullIA.data();
 			meshCullIADesc.NumArgumentDescs = meshCullIA.size();
@@ -83,6 +83,7 @@ namespace aZero
 #ifdef USE_DEBUG
 			m_MeshCull_Count_B.GetResource()->SetName(L"m_MeshCull_Count_B");
 			m_MeshletCull_IA_B.GetResource()->SetName(L"m_MeshletCull_IA_B");
+			m_MeshInstanceBuffer.GetResource()->SetName(L"m_MeshInstanceBuffer_VRAM");
 #endif
 		}
 
@@ -95,6 +96,8 @@ namespace aZero
 			constants.CameraFrustum = camera.m_Frustrum;
 			constants.CameraView = camera.m_View;
 			constants.MeshInstancesCount = numStaticMeshes;
+			int x = sizeof(camera.m_Frustrum);
+			int y = sizeof(GPUDrivenRenderConstants);
 			{
 				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "MeshCull pass");
 
@@ -123,7 +126,7 @@ namespace aZero
 				cmdList.SetComputeRootShaderResourceViewSafe(meshInstances_Binding.GetRootIndex(), m_MeshInstanceBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetComputeRootUnorderedAccessViewSafe(meshInstanceIndexCounter_Binding.GetRootIndex(), m_MeshCull_Count_B.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetComputeRootUnorderedAccessViewSafe(meshletCullPass_IA_Binding.GetRootIndex(), m_MeshletCull_IA_B.GetResource()->GetGPUVirtualAddress());
-				cmdList->Dispatch(std::ceil(numStaticMeshes / 64.f), 1, 1);
+				cmdList->Dispatch(std::ceil(numStaticMeshes / 32.f), 1, 1);
 
 				/*barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshCull_Count_B.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 				cmdList->ResourceBarrier(1, &barrier);*/
@@ -139,11 +142,11 @@ namespace aZero
 
 				m_MeshletDrawPass.Begin(cmdList, m_ResourceHeap, m_SamplerHeap, { &renderTarget.GetDescriptor() }, { &depthStencilTarget.GetDescriptor() });
 
-				auto constants_Binding = m_MeshletDrawPass.GetConstantBindingIndex("Constants");
-				auto meshInstances_Binding = m_MeshletDrawPass.GetBufferBindingIndex("MeshInstances");
-				auto meshletDrawInstances_Binding = m_MeshletDrawPass.GetBufferBindingIndex("MeshletDrawInstances");
+				auto constants_BindingMS = m_MeshletDrawPass.GetConstantBindingIndex("ConstantsMS");
+				auto constants_BindingAS = m_MeshletDrawPass.GetConstantBindingIndex("ConstantsAS");
 				DXM::Matrix vpMatrix = camera.m_View * camera.m_Projection;
-				cmdList.SetGraphicsRoot32BitConstantsSafe(constants_Binding.GetRootIndex(), constants_Binding.GetNumConstants(), &vpMatrix, 0);
+				cmdList.SetGraphicsRoot32BitConstantsSafe(constants_BindingMS.GetRootIndex(), constants_BindingMS.GetNumConstants(), &vpMatrix, 0);
+				cmdList.SetGraphicsRoot32BitConstantsSafe(constants_BindingAS.GetRootIndex(), constants_BindingAS.GetNumConstants(), &constants, 0);
 
 				struct PixelShaderConstantsData
 				{
@@ -153,6 +156,7 @@ namespace aZero
 					uint32_t SpotLightBuffer;
 					uint32_t DirectionalLightBuffer;
 					float Time;
+					float pad[2];
 				} pixelbindings;
 
 				static float time = 0.f;
@@ -171,7 +175,7 @@ namespace aZero
 				cmdList->RSSetScissorRects(1, &camera.m_RSInfo.ScizzorRect);
 				cmdList->RSSetViewports(1, &camera.m_RSInfo.Viewport);
 
-				cmdList->ExecuteIndirect(m_MeshletCullSignature.Get(), MAX_INSTANCES, m_MeshletCull_IA_B.GetResource(), 0,/* m_MeshCull_Count_B.GetResource()*/nullptr, 0);
+				cmdList->ExecuteIndirect(m_MeshletCullSignature.Get(), MAX_INSTANCES, m_MeshletCull_IA_B.GetResource(), 0, m_MeshCull_Count_B.GetResource(), 0);
 				m_DirectCommandQueue.ExecuteCommandList(cmdList, false); // TODO: Maybe don't execute the list here?
 			}
 		}
@@ -199,7 +203,7 @@ namespace aZero
 				m_FrameCount++;
 				m_ResourceRecycler.SetFrameIndex(m_FrameIndex);
 				m_ResourceRecycler.Clear();
-				m_WireframeRenderer->BeginFrame(m_FrameIndex);
+				m_WireframeRenderer->BeginFrame();
 			}
 
 			return hasNewFrameStarted;
@@ -263,7 +267,7 @@ namespace aZero
 			this->RecordGPUDrivenRenderPipeline(renderTarget, depthStencilTarget, cameras[0], staticMeshes.size());
 		}
 
-		void Renderer::FlushGPU()
+		void Renderer::FlushRenderCommands()
 		{
 			m_DirectCommandQueue.Flush();
 

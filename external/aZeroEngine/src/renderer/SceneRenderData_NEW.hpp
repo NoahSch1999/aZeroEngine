@@ -10,7 +10,7 @@ namespace aZero::Rendering {
 		struct StaticMeshInstance {
 
 			DXM::Matrix m_WorldTransform;
-			uint32_t m_MeshletBuffer_Bindless;
+			uint32_t m_MeshBuffer_Bindless;
 			uint32_t m_MeshletCount;
 			uint32_t m_MaterialIndex;
 			DirectX::BoundingSphere m_MeshBounds;
@@ -20,7 +20,7 @@ namespace aZero::Rendering {
 			{
 				// TODO: Avoid this much data
 				m_WorldTransform = /*DXM::Matrix::CreateScale(scale.vec), */DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
-				m_MeshletBuffer_Bindless = mesh.GetMeshID();
+				m_MeshBuffer_Bindless = mesh.GetMeshID();
 				m_MeshletCount = mesh.GetMeshletCount();
 				m_MaterialIndex = mesh.GetMaterialID();
 				m_MeshBounds = mesh.GetBounds();
@@ -52,7 +52,7 @@ namespace aZero::Rendering {
 
 			DXM::Matrix m_View;
 			DXM::Matrix m_Projection;
-			DirectX::BoundingFrustum m_Frustrum;
+			Component::Camera::BoundingFrustum m_Frustrum;
 			RSInfo m_RSInfo;
 
 			Camera() = default;
@@ -61,7 +61,7 @@ namespace aZero::Rendering {
 				// TODO: Populate members correctly
 				m_View = camera.GetViewMatrix(position, rotation);
 				m_Projection = camera.GetProjectionMatrix();
-				m_Frustrum = DirectX::BoundingFrustum(m_Projection, true);
+				m_Frustrum = camera.GetFrustum();
 				m_RSInfo = RSInfo(camera.GetViewport(), camera.GetScizzorRect());
 			}
 		};

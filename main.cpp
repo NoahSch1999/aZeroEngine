@@ -73,14 +73,13 @@ int main(int argc, char* argv[])
 		auto [width, height] = window.GetClientDimensions();
 		auto rtv = renderer.CreateRenderTarget(Rendering::RenderTarget::Desc(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, { 0.3,0.3,0.3,1 }, true));
 		auto dsv = renderer.CreateDepthStencilTarget(Rendering::DepthStencilTarget::Desc(width, height, 1, 0, true, true));
-		//
 
 		aZero::ImGui_Wrapper::Init(renderer, window.GetSDLWindow());
 
 		Editor::GUI::EditorGUI editorGUI(window.GetDeviceManager(), renderer.GetWireframeRenderer(), engine.GetAssetManager());
 
 		Input::KeyboardListener keyboardListener;
-		Scene::Scene scene = engine.CreateScene_New(true);
+		Scene::Scene scene(engine.GetPhysicsEngine());
 		Example::Setup(engine, scene, { (float)width, (float)height }, rtv, dsv, window, keyboardListener);
 
 		assetManager.RegisterScene(scene);
@@ -125,7 +124,7 @@ int main(int argc, char* argv[])
 			frame++;
 		}
 
-		renderer.FlushGPU();
+		renderer.FlushRenderCommands();
 
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplSDL3_Shutdown();

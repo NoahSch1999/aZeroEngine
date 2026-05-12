@@ -1,5 +1,5 @@
 #pragma once
-#include "graphics_api/resource/buffer/VertexBuffer.hpp"
+#include "graphics_api/resource/buffer/MeshBuffer.hpp"
 #include "graphics_api/resource/buffer/IndexedBuffer.hpp"
 #include "graphics_api/resource/texture/Texture2D.hpp"
 #include "scene/Scene.hpp"
@@ -23,7 +23,7 @@ namespace aZero
 			struct GPUMesh
 			{
 				uint32_t MeshletCount;
-				uint32_t MeshletBuffer;
+				uint32_t MeshBuffer;
 				uint32_t PrimitiveBuffer;
 				uint32_t IndicesBuffer;
 				uint32_t PositionBuffer;
@@ -45,11 +45,11 @@ namespace aZero
 			{
 				if (mesh.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
-					aZero::RenderAPI::MeshletBuffer meshletBuffer(device, recycler, descriptorHeap, cmdList, mesh.GetVertexData());
-					Asset::RenderID renderID = meshletBuffer.GetMeshletsIndex();
+					aZero::RenderAPI::MeshBuffer MeshBuffer(device, recycler, descriptorHeap, cmdList, mesh.GetVertexData());
+					Asset::RenderID renderID = MeshBuffer.GetMeshletsIndex();
 					m_MeshMap[mesh.GetAssetID()] = renderID;
-					m_MeshletBufferMap[renderID] = std::move(meshletBuffer);
-					mesh.m_RenderID = renderID; // Set to the meshletbuffer bindless index. The vertex buffer bindless index will always be meshletbindlessindex + 1.
+					m_MeshBufferMap[renderID] = std::move(MeshBuffer);
+					mesh.m_RenderID = renderID; // Set to the MeshBuffer bindless index. The vertex buffer bindless index will always be meshletbindlessindex + 1.
 				}
 			}
 
@@ -112,7 +112,7 @@ namespace aZero
 			{
 				if (mesh.GetRenderID() != Asset::InvalidRenderID)
 				{
-					m_MeshletBufferMap.erase(mesh.GetRenderID());
+					m_MeshBufferMap.erase(mesh.GetRenderID());
 					m_MeshMap.erase(mesh.GetAssetID());
 					mesh.m_RenderID = Asset::InvalidRenderID;
 				}
@@ -139,7 +139,7 @@ namespace aZero
 			}
 
 			std::unordered_map<Asset::AssetID, Asset::RenderID> m_MeshMap;
-			std::unordered_map<Asset::RenderID, RenderAPI::MeshletBuffer> m_MeshletBufferMap;
+			std::unordered_map<Asset::RenderID, RenderAPI::MeshBuffer> m_MeshBufferMap;
 
 			RenderAPI::IndexedBuffer<MaterialData> m_MaterialDataBuffer;
 			RenderAPI::ShaderResourceView m_MaterialBufferView;

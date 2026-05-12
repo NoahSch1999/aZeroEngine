@@ -4,7 +4,7 @@
 #include "pipeline/shader/VertexShader.hpp"
 #include "pipeline/shader/PixelShader.hpp"
 #include "misc/CallbackExecutor.hpp"
-#include "graphics_api/resource/buffer/VertexBuffer.hpp"
+#include "graphics_api/resource/buffer/MeshBuffer.hpp"
 #include "graphics_api/resource/buffer/IndexedBuffer.hpp"
 #include "graphics_api/resource/texture/Texture2D.hpp"
 #include "pipeline/pass/MeshShaderPass.hpp"
@@ -53,7 +53,7 @@ namespace aZero
 			uint32_t GetFrameIndex() const { return m_FrameIndex; }
 
 			void FlushFrameAllocations();
-			void FlushGPU();
+			void FlushRenderCommands();
 
 			bool TryBeginFrame();
 			void EndFrame();
@@ -75,6 +75,7 @@ namespace aZero
 			Rendering::DepthStencilTarget CreateDepthStencilTarget(const Rendering::DepthStencilTarget::Desc& desc);
 
 			FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
+			uint32_t GetFramesInFlight() const { return m_FrameContexts.size(); }
 
 			/*void ExecuteRenderPasses();
 			std::vector<Rendering::PassBase*> m_RenderPasses;*/
@@ -123,8 +124,9 @@ namespace aZero
 			struct GPUDrivenRenderConstants
 			{
 				DXM::Matrix CameraView; // Camera view matrix
-				DirectX::BoundingFrustum CameraFrustum; // Camera frustum
+				Component::Camera::BoundingFrustum CameraFrustum; // Camera frustum
 				uint32_t MeshInstancesCount; // Num meshinstances to perform frustum-culling with
+				uint32_t pad2[3];
 			};
 
 			struct MeshCull_Count {
@@ -135,9 +137,10 @@ namespace aZero
 			struct MeshletDrawConstantsData
 			{
 				DXM::Matrix WorldTransform;
-				uint32_t MeshletBuffer_Bindless;
+				uint32_t MeshBuffer_Bindless;
 				uint32_t MeshletCount;
 				uint32_t MaterialIndex;
+				uint32_t pad;
 			};
 
 			struct MeshletCull_IA {
@@ -148,12 +151,12 @@ namespace aZero
 			};
 			RenderAPI::Buffer m_MeshletCull_IA_B; // - MeshletCull_IA - Contains IA arguments for the MeshletCull pass - Written to in the MeshCull pass via UAV and consumed by executeindirect by the MeshletCull pass
 
+			RenderAPI::Buffer m_CameraBuffer;
 			/*
 			---------------------------------------------------------------------------------------------------------------------------------------------
 			*/
 			
 			ID3D12DeviceX* m_diDevice;
-			uint32_t m_BufferCount;
 			uint32_t m_FrameIndex = 0;
 			uint64_t m_FrameCount = 0;
 

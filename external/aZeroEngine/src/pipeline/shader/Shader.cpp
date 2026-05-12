@@ -108,9 +108,8 @@ bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::st
 		return false;
 	}
 
-	const std::string projectPath = Helper::GetDebugProjectDirectory();
 	const std::wstring shaderPath(debugDataPath->GetStringPointer());
-	std::string outputPath(projectPath + "/shaderDebugOutput/" + std::string(shaderPath.begin(), shaderPath.end()));
+	std::string outputPath(Pipeline::GetShaderDebugDirectoryPath() + std::string(shaderPath.begin(), shaderPath.end()));
 	std::filesystem::path dir = std::filesystem::path(outputPath).parent_path();
 	std::filesystem::create_directories(dir);
 

@@ -56,3 +56,5 @@ void aZero::Rendering::WireframeRenderer::Render(const Component::Camera& camera
 
     m_diRenderer->GetGraphicsCommandQueue().ExecuteCommandList(frameContext.m_DirectCmdList);
 }
+
+void aZero::Rendering::WireframeRenderer::BeginFrame() { m_VertCount = 0; m_FrameIndex = m_diRenderer->GetFrameIndex(); }

@@ -6,7 +6,7 @@
 PhysicsEngine
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 */
-aZero::Physics::PhysicsEngine::PhysicsEngine(ID3D12DeviceX* device, IDxcCompilerX& compiler)
+aZero::Physics::PhysicsEngine::PhysicsEngine(ID3D12DeviceX* device)
 {
 	JPH::RegisterDefaultAllocator();
 	JPH::Factory::sInstance = new JPH::Factory();

@@ -17,15 +17,6 @@ namespace aZero
 		Engine& operator=(Engine&&) noexcept = default;
 		~Engine();
 
-		Scene::Scene CreateScene_New(bool hasPhysics)
-		{
-			if (hasPhysics)
-			{
-				return Scene::Scene(*m_PhysicsEngine.get());
-			}
-			return Scene::Scene();
-		}
-
 		IDxcCompilerX& GetCompiler() const { return *m_Compiler.Get(); }
 		ID3D12DeviceX* GetDevice() const { return m_Device.Get(); }
 
@@ -34,15 +25,9 @@ namespace aZero
 		Physics::PhysicsEngine& GetPhysicsEngine() const { return *m_PhysicsEngine.get(); }
 		Asset::AssetManager& GetAssetManager() const { return *m_AssetManager.get(); }
 
-		// TODO: Replace with a better file system/handling implementation (perhaps a project file or something reads the path)
-		const std::string& GetProjectDirectory() const { return m_ProjectDirectory; }
-
 	private:
 		Microsoft::WRL::ComPtr<ID3D12DeviceX> m_Device;
 		Microsoft::WRL::ComPtr<IDxcCompilerX> m_Compiler;
-
-		// TODO: Replace with a better file system/handling implementation (perhaps a project file or something reads the path)
-		std::string m_ProjectDirectory;
 
 		// API Interfaces
 		std::unique_ptr<Rendering::Renderer> m_Renderer;

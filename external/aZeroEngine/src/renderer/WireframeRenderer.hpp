@@ -33,7 +33,7 @@ namespace aZero
             void Render(const Component::Camera& camera, const Component::Position& cameraPosition, const Component::Rotation& cameraRotation, RenderTarget& rtv, DepthStencilTarget& dsv);
 
         private:
-            void BeginFrame(uint32_t frameIndex)  { m_VertCount = 0; m_FrameIndex = frameIndex; }
+            void BeginFrame();
 
             Pipeline::VertexShaderPass m_Pass;
 

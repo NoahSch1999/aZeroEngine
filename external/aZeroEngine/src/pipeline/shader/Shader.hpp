@@ -5,7 +5,6 @@
 #include <span>
 
 #include "graphics_api/D3D12Include.hpp"
-#include "misc/RelativePathMacros.hpp"
 #include "misc/NonCopyable.hpp"
 
 // todo Make all shaders not get changed if compilation fails (similar to how passes are implemented when compiling them)
@@ -13,6 +12,9 @@ namespace aZero
 {
 	namespace Pipeline
 	{
+		inline std::string GetShaderDirectoryPath() { return PROJECT_DIRECTORY + std::string("shaderSource/"); }
+		inline std::string GetShaderDebugDirectoryPath() { return PROJECT_DIRECTORY + std::string("shaderSource/debugOutput/"); }
+
 		class Shader : public NonCopyable
 		{
 			friend class ShaderPassBase;

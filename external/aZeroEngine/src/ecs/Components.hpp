@@ -170,6 +170,36 @@ namespace aZero
             DXM::Vector2 topleft;
             DXM::Vector2 dimensions;
 
+            struct alignas(16) BoundingFrustum
+            {
+                DXM::Vector4 Rotation;
+
+                DXM::Vector3 Position;
+                float RightSlope;
+
+                float LeftSlope;
+                float TopSlope;
+                float BottomSlope;
+                float Near;
+
+                float Far;
+                DXM::Vector3 pad;
+            };
+            BoundingFrustum GetFrustum() const
+            {
+                DirectX::BoundingFrustum frustumTemp = DirectX::BoundingFrustum(this->GetProjectionMatrix(), true);
+                BoundingFrustum frustum;
+                frustum.Rotation = frustumTemp.Orientation;
+                frustum.Position = frustumTemp.Origin;
+                frustum.RightSlope = frustumTemp.RightSlope;
+                frustum.LeftSlope = frustumTemp.LeftSlope;
+                frustum.TopSlope = frustumTemp.TopSlope;
+                frustum.BottomSlope = frustumTemp.BottomSlope;
+                frustum.Near = frustumTemp.Near;
+                frustum.Far = frustumTemp.Far;
+                return frustum;
+            }
+
             Camera() = default;
             Camera(float fov, float nearPlane,
                 float farPlane, bool isActive, const DXM::Vector2 topleft, const DXM::Vector2& dimensions)
@@ -218,11 +248,6 @@ namespace aZero
             {
                 // TODO: Use rotation to orient the view
                 return this->GetViewMatrix(cameraPosition, cameraRotation) * this->GetProjectionMatrix();
-            }
-
-            DirectX::BoundingFrustum GetFrustum() const
-            {
-                return DirectX::BoundingFrustum(this->GetProjectionMatrix(), true);
             }
         };
     }

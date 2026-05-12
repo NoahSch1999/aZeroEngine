@@ -26,7 +26,7 @@ struct MeshVertex
 struct MeshInstance
 {
     float4x4 WorldTransform;
-    uint MeshletBuffer_Bindless;
+    uint MeshBuffer_Bindless;
     uint MeshletCount;
     uint MaterialIndex;
     BoundingSphere MeshBounds;
@@ -39,7 +39,7 @@ struct Meshlet
     BoundingSphere Bounds;
 };
 
-#define THREADS_PER_X 64
+#define THREADS_PER_X 32
 #define THREADS_PER_MESHLET 64
 
 #endif

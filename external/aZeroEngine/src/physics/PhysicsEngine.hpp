@@ -53,7 +53,7 @@ namespace aZero
 		class PhysicsEngine
 		{
 		public:
-			PhysicsEngine(ID3D12DeviceX* device, IDxcCompilerX& compiler);
+			PhysicsEngine(ID3D12DeviceX* device);
 			~PhysicsEngine();
 			void CreateWorld(PhysicsWorld& world, float updateFrequency = 1.0f / 60.f, uint32_t maxBodies = 1024, uint32_t maxBodyPairs = 1024, uint32_t maxContactConstraints = 1024, uint32_t maxBodyMutexes = 0);
 

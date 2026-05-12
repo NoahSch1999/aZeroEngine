@@ -8,6 +8,7 @@ struct GPUDrivenRenderConstants
     float4x4 CameraView; // Camera view matrix
     BoundingFrustum CameraFrustum; // Camera frustum
     uint MeshInstancesCount; // Num meshinstances to perform frustum-culling with
+    float3 pad2;
 };
 
 struct MeshCull_Count
@@ -18,9 +19,10 @@ struct MeshCull_Count
 struct MeshletDrawConstantsData
 {
     float4x4 WorldTransform;
-    uint MeshletBuffer_Bindless;
+    uint MeshBuffer_Bindless;
     uint MeshletCount;
     uint MaterialIndex;
+    uint pad;
 };
 
 struct MeshletCull_IA
@@ -33,6 +35,8 @@ struct MeshletCull_IA
 
 struct MeshletPayload
 {
+    MeshletDrawConstantsData Constants;
+    uint VisibilityCount;
     uint VertexOffset[THREADS_PER_X];
     uint TriangleCount[THREADS_PER_X];
 };

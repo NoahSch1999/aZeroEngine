@@ -10,11 +10,11 @@ namespace aZero
 	namespace RenderAPI
 	{
 		// TODO: Cleanup and make more "correct"
-		class MeshletBuffer
+		class MeshBuffer
 		{
 		public:
-			MeshletBuffer() = default;
-			MeshletBuffer(ID3D12DeviceX* device, ResourceRecycler& resourceRecycler, DescriptorHeap& heap, CommandList& cmdList, const Asset::MeshletMeshData& data)
+			MeshBuffer() = default;
+			MeshBuffer(ID3D12DeviceX* device, ResourceRecycler& resourceRecycler, DescriptorHeap& heap, CommandList& cmdList, const Asset::MeshletMeshData& data)
 			{
 				Buffer::Desc desc;
 				desc.AccessType = D3D12_HEAP_TYPE_DEFAULT;
@@ -22,12 +22,18 @@ namespace aZero
 				std::vector<Descriptor> descriptors = heap.CreateContiguousDescriptors(2);
 
 				desc.NumBytes = data.Meshlets.size() * sizeof(Asset::Meshlet);
-				m_MeshletBuffer = Buffer(device, desc, &resourceRecycler);
-				m_MeshletDescriptor = ShaderResourceView(device, std::move(descriptors[0]), m_MeshletBuffer, data.Meshlets.size(), sizeof(Asset::Meshlet));
+				m_MeshBuffer = Buffer(device, desc, &resourceRecycler);
+				m_MeshletDescriptor = ShaderResourceView(device, std::move(descriptors[0]), m_MeshBuffer, data.Meshlets.size(), sizeof(Asset::Meshlet));
+				std::string strN = "Meshletbuffer: " + data.Name;
+				std::wstring str(strN.begin(), strN.end());
+				m_MeshBuffer.GetResource()->SetName(str.c_str());
 
 				desc.NumBytes = data.Vertices.size() * sizeof(Asset::Vertex);
 				m_VerticesBuffer = Buffer(device, desc, &resourceRecycler);
 				m_VerticesDescriptor = ShaderResourceView(device, std::move(descriptors[1]), m_VerticesBuffer, data.Vertices.size(), sizeof(Asset::Vertex));
+				strN = "VertexBuffer: " + data.Name;
+				str.assign(strN.begin(), strN.end());
+				m_VerticesBuffer.GetResource()->SetName(str.c_str());
 
 				Buffer::Desc stagingDesc;
 				stagingDesc.AccessType = D3D12_HEAP_TYPE_UPLOAD;
@@ -42,7 +48,7 @@ namespace aZero
 				cmdList->CopyBufferRegion(m_VerticesBuffer.GetResource(), 0, stagingBuffer.GetResource(), offset, data.Vertices.size() * sizeof(Asset::Vertex));
 				offset += data.Vertices.size() * sizeof(Asset::Vertex);
 				stagingBuffer.Write(data.Meshlets.data(), data.Meshlets.size() * sizeof(Asset::Meshlet), offset);
-				cmdList->CopyBufferRegion(m_MeshletBuffer.GetResource(), 0, stagingBuffer.GetResource(), offset, data.Meshlets.size() * sizeof(Asset::Meshlet));
+				cmdList->CopyBufferRegion(m_MeshBuffer.GetResource(), 0, stagingBuffer.GetResource(), offset, data.Meshlets.size() * sizeof(Asset::Meshlet));
 				offset += data.Meshlets.size() * sizeof(Asset::Meshlet);
 			}
 
@@ -53,7 +59,7 @@ namespace aZero
 			ShaderResourceView m_VerticesDescriptor;
 			Buffer m_VerticesBuffer;
 			ShaderResourceView m_MeshletDescriptor;
-			Buffer m_MeshletBuffer;
+			Buffer m_MeshBuffer;
 		};
 	}
 }

@@ -393,7 +393,7 @@ namespace aZero
             style.FontScaleDpi = main_scale;        // Set initial font scale. (in docking branch: using io.ConfigDpiScaleFonts=true automatically overrides this for every window depending on the current monitor)
 
 			ImGui_ImplDX12_InitInfo init_info = {};
-			init_info.Device = renderer.GetResourceHeap().GetDevice();
+			init_info.Device = GetID3D12DeviceX(renderer.GetResourceHeap().Get());
 			init_info.CommandQueue = renderer.GetGraphicsCommandQueue().Get();
 			init_info.NumFramesInFlight = renderer.GetBufferingCount();
 			init_info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;

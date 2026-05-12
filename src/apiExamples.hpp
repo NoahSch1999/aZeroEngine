@@ -44,7 +44,7 @@ namespace Example {
 
 		{
 			for (int i = 0; i < 1; i+=3) {
-				for (int j = 0; j < 300; j += 3)
+				for (int j = 0; j < 900; j += 3)
 				{
 					flecs::entity ent = scene.GetEntityWorld().entity().is_a(scene.GetStaticMeshPrefab());
 					std::string name = std::string("Mesh") + std::to_string(i) + std::to_string(j);

@@ -19,14 +19,18 @@ BoundingSphere CreateBoundingSphere(float3 Position, float Radius)
 
 struct BoundingFrustum
 {
-    float3 Position;
     float4 Rotation;
+    
+    float3 Position;
     float RightSlope;
+    
     float LeftSlope;
     float TopSlope;
     float BottomSlope;
     float Near;
+    
     float Far;
+    float3 pad;
     
     bool Intersects(BoundingSphere sphere, float4x4 viewMatrix)
     {

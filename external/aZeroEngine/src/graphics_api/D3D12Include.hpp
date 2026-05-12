@@ -22,3 +22,11 @@ using ID3D12GraphicsCommandListX = ID3D12GraphicsCommandList7;
 using IDxcCompilerX = IDxcCompiler3;
 using IDXGIFactoryX = IDXGIFactory2;
 using IDXGISwapChainX = IDXGISwapChain2;
+
+template<typename T>
+ID3D12DeviceX* GetID3D12DeviceX(T arg)
+{
+	ID3D12DeviceX* device;
+	arg->GetDevice(IID_PPV_ARGS(&device));
+	return device;
+}

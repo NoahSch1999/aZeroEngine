@@ -15,6 +15,7 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 {
 	std::vector<aZero::Asset::Meshlet> finalMeshlets;
 	std::vector<aZero::Asset::Vertex> finalVertices;
+	std::vector<uint8_t> finalIndices;
 
 	const size_t max_vertices = 63;
 	const size_t max_triangles = 21;
@@ -70,6 +71,7 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 		.Name = name,
 		.Meshlets = std::move(finalMeshlets),
 		.Vertices = std::move(finalVertices),
+		.LocalIndices = std::move(finalIndices),
 		.Bounds = bounds
 	};
 }
