@@ -17,7 +17,6 @@
 #include "graphics_api/resource/texture/DepthStencilTarget.hpp"
 #include "graphics_api/resource/texture/RenderTarget.hpp"
 #include "graphics_api/SwapChain.hpp"
-#include "renderer/RenderPass.hpp"
 
 #include "SceneRenderData_NEW.hpp"
 

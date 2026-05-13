@@ -183,7 +183,7 @@ add_library(${PROJECT_NAME}
     "src/graphics_api/command_recording/CommandQueue.cpp"
     "src/graphics_api/descriptor/Descriptor.cpp"
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
-    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp" "src/ecs/components/ColliderComponent.cpp" "src/renderer/WireframeRenderer.cpp")
+    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp" "src/ecs/components/ColliderComponent.cpp" "src/renderer/WireframeRenderer.cpp" "src/pipeline/ShaderNEW.cpp" "src/pipeline/RenderPass.cpp")
 
 target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS})
 

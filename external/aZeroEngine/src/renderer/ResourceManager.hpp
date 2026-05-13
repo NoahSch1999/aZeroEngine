@@ -85,7 +85,7 @@ namespace aZero
 				if (texture.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
 					const auto& data = texture.GetData();
-					m_TextureMap[texture.GetAssetID()] = RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(data.Width, data.Height, data.Format, D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST), &recycler, {});
+					m_TextureMap[texture.GetAssetID()] = RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(data.Width, data.Height, data.Format, D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS), &recycler, {});
 					m_TextureDescriptorMap[texture.GetAssetID()] = RenderAPI::ShaderResourceView(device, descriptorHeap, m_TextureMap[texture.GetAssetID()]);
 					texture.m_RenderID = m_TextureDescriptorMap[texture.GetAssetID()].GetHeapIndex();
 
@@ -103,6 +103,7 @@ namespace aZero
 						stagingBuffer.GetResource(),
 						0, 0, 1, &subresourceData);
 
+					m_TextureMap[texture.GetAssetID()].CreateTransition(D3D12_RESOURCE_STATE_COPY_DEST);
 					auto barrier = m_TextureMap[texture.GetAssetID()].CreateTransition(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 					cmdList->ResourceBarrier(1, &barrier);
 				}

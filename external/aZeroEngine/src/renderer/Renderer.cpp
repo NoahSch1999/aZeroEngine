@@ -80,7 +80,7 @@ namespace aZero
 			meshCullIADesc.NumArgumentDescs = meshCullIA.size();
 			meshCullIADesc.ByteStride = sizeof(MeshletCull_IA);
 			m_diDevice->CreateCommandSignature(&meshCullIADesc, m_MeshletDrawPass.GetRootSignature(), IID_PPV_ARGS(m_MeshletCullSignature.GetAddressOf()));
-			m_MeshletCull_IA_B = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(MeshletCull_IA) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT));
+			m_MeshletCull_IA_B = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(MeshletCull_IA) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true));
 
 			m_MeshInstanceBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPUProxy::StaticMeshInstance) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT));
 
