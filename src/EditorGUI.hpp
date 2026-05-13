@@ -118,7 +118,6 @@ namespace aZero::Editor::GUI
 
 			if (m_ShowGrid)
 			{
-
 				constexpr int gridOffset = 5;
 				constexpr int gridDimensions = 200;
 				Rendering::WireframeShape::LineShape gridLines;
@@ -134,19 +133,26 @@ namespace aZero::Editor::GUI
 
 		void Render(Rendering::Renderer& renderer, Rendering::RenderTarget& rtv)
 		{
-			RenderAPI::CommandList& cmdList = renderer.GetCurrentContext().m_DirectCmdList;
-			auto rtvHandle = rtv.GetCpuHandle();
+			if (m_ShowEditorGUI)
+			{
+				RenderAPI::CommandList& cmdList = renderer.GetCurrentContext().m_DirectCmdList;
+				auto rtvHandle = rtv.GetCpuHandle();
 
-			ImGui::Render();
+				ImGui::Render();
 
-			std::array<ID3D12DescriptorHeap*, 1> heaps{ renderer.GetResourceHeap().Get() };
-			cmdList->SetDescriptorHeaps(heaps.size(), &heaps[0]);
-			cmdList->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
+				std::array<ID3D12DescriptorHeap*, 1> heaps{ renderer.GetResourceHeap().Get() };
+				cmdList->SetDescriptorHeaps(heaps.size(), &heaps[0]);
+				cmdList->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
 
-			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), renderer.GetCurrentContext().m_DirectCmdList.Get());
+				ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), renderer.GetCurrentContext().m_DirectCmdList.Get());
 
-			renderer.GetGraphicsCommandQueue().ExecuteCommandList(renderer.GetCurrentContext().m_DirectCmdList, true);
+				renderer.GetGraphicsCommandQueue().ExecuteCommandList(renderer.GetCurrentContext().m_DirectCmdList, true);
 
+			}
+			else
+			{
+				aZero::ImGui_Wrapper::EndFrame();
+			}
 			aZero::ImGui_Wrapper::HandleMultiViewport();
 		}
 

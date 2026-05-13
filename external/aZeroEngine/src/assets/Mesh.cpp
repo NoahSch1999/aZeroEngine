@@ -21,7 +21,7 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 
 	// TODO: Take a look if there's any unneccessary ops
 	meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
-	meshopt_optimizeOverdraw(indices.data(), indices.data(), indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(aZero::Asset::Vertex), 1.05f);
+	//meshopt_optimizeOverdraw(indices.data(), indices.data(), indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(aZero::Asset::Vertex), 1.05f);
 
 	std::vector<unsigned int> remap(vertices.size());
 
@@ -38,6 +38,8 @@ aZero::Asset::MeshletMeshData GenerateMeshletData(
 	std::vector<aZero::Asset::VertexIndex> newInd;
 	newInd.resize(indices.size());
 	meshopt_remapIndexBuffer(newInd.data(), indices.data(), indices.size(), remap.data());
+
+	meshopt_optimizeVertexCache(newInd.data(), newInd.data(), newInd.size(), newPositions.size());
 
 	std::vector<meshopt_Meshlet> tempMeshlets;
 	std::vector<aZero::Asset::VertexIndex> local_indices;

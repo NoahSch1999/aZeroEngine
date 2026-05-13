@@ -33,11 +33,12 @@ bool aZero::Pipeline::Shader::CompileImpl(IDxcCompilerX& compiler, const std::st
 
 	compilationArgs.push_back(shaderName.c_str());
 	compilationArgs.push_back(DXC_ARG_DEBUG);
+	compilationArgs.push_back(L"-Qembed_debug");
 	compilationArgs.push_back(L"-Fd");
 	compilationArgs.push_back(pdbName.c_str());
 	compilationArgs.push_back(L"-Od");
-	compilationArgs.push_back(L"-Qstrip_debug");
 #else
+	compilationArgs.push_back(L"-Qstrip_debug");
 	compilationArgs.push_back(L"-O3");
 #endif
 

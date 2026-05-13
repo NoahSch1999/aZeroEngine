@@ -31,11 +31,13 @@ void main(
     
         if (localThreadIndex < payload.VertexCount[meshletIndex])
         {
+            
             const StructuredBuffer<uint> indices = ResourceDescriptorHeap[payload.MeshBuffer_Bindless + 3];
             uint vertexIndex = indices[payload.VertexOffset[meshletIndex] + localThreadIndex];
             
-            PipelineVertex newVertex;
             const StructuredBuffer<MeshVertex> vertexPositionBuffer = ResourceDescriptorHeap[payload.MeshBuffer_Bindless + 2];
+            
+            PipelineVertex newVertex;
             GetVertex(newVertex, vertexIndex, ConstantsMS.CameraVP, vertexPositionBuffer, payload.WorldTransform);
             verts[localThreadIndex] = newVertex;
         }

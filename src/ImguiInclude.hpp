@@ -426,6 +426,11 @@ namespace aZero
 			ImGui::NewFrame();
 		}
 
+        static void EndFrame()
+        {
+            ImGui::EndFrame();
+        }
+
 		static void HandleMultiViewport()
 		{
 			ImGuiIO& io = ImGui::GetIO();
