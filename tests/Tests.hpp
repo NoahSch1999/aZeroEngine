@@ -1,6 +1,6 @@
 #pragma once
 #ifdef RUN_TESTS
-#include "aZeroEngine/Engine.hpp"
+#include "Engine.hpp"
 
 inline void RunTests(const aZero::Engine& engine)
 {

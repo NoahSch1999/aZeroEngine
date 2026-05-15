@@ -1,10 +1,9 @@
 #pragma once
 #include <bitset>
-#include "SceneProxy.hpp"
 #include "misc/HelperFunctions.hpp"
 #include "misc/SparseSet.hpp"
 
-#include "renderer/SceneRenderData_New.hpp"
+#include "SceneRenderData.hpp"
 
 namespace aZero
 {

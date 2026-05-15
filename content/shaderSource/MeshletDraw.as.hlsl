@@ -1,7 +1,7 @@
 #include "SceneRenderCommon.hlsli"
 
 ConstantBuffer<MeshletDrawConstantsData> MeshletDrawConstants : register(b0); // Passed from MeshCull compute shader pass
-ConstantBuffer<GPUDrivenRenderConstants> ConstantsAS : register(b1);
+//ConstantBuffer<GPUDrivenRenderConstants> ConstantsAS : register(b1);
 
 groupshared MeshletPayload payload; // Payload that has an array of THREADS_PER_X elements. Each element has info of a meshlet to draw in the mesh shader
 

@@ -175,7 +175,7 @@ add_library(${PROJECT_NAME}
     "src/pipeline/pass/MeshShaderPass.cpp"
     "src/pipeline/pass/ShaderPassBase.cpp"  
     "src/pipeline/pass/MultiShaderPass.cpp" 
-    "src/scene/SceneProxy.cpp" 
+     
     "src/graphics_api/resource/ResourceBase.cpp"
     "src/graphics_api/resource/buffer/Buffer.cpp" 
     "src/graphics_api/resource/texture/Texture2D.cpp"
@@ -183,7 +183,14 @@ add_library(${PROJECT_NAME}
     "src/graphics_api/command_recording/CommandQueue.cpp"
     "src/graphics_api/descriptor/Descriptor.cpp"
     "src/graphics_api/descriptor/DescriptorHeap.cpp"
-    "src/graphics_api/SwapChain.cpp" "src/pipeline/shader/AmplificationShader.cpp" "src/physics/PhysicsEngine.cpp" "src/physics/PhysicsWorld.cpp" "src/ecs/components/ColliderComponent.cpp" "src/renderer/WireframeRenderer.cpp" "src/pipeline/ShaderNEW.cpp" "src/pipeline/RenderPass.cpp")
+    "src/graphics_api/SwapChain.cpp" 
+    "src/pipeline/shader/AmplificationShader.cpp" 
+    "src/physics/PhysicsEngine.cpp" 
+    "src/physics/PhysicsWorld.cpp" 
+    "src/ecs/ColliderComponent.cpp" 
+    "src/renderer/WireframeRenderer.cpp" 
+    "src/pipeline/ShaderNEW.cpp" 
+    "src/pipeline/RenderPass.cpp")
 
 target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS})
 

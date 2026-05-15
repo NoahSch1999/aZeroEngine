@@ -3,7 +3,6 @@
 #include "pipeline/shader/AmplificationShader.hpp"
 #include "pipeline/shader/MeshShader.hpp"
 #include "pipeline/shader/PixelShader.hpp"
-#include "misc/SparseMappedVector.hpp"
 
 namespace aZero
 {

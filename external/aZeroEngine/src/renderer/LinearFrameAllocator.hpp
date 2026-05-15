@@ -21,7 +21,6 @@ namespace aZero
 			RenderAPI::Buffer m_StagingBuffer;
 			uint32_t m_CurrentAllocOffset = 0;
 
-			// TODO: Implement a more sophisticated approach without raw-pointers (both as hash and in the Allocation struct)?
 			std::unordered_map<RenderAPI::Buffer*, std::vector<Allocation>> m_Allocations;
 
 			uint32_t GetNextAllocOffset(uint32_t NumBytes)
@@ -92,21 +91,13 @@ namespace aZero
 
 			void RecordAllocations(RenderAPI::CommandList& cmdList)
 			{
-				int OuterCounter = 0;
 				for (const auto& [Resource, Allocations] : m_Allocations)
 				{
 					int InnerCounter = 0;
 					for (const Allocation& Alloc : Allocations)
 					{
-						if (OuterCounter == 3 && InnerCounter == 1)
-						{
-							//continue;
-						}
 						cmdList->CopyBufferRegion(Alloc.DstResource->GetResource(), Alloc.DstBufferOffset, m_StagingBuffer.GetResource(), Alloc.SrcBufferOffset, Alloc.NumBytes);
-						InnerCounter++;
 					}
-
-					OuterCounter++;
 				}
 				m_Allocations.clear();
 			}

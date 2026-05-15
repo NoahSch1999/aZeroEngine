@@ -7,16 +7,16 @@
 aZero::Rendering::WireframeRenderer::WireframeRenderer(Rendering::Renderer& renderer, ID3D12DeviceX* device, IDxcCompilerX& compiler)
     :m_diRenderer(&renderer)
 {
-    Pipeline::VertexShader vs(compiler, PROJECT_DIRECTORY + std::string("shaderSource/DebugLine.vs.hlsl"));
-    Pipeline::PixelShader ps(compiler, PROJECT_DIRECTORY + std::string("shaderSource/DebugLine.ps.hlsl"));
-    Pipeline::VertexShaderPass::Description desc;
-    Pipeline::MultiShaderPassDesc::RenderTarget rt;
-    rt.m_Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-    rt.m_Name = "COLOR";
-    desc.m_RenderTargets.push_back(rt);
-    desc.m_DepthStencil.m_Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    desc.m_TopologyType = Pipeline::VertexShaderPass::LINE;
-    m_Pass.Compile(device, desc, vs, &ps);
+    NEW_Pipeline::Shader vs;
+    vs.Compile(compiler, NEW_Pipeline::GetShaderDirectoryPath() + "DebugLine.vs.hlsl");
+    NEW_Pipeline::Shader ps;
+    ps.Compile(compiler, NEW_Pipeline::GetShaderDirectoryPath() + "DebugLine.ps.hlsl");
+
+    NEW_Pipeline::RenderPass::VertexPassDesc vsDesc;
+    vsDesc.DsvFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    vsDesc.RtvFormats.push_back(DXGI_FORMAT_R8G8B8A8_UNORM);
+    vsDesc.TopologyType = NEW_Pipeline::ETopologyType::LINE;
+    m_Pass.CompileVertexPass(vsDesc, device, vs, ps);
 
     for (int i = 0; i < 3; i++)
     {
@@ -33,16 +33,19 @@ void aZero::Rendering::WireframeRenderer::Render(const Component::Camera& camera
     PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 255, 255), "Render debug colliders");
     RenderAPI::CommandList& cmdList = frameContext.m_DirectCmdList;
 
-    m_Pass.Begin(cmdList, m_diRenderer->GetResourceHeap(), m_diRenderer->GetSamplerHeap(), {&rtv.GetDescriptor()}, &dsv.GetDescriptor());
+    cmdList.SetDescriptorHeaps(m_diRenderer->GetResourceHeap(), m_diRenderer->GetSamplerHeap());
 
-    auto binding = m_Pass.GetConstantBindingIndex("VP");
+    m_Pass.Begin(cmdList);
+    cmdList.OMSetRenderTargets({ rtv.GetDescriptor() }, dsv.GetDescriptor());
+
+    auto binding = m_Pass.GetConstantBinding("VP_CONSTANT");
     struct Constants
     {
         DXM::Matrix vp;
     }constants;
 
     constants.vp = camera.GetViewProjectionMatrix(cameraPosition, cameraRotation);
-    cmdList.SetGraphicsRoot32BitConstantsSafe(binding.GetRootIndex(), binding.GetNumConstants(), &constants, 0);
+    cmdList.SetGraphicsRoot32BitConstantsSafe(binding.value().get().GetRootIndex(), binding.value().get().GetNumConstants(), &constants, 0);
 
     auto viewport = camera.GetViewport();
     cmdList->RSSetViewports(1, &viewport);

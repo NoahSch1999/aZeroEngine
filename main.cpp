@@ -1,4 +1,4 @@
-#include "aZeroEngine/Engine.hpp"
+#include "Engine.hpp"
 
 #include "src/RenderWindow.hpp"
 #include "src/apiExamples.hpp"
@@ -17,7 +17,6 @@ extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
 
-#include "renderer/SceneRenderData_NEW.hpp"
 using namespace aZero;
 
 #include "pipeline/RenderPass.hpp"
@@ -59,19 +58,6 @@ int main(int argc, char* argv[])
 		Audio::AudioEngine& audioEngine = engine.GetAudioEngine();
 		Physics::PhysicsEngine& pEngine = engine.GetPhysicsEngine();
 		//
-
-		NEW_Pipeline::Shader shadera;
-		shadera.Compile(engine.GetCompiler(), NEW_Pipeline::GetShaderDirectoryPath() + "Test.as.hlsl");
-		NEW_Pipeline::Shader shaderm;
-		shaderm.Compile(engine.GetCompiler(), NEW_Pipeline::GetShaderDirectoryPath() + "Test.ms.hlsl");
-		NEW_Pipeline::Shader shaderp;
-		shaderp.Compile(engine.GetCompiler(), NEW_Pipeline::GetShaderDirectoryPath() + "Default_Phong.ps.hlsl");
-
-		NEW_Pipeline::RenderPass renderPass;
-		NEW_Pipeline::RenderPass::Desc rpDesc;
-		//rpDesc.DsvFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-		rpDesc.RtvFormats.push_back(DXGI_FORMAT_R8G8B8A8_UNORM);
-		renderPass.CompileMeshletPass(rpDesc, engine.GetDevice(), { shadera }, shaderm, { });
 
 #ifdef RUN_TESTS
 		RunTests(engine);
@@ -123,7 +109,11 @@ int main(int argc, char* argv[])
 
 			Example::ControlCamera(scene, keyboardListener);
 
-			renderer.Render(scene, rtv, dsv);
+			//renderer.Render(scene, rtv, dsv);
+			auto res = engine.GetDevice()->GetDeviceRemovedReason();
+
+			renderer.ClearRenderTarget(rtv);
+			renderer.ClearDepthStencilTarget(dsv);
 
 			flecs::entity camEnt = scene.GetEntityWorld().lookup("Camera");
 			wireframeRenderer.Render(camEnt.get<Component::Camera>(), camEnt.get<Component::Position>(), camEnt.get<Component::Rotation>(), rtv, dsv);

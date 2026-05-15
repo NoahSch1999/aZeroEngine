@@ -2,7 +2,7 @@ struct Camera
 {
     float4x4 VP;
 };
-ConstantBuffer<Camera> VP : register(b0);
+ConstantBuffer<Camera> VP_CONSTANT : register(b0);
 
 struct Vertex
 {
@@ -19,7 +19,7 @@ struct Out
 Out main(Vertex vert) 
 {
     Out output;
-    output.Position = mul(VP.VP, float4(vert.Position, 1.f));
+    output.Position = mul(VP_CONSTANT.VP, float4(vert.Position, 1.f));
     output.Color = vert.Color;
     return output;
 }

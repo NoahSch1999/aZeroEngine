@@ -1,5 +1,5 @@
 #pragma once
-#include "aZeroEngine/Engine.hpp"
+#include "Engine.hpp"
 #include "RenderWindow.hpp"
 
 namespace Example {

@@ -6,7 +6,7 @@
 #include "graphics_api/command_recording/CommandQueue.hpp"
 #include "LinearFrameAllocator.hpp"
 #include "graphics_api/descriptor/ResourceView.hpp"
-#include "SceneRenderData_New.hpp"
+#include "scene/SceneRenderData.hpp"
 
 namespace aZero
 {

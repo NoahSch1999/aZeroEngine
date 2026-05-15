@@ -53,6 +53,33 @@ namespace aZero
 			return ERtvChannel::R;
 		}
 
+		inline DXGI_FORMAT ReflectionMaskToDXGIFormat(BYTE Mask)
+		{
+			DXGI_FORMAT Format;
+			if (Mask == 15)
+			{
+				Format = DXGI_FORMAT::DXGI_FORMAT_R32G32B32A32_FLOAT;
+			}
+			else if (Mask == 7)
+			{
+				Format = DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT;
+			}
+			else if (Mask == 3)
+			{
+				Format = DXGI_FORMAT::DXGI_FORMAT_R32G32_FLOAT;
+			}
+			else if (Mask == 1)
+			{
+				Format = DXGI_FORMAT::DXGI_FORMAT_R32_FLOAT;
+			}
+			else
+			{
+				Format = DXGI_FORMAT_UNKNOWN;
+			}
+
+			return Format;
+		}
+
 		class Shader
 		{
 		public:

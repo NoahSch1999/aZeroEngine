@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include "misc/NonCopyable.hpp"
 #include "graphics_api/D3D12Include.hpp"
 
@@ -6,6 +7,9 @@ namespace aZero
 {
 	namespace RenderAPI
 	{
+		class DescriptorHeap;
+		class Descriptor;
+
 		class CommandList : public NonCopyable
 		{
 		public:
@@ -27,6 +31,10 @@ namespace aZero
 			ID3D12GraphicsCommandListX* Get() const { return m_CommandList.Get(); }
 			bool IsInitiated() const { return m_Allocator != nullptr; }
 			bool IsRecording() const { return m_IsRecording; }
+
+			void SetDescriptorHeaps(const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap);
+
+			void OMSetRenderTargets(const std::vector< std::reference_wrapper<RenderAPI::Descriptor>>& renderTargets, const std::optional<std::reference_wrapper<RenderAPI::Descriptor>>& depthStencilTarget);
 
 			void SetGraphicsRootShaderResourceViewSafe(uint32_t rootParameterIndex, D3D12_GPU_VIRTUAL_ADDRESS address)
 			{

@@ -1,6 +1,11 @@
 #include "Renderer.hpp"
 #include "scene/Scene.hpp"
 #include "WireframeRenderer.hpp"
+#include "graphics_api/resource/buffer/MeshBuffer.hpp"
+#include "FrameContext.hpp"
+#include "graphics_api/SwapChain.hpp"
+#include "assets/Asset.hpp"
+#include "pipeline/RenderPass.hpp"
 
 #include "WinPixEventRuntime/pix3.h"
 
@@ -9,7 +14,7 @@ namespace aZero
 	namespace Rendering
 	{
 		Renderer::Renderer(ID3D12DeviceX* device, uint32_t bufferCount, IDxcCompilerX& compiler)
-			:m_Compiler(compiler), m_diDevice(device)
+			:m_diCompiler(compiler), m_diDevice(device)
 		{
 			D3D12_FEATURE_DATA_D3D12_OPTIONS7 featureData = {};
 			device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &featureData, sizeof(featureData));
@@ -49,15 +54,15 @@ namespace aZero
 		void Renderer::InitGPUDrivenRenderPipeline()
 		{
 			// Mesh cull pass
-			m_MeshCullCS.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshCull.cs.hlsl"));
+			m_MeshCullCS.CompileFromFile(m_diCompiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshCull.cs.hlsl"));
 			Pipeline::ComputeShaderPass::Description meshCullPassDesc;
 			m_MeshCullPass.Compile(m_diDevice, meshCullPassDesc, m_MeshCullCS);
 			m_MeshCull_Count_B = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(MeshCull_Count) * 1, D3D12_HEAP_TYPE_DEFAULT, true));
 
 			// Meshlet draw pass
-			m_MeshletDrawAS.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshletDraw.as.hlsl"));
-			m_MeshletDrawMS.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshletDraw.ms.hlsl"));
-			m_MeshletDrawPS.CompileFromFile(m_Compiler, PROJECT_DIRECTORY + std::string("shaderSource/Default_Phong.ps.hlsl"));
+			m_MeshletDrawAS.CompileFromFile(m_diCompiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshletDraw.as.hlsl"));
+			m_MeshletDrawMS.CompileFromFile(m_diCompiler, PROJECT_DIRECTORY + std::string("shaderSource/MeshletDraw.ms.hlsl"));
+			m_MeshletDrawPS.CompileFromFile(m_diCompiler, PROJECT_DIRECTORY + std::string("shaderSource/Default_Phong.ps.hlsl"));
 
 			Pipeline::MeshShaderPass::Description meshletDrawPassDesc;
 			meshletDrawPassDesc.m_RenderTargets.push_back({ DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, "ColorTarget" });
@@ -96,12 +101,14 @@ namespace aZero
 			FrameContext& frameContext = this->GetCurrentContext();
 			auto& cmdList = frameContext.m_DirectCmdList;
 
+			std::array<ID3D12DescriptorHeap*, 2> heaps{ m_ResourceHeap.Get(), m_SamplerHeap.Get() };
+			cmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
+
 			GPUDrivenRenderConstants constants;
 			constants.CameraFrustum = camera.m_Frustrum;
 			constants.CameraView = camera.m_View;
 			constants.MeshInstancesCount = numStaticMeshes;
-			int x = sizeof(camera.m_Frustrum);
-			int y = sizeof(GPUDrivenRenderConstants);
+
 			{
 				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "MeshCull pass");
 
@@ -132,9 +139,14 @@ namespace aZero
 				cmdList.SetComputeRootUnorderedAccessViewSafe(meshletCullPass_IA_Binding.GetRootIndex(), m_MeshletCull_IA_B.GetResource()->GetGPUVirtualAddress());
 				cmdList->Dispatch(std::ceil(numStaticMeshes / 32.f), 1, 1);
 
-				/*barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshCull_Count_B.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-				cmdList->ResourceBarrier(1, &barrier);*/
+				D3D12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(m_MeshCull_Count_B.GetResource());
+				cmdList->ResourceBarrier(1, &uavBarrier);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshCull_Count_B.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+				cmdList->ResourceBarrier(1, &barrier);
 
+
+				uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(m_MeshletCull_IA_B.GetResource());
+				cmdList->ResourceBarrier(1, &uavBarrier);
 				barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_MeshletCull_IA_B.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 				cmdList->ResourceBarrier(1, &barrier);
 
@@ -150,7 +162,7 @@ namespace aZero
 				auto constants_BindingAS = m_MeshletDrawPass.GetConstantBindingIndex("ConstantsAS");
 				DXM::Matrix vpMatrix = camera.m_View * camera.m_Projection;
 				cmdList.SetGraphicsRoot32BitConstantsSafe(constants_BindingMS.GetRootIndex(), constants_BindingMS.GetNumConstants(), &vpMatrix, 0);
-				cmdList.SetGraphicsRoot32BitConstantsSafe(constants_BindingAS.GetRootIndex(), constants_BindingAS.GetNumConstants(), &constants, 0);
+				//cmdList.SetGraphicsRoot32BitConstantsSafe(constants_BindingAS.GetRootIndex(), constants_BindingAS.GetNumConstants(), &constants, 0);
 
 				struct PixelShaderConstantsData
 				{
@@ -238,28 +250,13 @@ namespace aZero
 			PIXScopedEvent(cmdList.Get(), PIX_COLOR(255, 0, 0), "Render scene");
 
 			frameContext.RecordFrameAllocations(cmdList);
-			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
+			m_DirectCommandQueue.ExecuteCommandList(cmdList, false); // TODO: Remove
 
 			auto [staticMeshes, cameras] = scene.GetWorldRenderData();
 
-			// TODO: For each camera...
-			std::array<ID3D12DescriptorHeap*, 2> heaps{ m_ResourceHeap.Get(), m_SamplerHeap.Get() };
-			cmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
-
-			if (renderTarget.GetTexture().GetState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
-			{
-				auto barrier = renderTarget.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_RENDER_TARGET);
-				cmdList->ResourceBarrier(1, &barrier);
-			}
-			cmdList->ClearRenderTargetView(renderTarget.GetCpuHandle(), renderTarget.GetClearValue().Color, 0, nullptr);
-
-			if (depthStencilTarget.GetTexture().GetState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
-			{
-				auto barrier = depthStencilTarget.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
-				cmdList->ResourceBarrier(1, &barrier);
-			}
-			const auto value = depthStencilTarget.GetClearValue().DepthStencil;
-			cmdList->ClearDepthStencilView(depthStencilTarget.GetCpuHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, value.Depth, value.Stencil, 0, nullptr);
+			// TODO: Render to rtvs/dsv for each camera
+			this->ClearRenderTarget(renderTarget);
+			this->ClearDepthStencilTarget(depthStencilTarget);
 
 			//if (staticMeshes.size() == 0 || cameras.size() == 0) { return; }
 
@@ -335,6 +332,32 @@ namespace aZero
 			//m_ResourceManager.
 		}
 
+		void  Renderer::ClearRenderTarget(Rendering::RenderTarget& rtv)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+			auto& cmdList = frameContext.m_DirectCmdList;
+
+			if (rtv.GetTexture().GetState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
+			{
+				auto barrier = rtv.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_RENDER_TARGET);
+				cmdList->ResourceBarrier(1, &barrier);
+			}
+			cmdList->ClearRenderTargetView(rtv.GetCpuHandle(), rtv.GetClearValue().Color, 0, nullptr);
+		}
+
+		void Renderer::ClearDepthStencilTarget(Rendering::DepthStencilTarget& dsv)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+			auto& cmdList = frameContext.m_DirectCmdList;
+			if (dsv.GetTexture().GetState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
+			{
+				auto barrier = dsv.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				cmdList->ResourceBarrier(1, &barrier);
+			}
+			const auto value = dsv.GetClearValue().DepthStencil;
+			cmdList->ClearDepthStencilView(dsv.GetCpuHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, value.Depth, value.Stencil, 0, nullptr);
+		}
+
 		Rendering::RenderTarget Renderer::CreateRenderTarget(const Rendering::RenderTarget::Desc& desc)
 		{
 			return Rendering::RenderTarget(desc, m_diDevice, m_RTVHeap, &m_ResourceRecycler);
@@ -347,14 +370,41 @@ namespace aZero
 
 		Rendering::WireframeRenderer& Renderer::GetWireframeRenderer() { return *m_WireframeRenderer.get(); }
 
-		/*void Renderer::ExecuteRenderPasses()
+		void Renderer::InitGPUDrivenRenderPipeline_NEW()
 		{
-			FrameContext& context = this->GetCurrentContext();
-			RenderAPI::CommandList& cmdList = context.m_DirectCmdList;
-			for (const auto pass : m_RenderPasses)
-			{
-				pass->Execute(m_DirectCommandQueue, context.m_DirectCmdList, m_ResourceHeap, m_SamplerHeap);
-			}
-		}*/
+			m_MeshCullCS_NEW.Compile(m_diCompiler, NEW_Pipeline::GetShaderDirectoryPath() + "MeshCull.cs.hlsl");
+			m_MeshCullPass_NEW.CompileComputePass(m_diDevice, m_MeshCullCS_NEW);
+
+			m_MeshletDrawAS_NEW.Compile(m_diCompiler, NEW_Pipeline::GetShaderDirectoryPath() + "MeshletDraw.as.hlsl");
+			m_MeshletDrawMS_NEW.Compile(m_diCompiler, NEW_Pipeline::GetShaderDirectoryPath() + "MeshletDraw.ms.hlsl");
+			m_MeshletDrawPS_NEW.Compile(m_diCompiler, NEW_Pipeline::GetShaderDirectoryPath() + "MeshletDraw.ps.hlsl");
+
+			NEW_Pipeline::RenderPass::Desc passDesc;
+			passDesc.RtvFormats.push_back(DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+			passDesc.DsvFormat = DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT;
+			m_MeshletDrawPass_NEW.CompileMeshletPass(passDesc, m_diDevice, m_MeshletDrawAS_NEW, m_MeshletDrawMS_NEW, m_MeshletDrawPS_NEW);
+		}
+
+		void Renderer::RecordGPUDrivenRenderPipeline_NEW(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, const Rendering::GPUProxy::Camera& camera, uint32_t numStaticMeshes)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+			RenderAPI::CommandList& cmdList = frameContext.m_DirectCmdList;
+			cmdList.SetDescriptorHeaps(m_ResourceHeap, m_SamplerHeap);
+
+			m_MeshCullPass_NEW.Begin(cmdList);
+
+
+
+			// TODO: Set buffers and transition resources etc
+
+			cmdList->Dispatch(std::ceil(numStaticMeshes / 32.f), 1, 1);
+
+			m_MeshletDrawPass_NEW.Begin(cmdList);
+			cmdList.OMSetRenderTargets({ renderTarget.GetDescriptor() }, depthStencilTarget.GetDescriptor());
+
+			// TODO: Set buffers and transition resources etc
+
+			// Executeindirect
+		}
 	}
 }

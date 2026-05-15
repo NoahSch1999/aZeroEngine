@@ -2,7 +2,6 @@
 #include "graphics_api/resource/buffer/MeshBuffer.hpp"
 #include "graphics_api/resource/buffer/IndexedBuffer.hpp"
 #include "graphics_api/resource/texture/Texture2D.hpp"
-#include "scene/Scene.hpp"
 #include "graphics_api/resource/ResourceRecycler.hpp"
 #include "graphics_api/descriptor/DescriptorHeap.hpp"
 #include "FrameContext.hpp"
@@ -11,24 +10,15 @@ namespace aZero
 {
 	namespace Rendering
 	{
+		// TODO: Impl re-upload to resources
 		class ResourceManager
 		{
+			// TODO: Change to uint16 for relevant things
 
 			struct MaterialData
 			{
 				uint32_t AlbedoIndex; // Index to descriptor
 				uint32_t NormalIndex; // Index to descriptor
-			};
-
-			struct GPUMesh
-			{
-				uint32_t MeshletCount;
-				uint32_t MeshBuffer;
-				uint32_t PrimitiveBuffer;
-				uint32_t IndicesBuffer;
-				uint32_t PositionBuffer;
-				uint32_t VertexDataBuffer;
-				DirectX::BoundingSphere Bounds;
 			};
 
 		public:

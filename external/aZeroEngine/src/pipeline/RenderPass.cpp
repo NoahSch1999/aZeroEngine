@@ -1,4 +1,5 @@
 #include "RenderPass.hpp"
+#include "graphics_api/command_recording/CommandList.hpp"
 
 std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> aZero::NEW_Pipeline::RenderPass::GetBufferBinding(std::string_view name)
 {
@@ -18,7 +19,45 @@ std::optional<std::reference_wrapper<aZero::NEW_Pipeline::ConstantBinding>> aZer
 	return {};
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CompileVertexPass(const Desc& desc, ID3D12DeviceX* device, const Shader& vertexShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
+void aZero::NEW_Pipeline::RenderPass::Begin(RenderAPI::CommandList& cmdList)
+{
+	cmdList->SetPipelineState(m_PipelineState.Get());
+
+	if (m_Type == ERenderPassType::VERTEX || m_Type == ERenderPassType::MESHLET)
+	{
+		cmdList->SetGraphicsRootSignature(m_RootSignature.Get());
+
+		if (m_Type == ERenderPassType::VERTEX)
+		{
+			if (m_TopologyType == ETopologyType::TRIANGLE)
+			{
+				cmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			}
+			else if (m_TopologyType == ETopologyType::LINE)
+			{
+				cmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+			}
+			else if (m_TopologyType == ETopologyType::POINT)
+			{
+				cmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+			}
+			else
+			{
+				throw std::runtime_error("Invalid topology type.");
+			}
+		}
+	}
+	else if (m_Type == ERenderPassType::COMPUTE)
+	{
+		cmdList->SetComputeRootSignature(m_RootSignature.Get());
+	}
+	else
+	{
+		throw std::runtime_error("Invalid pass type.");
+	}
+}
+
+bool aZero::NEW_Pipeline::RenderPass::CompileVertexPass(const VertexPassDesc& desc, ID3D12DeviceX* device, const Shader& vertexShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
 {
 	if ((pixelShader.has_value() && pixelShader.value().get().GetType() != EShaderType::PS)
 		|| vertexShader.GetType() != EShaderType::VS)
@@ -36,17 +75,23 @@ bool aZero::NEW_Pipeline::RenderPass::CompileVertexPass(const Desc& desc, ID3D12
 		this->ExtractRootParameters(pixelShader.value(), D3D12_SHADER_VISIBILITY_PIXEL, rootParameters, m_BufferBindings, m_ConstantBindings);
 	}
 
-	/*if (!this->CreateRootSignature(device, rootParameters))
+	if (!this->CreateRootSignature(device, rootParameters))
 	{
 		return false;
-	}*/
+	}
 
 	// TODO: Create pipeline
+	if (!this->CreateVertexPipelineState(desc, device, vertexShader, pixelShader))
+	{
+		return false;
+	}
+
+	m_Type = ERenderPassType::VERTEX;
 
 	return true;
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CompileMeshletPass(const Desc& desc, ID3D12DeviceX* device, std::optional<std::reference_wrapper<const Shader>> amplificationShader, const Shader& meshShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
+bool aZero::NEW_Pipeline::RenderPass::CompileMeshletPass(const MeshletPassDesc& desc, ID3D12DeviceX* device, std::optional<std::reference_wrapper<const Shader>> amplificationShader, const Shader& meshShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
 {
 	if ((amplificationShader.has_value() && amplificationShader.value().get().GetType() != EShaderType::AS)
 		|| meshShader.GetType() != EShaderType::MS
@@ -79,6 +124,33 @@ bool aZero::NEW_Pipeline::RenderPass::CompileMeshletPass(const Desc& desc, ID3D1
 	{
 		return false;
 	}
+
+	m_Type = ERenderPassType::MESHLET;
+
+	return true;
+}
+
+bool aZero::NEW_Pipeline::RenderPass::CompileComputePass(ID3D12DeviceX* device, const Shader& computeShader)
+{
+	if (computeShader.GetType() != EShaderType::CS)
+	{
+		DEBUG_PRINT("Invalid shader input.");
+		return false;
+	}
+
+	std::vector<D3D12_ROOT_PARAMETER> rootParameters;
+	this->ExtractRootParameters(computeShader, D3D12_SHADER_VISIBILITY_ALL, rootParameters, m_BufferBindings, m_ConstantBindings);
+	if (!this->CreateRootSignature(device, rootParameters))
+	{
+		return false;
+	}
+
+	if (!this->CreateComputePipelineState(device, computeShader))
+	{
+		return false;
+	}
+
+	m_Type = ERenderPassType::COMPUTE;
 
 	return true;
 }
@@ -167,17 +239,17 @@ void aZero::NEW_Pipeline::RenderPass::ExtractRootParameters(const Shader& shader
 		if (shaderInputBindDesc.Type == D3D_SIT_CBUFFER)
 		{
 			param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-			inoutBufferBindings.m_Bindings.emplace_back(ShaderBindingType::CBV, inoutRootParams.size());
+			inoutBufferBindings.m_Bindings.emplace_back(EShaderBindingType::CBV, inoutRootParams.size());
 		}
 		else if (shaderInputBindDesc.Type == D3D_SIT_STRUCTURED)
 		{
 			param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-			inoutBufferBindings.m_Bindings.emplace_back(ShaderBindingType::SRV, inoutRootParams.size());
+			inoutBufferBindings.m_Bindings.emplace_back(EShaderBindingType::SRV, inoutRootParams.size());
 		}
 		else if (shaderInputBindDesc.Type == D3D_SIT_UAV_RWSTRUCTURED)
 		{
 			param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
-			inoutBufferBindings.m_Bindings.emplace_back(ShaderBindingType::UAV, inoutRootParams.size());
+			inoutBufferBindings.m_Bindings.emplace_back(EShaderBindingType::UAV, inoutRootParams.size());
 		}
 		else
 		{
@@ -222,13 +294,126 @@ bool aZero::NEW_Pipeline::RenderPass::CreateRootSignature(ID3D12DeviceX* device,
 	return true;
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CreateVertexPipelineState(const Desc& desc, ID3D12DeviceX* device, const Shader& vertexShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
+bool aZero::NEW_Pipeline::RenderPass::CreateVertexPipelineState(const VertexPassDesc& desc, ID3D12DeviceX* device, const Shader& vertexShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
 {
-	// TODO: Impl
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc;
+	ZeroMemory(&pipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	pipelineStateDesc.pRootSignature = m_RootSignature.Get();
+	pipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	// todo Make this a setting
+	DXGI_SAMPLE_DESC sampleDesc{};
+	sampleDesc.Count = 1;
+	sampleDesc.Quality = 0;
+	pipelineStateDesc.SampleDesc = sampleDesc;
+
+	// todo Make this a setting
+	D3D12_RASTERIZER_DESC rasterDesc{};
+	rasterDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	rasterDesc.FrontCounterClockwise = true;
+	pipelineStateDesc.RasterizerState = rasterDesc;
+
+	// todo Make this a setting
+	D3D12_BLEND_DESC blendDesc = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	pipelineStateDesc.BlendState = blendDesc;
+
+	D3D12_SHADER_DESC vsReflection{};
+	vertexShader.GetReflection()->GetDesc(&vsReflection);
+	std::vector<D3D12_INPUT_ELEMENT_DESC> inputElementDescs;
+	std::vector<std::string> inputElementSemanticNames;
+	inputElementSemanticNames.reserve(vsReflection.InputParameters);
+	for (uint32_t ParamIndex = 0; ParamIndex < vsReflection.InputParameters; ParamIndex++)
+	{
+		D3D12_SIGNATURE_PARAMETER_DESC SignatureParameterDesc{};
+		vertexShader.GetReflection()->GetInputParameterDesc(ParamIndex, &SignatureParameterDesc);
+
+		inputElementSemanticNames.emplace_back(SignatureParameterDesc.SemanticName);
+
+		inputElementDescs.emplace_back(
+			D3D12_INPUT_ELEMENT_DESC{
+				.SemanticName = inputElementSemanticNames.back().c_str(),
+				.SemanticIndex = SignatureParameterDesc.SemanticIndex,
+				.Format = NEW_Pipeline::ReflectionMaskToDXGIFormat(SignatureParameterDesc.Mask),
+				.InputSlot = 0u,
+				.AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT,
+				.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, // No way to get this via dxcompiler :(
+				.InstanceDataStepRate = 0u,
+			}
+		);
+	}
+
+	pipelineStateDesc.InputLayout.NumElements = inputElementDescs.size();
+	pipelineStateDesc.InputLayout.pInputElementDescs = inputElementDescs.data();
+
+	// todo Fix
+	m_TopologyType = desc.TopologyType;
+	pipelineStateDesc.PrimitiveTopologyType = static_cast<D3D12_PRIMITIVE_TOPOLOGY_TYPE>(m_TopologyType);
+
+	// todo Make this a setting
+	pipelineStateDesc.SampleMask = std::numeric_limits<uint32_t>::max();
+
+
+	// TODO: wrong usage of the depth?
+	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
+	depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+
+	pipelineStateDesc.VS = {
+		reinterpret_cast<BYTE*>(vertexShader.GetBinary()->GetBufferPointer()),
+		vertexShader.GetBinary()->GetBufferSize()
+	};
+
+	if (pixelShader.has_value())
+	{
+		const Shader& ps = pixelShader.value();
+
+		D3D12_SHADER_DESC shaderDesc{};
+		ps.GetReflection()->GetDesc(&shaderDesc);
+		if (shaderDesc.OutputParameters != desc.RtvFormats.size())
+		{
+			return false;
+		}
+
+		if (desc.DsvFormat != DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
+		{
+			pipelineStateDesc.DSVFormat = desc.DsvFormat;
+		}
+
+		pipelineStateDesc.PS = {
+			reinterpret_cast<BYTE*>(ps.GetBinary()->GetBufferPointer()),
+			ps.GetBinary()->GetBufferSize()
+		};
+
+		for (int i = 0; i < desc.RtvFormats.size(); i++)
+		{
+			pipelineStateDesc.RTVFormats[i] = desc.RtvFormats[i];
+		}
+		pipelineStateDesc.NumRenderTargets = desc.RtvFormats.size();
+	}
+
+	if (desc.DsvFormat == DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
+	{
+		depthStencilDesc.DepthEnable = false;
+	}
+	else
+	{
+		pipelineStateDesc.DepthStencilState = depthStencilDesc;
+		pipelineStateDesc.DSVFormat = desc.DsvFormat;
+	}
+
+	const HRESULT res = device->CreateGraphicsPipelineState(&pipelineStateDesc, IID_PPV_ARGS(m_PipelineState.GetAddressOf()));
+	if (FAILED(res))
+	{
+		DEBUG_PRINT("Failed to create graphics pipelinestate: " + std::to_string(res));
+		return false;
+	}
+
+	m_Type = ERenderPassType::VERTEX;
+
 	return true;
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CreateMeshletPipelineState(const Desc& desc, ID3D12DeviceX* device, std::optional<std::reference_wrapper<const Shader>> amplificationShader, const Shader& meshShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
+bool aZero::NEW_Pipeline::RenderPass::CreateMeshletPipelineState(const MeshletPassDesc& desc, ID3D12DeviceX* device, std::optional<std::reference_wrapper<const Shader>> amplificationShader, const Shader& meshShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
 {
 	struct PSO_STREAM
 	{
@@ -322,5 +507,36 @@ bool aZero::NEW_Pipeline::RenderPass::CreateMeshletPipelineState(const Desc& des
 		DEBUG_PRINT("Failed to create mesh shader pipeline state.");
 		return false;
 	}
+
+	m_Type = ERenderPassType::MESHLET;
+
+	return true;
+}
+
+bool aZero::NEW_Pipeline::RenderPass::CreateComputePipelineState(ID3D12DeviceX* device, const Shader& computeShader)
+{
+	struct PSO_STREAM
+	{
+		CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE RootSignature;
+		CD3DX12_PIPELINE_STATE_STREAM_CS CS;
+	} stream = {};
+
+	stream.RootSignature = m_RootSignature.Get();
+	stream.CS = {
+		reinterpret_cast<BYTE*>(computeShader.GetBinary()->GetBufferPointer()),
+		computeShader.GetBinary()->GetBufferSize()
+	};
+
+	D3D12_PIPELINE_STATE_STREAM_DESC streamDesc = {};
+	streamDesc.pPipelineStateSubobjectStream = &stream;
+	streamDesc.SizeInBytes = sizeof(PSO_STREAM);
+
+	const HRESULT psoSucceded = device->CreatePipelineState(&streamDesc, IID_PPV_ARGS(m_PipelineState.GetAddressOf()));
+	if (FAILED(psoSucceded))
+	{
+		DEBUG_PRINT("Failed to create compute shader pipeline state.");
+		return false;
+	}
+
 	return true;
 }
