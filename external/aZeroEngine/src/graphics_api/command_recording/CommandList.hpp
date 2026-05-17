@@ -2,6 +2,7 @@
 #include <optional>
 #include "misc/NonCopyable.hpp"
 #include "graphics_api/D3D12Include.hpp"
+#include "pipeline/RenderPass.hpp"
 
 namespace aZero
 {
@@ -34,7 +35,7 @@ namespace aZero
 
 			void SetDescriptorHeaps(const RenderAPI::DescriptorHeap& resourceHeap, const RenderAPI::DescriptorHeap& samplerHeap);
 
-			void OMSetRenderTargets(const std::vector< std::reference_wrapper<RenderAPI::Descriptor>>& renderTargets, const std::optional<std::reference_wrapper<RenderAPI::Descriptor>>& depthStencilTarget);
+			void OMSetRenderTargets(const std::vector<std::reference_wrapper<RenderAPI::Descriptor>>& renderTargets, const std::optional<std::reference_wrapper<RenderAPI::Descriptor>>& depthStencilTarget);
 
 			void SetGraphicsRootShaderResourceViewSafe(uint32_t rootParameterIndex, D3D12_GPU_VIRTUAL_ADDRESS address)
 			{
@@ -81,6 +82,55 @@ namespace aZero
 				if (rootParameterIndex != std::numeric_limits<uint32_t>::max())
 				{
 					m_CommandList->SetComputeRoot32BitConstants(rootParameterIndex, num32BitValuesToSet, pSrcData, destOffsetIn32BitValues);
+				}
+			}
+
+			// NEW
+			void NEW_SetGraphicsRootShaderResourceViewSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (bufferBinding.has_value())
+				{
+					m_CommandList->SetGraphicsRootShaderResourceView(bufferBinding.value().get().GetRootIndex(), address);
+				}
+			}
+
+			void NEW_SetGraphicsRootUnorderedAccessViewSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (bufferBinding.has_value())
+				{
+					m_CommandList->SetGraphicsRootUnorderedAccessView(bufferBinding.value().get().GetRootIndex(), address);
+				}
+			}
+
+			void NEW_SetGraphicsRoot32BitConstantsSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::ConstantBinding>> constantBinding, const void* pSrcData, uint32_t destOffsetIn32BitValues)
+			{
+				if (constantBinding.has_value())
+				{
+					m_CommandList->SetGraphicsRoot32BitConstants(constantBinding.value().get().GetRootIndex(), constantBinding.value().get().GetNumConstants(), pSrcData, destOffsetIn32BitValues);
+				}
+			}
+
+			void NEW_SetComputeRootShaderResourceViewSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (bufferBinding.has_value())
+				{
+					m_CommandList->SetComputeRootShaderResourceView(bufferBinding.value().get().GetRootIndex(), address);
+				}
+			}
+
+			void NEW_SetComputeRootUnorderedAccessViewSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (bufferBinding.has_value())
+				{
+					m_CommandList->SetComputeRootUnorderedAccessView(bufferBinding.value().get().GetRootIndex(), address);
+				}
+			}
+
+			void NEW_SetComputeRoot32BitConstantsSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::ConstantBinding>> constantBinding, const void* pSrcData, uint32_t destOffsetIn32BitValues)
+			{
+				if (constantBinding.has_value())
+				{
+					m_CommandList->SetComputeRoot32BitConstants(constantBinding.value().get().GetRootIndex(), constantBinding.value().get().GetNumConstants(), pSrcData, destOffsetIn32BitValues);
 				}
 			}
 

@@ -109,11 +109,11 @@ int main(int argc, char* argv[])
 
 			Example::ControlCamera(scene, keyboardListener);
 
-			//renderer.Render(scene, rtv, dsv);
+			renderer.Render(scene, rtv, dsv);
 			auto res = engine.GetDevice()->GetDeviceRemovedReason();
 
-			renderer.ClearRenderTarget(rtv);
-			renderer.ClearDepthStencilTarget(dsv);
+			/*renderer.ClearRenderTarget(rtv);
+			renderer.ClearDepthStencilTarget(dsv);*/
 
 			flecs::entity camEnt = scene.GetEntityWorld().lookup("Camera");
 			wireframeRenderer.Render(camEnt.get<Component::Camera>(), camEnt.get<Component::Position>(), camEnt.get<Component::Rotation>(), rtv, dsv);

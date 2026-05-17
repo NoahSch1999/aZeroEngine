@@ -89,6 +89,8 @@ namespace aZero
 			}
 
 			ERenderPassType GetType() const { return m_Type; }
+			ID3D12RootSignature* GetRootSignature() const { return m_RootSignature.Get(); }
+			ID3D12PipelineState* GetPipelineState() const { return m_PipelineState.Get(); }
 
 			std::optional<std::reference_wrapper<BufferBinding>> GetBufferBinding(std::string_view name);
 			std::optional<std::reference_wrapper<ConstantBinding>> GetConstantBinding(std::string_view name);

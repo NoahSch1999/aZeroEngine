@@ -39,41 +39,51 @@ bool aZero::NEW_Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_v
 		return false;
 	}
 
-	const std::string shaderName = GetShaderNameFromPath(path);
-	EShaderType type = this->DeduceShadertype(shaderName);
+	std::wstring shaderPath(path.begin(), path.end());
+	EShaderType type = this->DeduceShadertype(GetShaderNameFromPath(path));
 
 	std::vector<LPCWSTR> compilationArgs;
+	
+#ifdef USE_DEBUG
+		std::wstring shaderName(shaderPath);
+	const size_t lastSlash = shaderName.find_last_of('/');
+	if (lastSlash != std::wstring::npos)
+	{
+		shaderName = shaderName.substr(lastSlash + 1, shaderName.length() - lastSlash);
+	}
 
-#if	USE_DEBUG
-	std::wstring wShaderName(shaderName.begin(), shaderName.end());
-	compilationArgs.push_back(wShaderName.c_str());
+	const size_t lastDot = shaderName.find_last_of(L".");
+	const std::wstring pdbName(shaderName.substr(0, lastDot) + L".pdb");
+
+	compilationArgs.push_back(shaderName.c_str());
 	compilationArgs.push_back(DXC_ARG_DEBUG);
 	compilationArgs.push_back(L"-Qembed_debug");
 	compilationArgs.push_back(L"-Fd");
-	std::wstring wShaderNamePDB = wShaderName + L".pdb";
-	compilationArgs.push_back(wShaderNamePDB.c_str());
+	compilationArgs.push_back(pdbName.c_str());
 	compilationArgs.push_back(L"-Od");
 #else
-		compilationArgs.push_back(L"-Qstrip_debug");
+	compilationArgs.push_back(L"-Qstrip_debug");
 	compilationArgs.push_back(L"-O3");
 #endif
 
-		const std::string targetSM(SHADER_TYPE_LUT[type]);
+
 	compilationArgs.push_back(L"-E");
 	compilationArgs.push_back(L"main");
 	compilationArgs.push_back(L"-T");
-	const std::wstring wTargetSM(targetSM.begin(), targetSM.end());
-	compilationArgs.push_back(wTargetSM.c_str());
 
-	Microsoft::WRL::ComPtr<IDxcUtils> utils; // Lazy ahhh using this...
+	std::string target(SHADER_TYPE_LUT[type]);
+	const std::wstring wStrTargetSM(target.begin(), target.end());
+	compilationArgs.push_back(wStrTargetSM.c_str());
+
+	Microsoft::WRL::ComPtr<IDxcUtils> utils;
 	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&utils));
+
 	Microsoft::WRL::ComPtr<IDxcBlobEncoding> blob = nullptr;
-	const std::wstring wPath(path.begin(), path.end());
-	const HRESULT fileLoadRes = utils->LoadFile(wPath.c_str(), nullptr, &blob);
+	const HRESULT fileLoadRes = utils->LoadFile(shaderPath.c_str(), nullptr, &blob);
 	if (FAILED(fileLoadRes))
 	{
-		const std::string error(path);
-		DEBUG_PRINT(std::string("Couldn't load shader at path: ") + error);
+		std::string filePath(path);
+		DEBUG_PRINT("Couldn't load shader at path: " + filePath);
 		return false;
 	}
 
@@ -86,12 +96,29 @@ bool aZero::NEW_Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_v
 	utils->CreateDefaultIncludeHandler(&includeHandler);
 
 	// Adds "-I" is used to declare include directories
-	const std::string shaderPathDir = "-I " + NEW_Pipeline::GetShaderDirectoryPath();
-	const std::wstring wShaderPathDir(shaderPathDir.begin(), shaderPathDir.end());
-	compilationArgs.push_back(wShaderPathDir.c_str());
+	const std::string projectDir(PROJECT_DIRECTORY);
+	const std::wstring projectDirW(projectDir.begin(), projectDir.end());
+	const std::wstring shaderPathDir = projectDirW + L"shaderSource/";
+	compilationArgs.push_back(L"-I ");
+	compilationArgs.push_back(shaderPathDir.c_str());
 
 	Microsoft::WRL::ComPtr<IDxcResult> compilationResult;
 	compiler.Compile(&source, compilationArgs.data(), compilationArgs.size(), includeHandler.Get(), IID_PPV_ARGS(&compilationResult));
+	
+	HRESULT compilationStatus;
+	compilationResult->GetStatus(&compilationStatus);
+	if (FAILED(compilationStatus))
+	{
+		Microsoft::WRL::ComPtr<IDxcBlobUtf8> errors{};
+		compilationResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errors), nullptr);
+		if (errors && errors->GetStringLength() > 0)
+		{
+			const LPCSTR errorMsg = errors->GetStringPointer();
+			DEBUG_PRINT(errorMsg);
+		}
+
+		return false;
+	}
 
 	Microsoft::WRL::ComPtr<IDxcBlob> shaderBinary = nullptr;
 	const HRESULT shaderBinaryOutputRes = compilationResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBinary), nullptr);
@@ -100,6 +127,7 @@ bool aZero::NEW_Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_v
 		DEBUG_PRINT("Failed to get shader binary blob");
 		return false;
 	}
+
 
 #if	USE_DEBUG
 	Microsoft::WRL::ComPtr<IDxcBlob> debugData;

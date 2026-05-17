@@ -10,7 +10,8 @@ namespace aZero::Rendering {
 		struct StaticMeshInstance {
 
 			DXM::Matrix m_WorldTransform;
-			uint32_t m_MeshBuffer_Bindless;
+			uint32_t m_MeshBufferIndex;
+			uint32_t MeshletOffset;
 			uint32_t m_MeshletCount;
 			uint32_t m_MaterialIndex;
 			DirectX::BoundingSphere m_MeshBounds;
@@ -20,10 +21,11 @@ namespace aZero::Rendering {
 			{
 				// TODO: Avoid this much data
 				m_WorldTransform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
-				m_MeshBuffer_Bindless = mesh.GetMeshID();
+				m_MeshBufferIndex = mesh.GetMeshID();
 				m_MeshletCount = mesh.GetMeshletCount();
 				m_MaterialIndex = 1337;// mesh.GetMaterialID();
 				m_MeshBounds = mesh.GetBounds();
+				MeshletOffset = 0;
 			}
 		};
 

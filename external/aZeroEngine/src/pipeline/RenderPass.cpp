@@ -462,6 +462,7 @@ bool aZero::NEW_Pipeline::RenderPass::CreateMeshletPipelineState(const MeshletPa
 		if (desc.DsvFormat != DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
 		{
 			stream.DepthStencilFormat = desc.DsvFormat;
+			depthStencilDesc.DepthEnable = true;
 		}
 
 		stream.PS = {

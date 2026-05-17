@@ -3,6 +3,8 @@
 #include "graphics_api/resource/texture/RenderTarget.hpp"
 #include "SamplerManager.hpp"
 #include "ResourceManager.hpp"
+#include "pipeline/RenderPass.hpp"
+#include "GPU_Driven_Pipeline_Structs.hpp"
 
 // TODO: Remove once replaced
 #include "pipeline/shader/PixelShader.hpp"
@@ -67,6 +69,10 @@ namespace aZero::Rendering
 
 	private:
 
+		// TODO: Figure out how this should be used to defer destruction of descriptors so that they wont be used until their no longer in use
+		aZero::CallbackExecutor m_CallbackExecutor;
+		RenderAPI::ResourceRecycler m_ResourceRecycler;
+
 		// Returns true if the frame context for the next frame has completed and is open for reuse
 		bool AdvanceFrameIfReady();
 
@@ -95,6 +101,10 @@ namespace aZero::Rendering
 		NEW_Pipeline::Shader m_MeshletDrawAS_NEW;
 		NEW_Pipeline::Shader m_MeshletDrawMS_NEW;
 		NEW_Pipeline::Shader m_MeshletDrawPS_NEW;
+
+		RenderAPI::Buffer m_IndirectArguments;
+		RenderAPI::Buffer m_IndirectArgumentCounter;
+		Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
 
 		// ---------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -172,10 +182,6 @@ namespace aZero::Rendering
 		RenderAPI::DescriptorHeap m_DSVHeap;
 
 		std::unique_ptr<Rendering::WireframeRenderer> m_WireframeRenderer;
-
-		// TODO: Figure out how this should be used to defer destruction of descriptors so that they wont be used until their no longer in use
-		aZero::CallbackExecutor m_CallbackExecutor;
-		RenderAPI::ResourceRecycler m_ResourceRecycler;
 
 		ID3D12DeviceX* m_diDevice;
 		IDxcCompilerX& m_diCompiler;
