@@ -5,18 +5,13 @@
 #include "ResourceManager.hpp"
 #include "pipeline/RenderPass.hpp"
 #include "GPU_Driven_Pipeline_Structs.hpp"
-
-// TODO: Remove once replaced
-#include "pipeline/shader/PixelShader.hpp"
 #include "misc/CallbackExecutor.hpp"
-#include "pipeline/pass/MeshShaderPass.hpp"
-#include "pipeline/pass/ComputeShaderPass.hpp"
 
 namespace aZero
 {
 	namespace Asset { class Mesh; class Material; class Texture; }
 	namespace RenderAPI { class MeshBuffer; class SwapChain; }
-	namespace NEW_Pipeline { class RenderPass; class Shader; }
+	namespace Pipeline { class RenderPass; class Shader; }
 	namespace Scene { class Scene; }
 }
 
@@ -81,12 +76,10 @@ namespace aZero::Rendering
 		GPU Types
 		---------------------------------------------------------------------------------------------------------------------------------------------
 		*/
-		
 
 		//
 
 		uint32_t MAX_INSTANCES = 1000000; // TODO: Make configurable
-		uint32_t MAX_MESHLETS = 1000000; // TODO: Make configurable
 
 		// ---------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -94,75 +87,19 @@ namespace aZero::Rendering
 		void RecordGPUDrivenRenderPipeline_NEW(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, const Rendering::GPUProxy::Camera& camera, uint32_t numStaticMeshes);
 
 		// New version of GPU-driven
-		NEW_Pipeline::RenderPass m_MeshCullPass_NEW;
-		NEW_Pipeline::Shader m_MeshCullCS_NEW;
+		Pipeline::RenderPass m_MeshCullPass_NEW;
+		Pipeline::Shader m_MeshCullCS_NEW;
 
-		NEW_Pipeline::RenderPass m_MeshletDrawPass_NEW;
-		NEW_Pipeline::Shader m_MeshletDrawAS_NEW;
-		NEW_Pipeline::Shader m_MeshletDrawMS_NEW;
-		NEW_Pipeline::Shader m_MeshletDrawPS_NEW;
+		Pipeline::RenderPass m_MeshletDrawPass_NEW;
+		Pipeline::Shader m_MeshletDrawAS_NEW;
+		Pipeline::Shader m_MeshletDrawMS_NEW;
+		Pipeline::Shader m_MeshletDrawPS_NEW;
 
 		RenderAPI::Buffer m_IndirectArguments;
 		RenderAPI::Buffer m_IndirectArgumentCounter;
 		Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDrawSignature;
 
 		// ---------------------------------------------------------------------------------------------------------------------------------------------------
-
-		void InitGPUDrivenRenderPipeline();
-		void RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, const Rendering::GPUProxy::Camera& camera, uint32_t numStaticMeshes);
-
-		// Geometry render pipeline
-		RenderAPI::Buffer m_MeshInstanceBuffer;
-
-		Pipeline::ComputeShaderPass m_MeshCullPass;
-		Pipeline::ComputeShader m_MeshCullCS;
-
-		Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletCullSignature;
-
-		Pipeline::MeshShaderPass m_MeshletDrawPass;
-		Pipeline::AmplificationShader m_MeshletDrawAS;
-		Pipeline::MeshShader m_MeshletDrawMS;
-		Pipeline::PixelShader m_MeshletDrawPS;
-
-		struct GPUDrivenRenderConstants
-		{
-			DXM::Matrix CameraView; // Camera view matrix
-			Component::Camera::BoundingFrustum CameraFrustum; // Camera frustum
-			uint32_t MeshInstancesCount; // Num meshinstances to perform frustum-culling with
-			uint32_t pad2[3];
-		};
-
-		struct MeshCull_Count {
-			uint32_t Count;
-		};
-		RenderAPI::Buffer m_MeshCull_Count_B; // - MeshCull_Count - Used to interlock_add and get the IA argument index for the MeshletCull_IA_B buffer - Read/Written to in the MeshCull pass via UAV
-
-		struct MeshletDrawConstantsData
-		{
-			DXM::Matrix WorldTransform;
-			uint32_t MeshBuffer_Bindless;
-			uint32_t MeshletCount;
-			uint32_t pad[2];
-		};
-
-		struct MaterialConstantsData
-		{
-			uint32_t MaterialIndex;
-		};
-
-		struct MeshletCull_IA {
-			MeshletDrawConstantsData MeshInstance; // Index into the framecontext's meshinstance buffer
-			MaterialConstantsData MaterialConstants;
-			uint32_t GroupsX; // Doesn't need to be reset since it's overwritten fully each time it's used
-			uint32_t GroupsY; // Always 1
-			uint32_t GroupsZ; // Always 1
-		};
-		RenderAPI::Buffer m_MeshletCull_IA_B; // - MeshletCull_IA - Contains IA arguments for the MeshletCull pass - Written to in the MeshCull pass via UAV and consumed by executeindirect by the MeshletCull pass
-
-		RenderAPI::Buffer m_CameraBuffer;
-		/*
-		---------------------------------------------------------------------------------------------------------------------------------------------
-		*/
 		
 		uint32_t m_FrameIndex = 0;
 		uint64_t m_FrameCount = 0;

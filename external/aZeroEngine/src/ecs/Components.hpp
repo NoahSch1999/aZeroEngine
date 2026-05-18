@@ -185,6 +185,7 @@ namespace aZero
                 float Far;
                 DXM::Vector3 pad;
             };
+
             BoundingFrustum GetFrustum() const
             {
                 DirectX::BoundingFrustum frustumTemp = DirectX::BoundingFrustum(this->GetProjectionMatrix(), true);

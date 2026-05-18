@@ -1,8 +1,6 @@
-#include "SceneRenderCommon.hlsli"
 #include "Materials.hlsli"
 #include "Lights.hlsli"
-
-ConstantBuffer<MaterialConstantsData> MaterialConstants : register(b0);
+#include "MeshDefinitions.hlsli"
 
 struct PassConstantData
 {
@@ -14,17 +12,17 @@ struct PassConstantData
     float Time;
 };
 
-ConstantBuffer<PassConstantData> Default_Phong_Constants : register(b1);
+ConstantBuffer<PassConstantData> Default_Phong_CONSTANT : register(b1);
 
 struct Output
 {
     float4 color : SV_TARGET0;
 };
 
-Output main(PipelineVertex pin)
+Output main(RasterVertex pin)
 {
     Output output;
-    output.color = float4(pin.Normal.xy, MaterialConstants.MaterialIndex, 1);
+    output.color = float4(pin.Normal.xy, 0.f, 1);
 //output.color = float4(surfaceColor, 1); // normal
 //output.color = float4(pin.MeshletColor, 1.f);
 

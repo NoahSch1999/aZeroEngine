@@ -7,15 +7,15 @@
 aZero::Rendering::WireframeRenderer::WireframeRenderer(Rendering::Renderer& renderer, ID3D12DeviceX* device, IDxcCompilerX& compiler)
     :m_diRenderer(&renderer)
 {
-    NEW_Pipeline::Shader vs;
-    vs.Compile(compiler, NEW_Pipeline::GetShaderDirectoryPath() + "DebugLine.vs.hlsl");
-    NEW_Pipeline::Shader ps;
-    ps.Compile(compiler, NEW_Pipeline::GetShaderDirectoryPath() + "DebugLine.ps.hlsl");
+    Pipeline::Shader vs;
+    vs.Compile(compiler, Pipeline::GetShaderDirectoryPath() + "DebugLine.vs.hlsl");
+    Pipeline::Shader ps;
+    ps.Compile(compiler, Pipeline::GetShaderDirectoryPath() + "DebugLine.ps.hlsl");
 
-    NEW_Pipeline::RenderPass::VertexPassDesc vsDesc;
+    Pipeline::RenderPass::VertexPassDesc vsDesc;
     vsDesc.DsvFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     vsDesc.RtvFormats.push_back(DXGI_FORMAT_R8G8B8A8_UNORM);
-    vsDesc.TopologyType = NEW_Pipeline::ETopologyType::LINE;
+    vsDesc.TopologyType = Pipeline::ETopologyType::LINE;
     m_Pass.CompileVertexPass(vsDesc, device, vs, ps);
 
     for (int i = 0; i < 3; i++)

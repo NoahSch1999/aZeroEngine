@@ -4,11 +4,6 @@
 
 namespace aZero::Rendering::GPU_Struct
 {
-	struct MeshCullConstantsData
-	{
-		uint32_t MeshInstanceCount;
-	};
-
     struct MeshInstance
     {
         DXM::Matrix WorldTransform;
@@ -24,16 +19,17 @@ namespace aZero::Rendering::GPU_Struct
         uint32_t Count;
     };
 
+    struct IndirectArgumentConstantData
+    {
+        uint32_t MeshInstanceIndex;
+        uint32_t Pad1;
+        uint32_t Pad2;
+        uint32_t Pad3;
+    };
+
     struct IndirectArguments
     {
-        DXM::Matrix WorldTransform;
-
-        // TODO: Make 16bit
-        uint32_t MaterialIndex;
-        uint32_t MeshBufferIndex;
-        uint32_t MeshletOffset;
-        uint32_t MeshletCount;
-
+        IndirectArgumentConstantData Data;
         uint32_t GroupX;
         uint32_t GroupY;
         uint32_t GroupZ;
@@ -44,14 +40,19 @@ namespace aZero::Rendering::GPU_Struct
         uint32_t MaterialIndex;
     };
 
-    struct CameraCullConstantData
+    struct CameraData
     {
+        DXM::Matrix ViewMatrix;
+        DXM::Matrix ViewProjectionMatrix;
         Component::Camera::BoundingFrustum Frustum;
     };
 
-    struct CameraConstantData
+    struct MeshCullConstantsData
     {
-        DXM::Matrix ViewProjMatrix;
+        uint32_t MeshInstanceCount;
+        uint32_t Pad1;
+        uint32_t Pad2;
+        uint32_t Pad3;
     };
 
     struct PhongPixelConstantData
@@ -63,5 +64,4 @@ namespace aZero::Rendering::GPU_Struct
         uint32_t DirectionalLightBuffer;
         float Time;
     };
-
 }

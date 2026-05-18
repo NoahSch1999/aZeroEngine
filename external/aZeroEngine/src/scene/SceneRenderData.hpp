@@ -24,7 +24,9 @@ namespace aZero::Rendering {
 				m_MeshBufferIndex = mesh.GetMeshID();
 				m_MeshletCount = mesh.GetMeshletCount();
 				m_MaterialIndex = 1337;// mesh.GetMaterialID();
-				m_MeshBounds = mesh.GetBounds();
+				DirectX::BoundingSphere bounds;
+				mesh.GetBounds().Transform(bounds, m_WorldTransform);
+				m_MeshBounds = bounds;
 				MeshletOffset = 0;
 			}
 		};

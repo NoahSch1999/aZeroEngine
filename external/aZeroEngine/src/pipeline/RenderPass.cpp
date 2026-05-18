@@ -1,7 +1,7 @@
 #include "RenderPass.hpp"
 #include "graphics_api/command_recording/CommandList.hpp"
 
-std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> aZero::NEW_Pipeline::RenderPass::GetBufferBinding(std::string_view name)
+std::optional<std::reference_wrapper<aZero::Pipeline::BufferBinding>> aZero::Pipeline::RenderPass::GetBufferBinding(std::string_view name)
 {
 	if (auto iter = m_BufferBindings.m_Name_To_Binding.find(name.data()); iter != m_BufferBindings.m_Name_To_Binding.end())
 	{
@@ -10,7 +10,7 @@ std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> aZero:
 	return {};
 }
 
-std::optional<std::reference_wrapper<aZero::NEW_Pipeline::ConstantBinding>> aZero::NEW_Pipeline::RenderPass::GetConstantBinding(std::string_view name)
+std::optional<std::reference_wrapper<aZero::Pipeline::ConstantBinding>> aZero::Pipeline::RenderPass::GetConstantBinding(std::string_view name)
 {
 	if (auto iter = m_ConstantBindings.m_Name_To_Binding.find(name.data()); iter != m_ConstantBindings.m_Name_To_Binding.end())
 	{
@@ -19,7 +19,7 @@ std::optional<std::reference_wrapper<aZero::NEW_Pipeline::ConstantBinding>> aZer
 	return {};
 }
 
-void aZero::NEW_Pipeline::RenderPass::Begin(RenderAPI::CommandList& cmdList)
+void aZero::Pipeline::RenderPass::Begin(RenderAPI::CommandList& cmdList)
 {
 	cmdList->SetPipelineState(m_PipelineState.Get());
 
@@ -57,7 +57,7 @@ void aZero::NEW_Pipeline::RenderPass::Begin(RenderAPI::CommandList& cmdList)
 	}
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CompileVertexPass(const VertexPassDesc& desc, ID3D12DeviceX* device, const Shader& vertexShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
+bool aZero::Pipeline::RenderPass::CompileVertexPass(const VertexPassDesc& desc, ID3D12DeviceX* device, const Shader& vertexShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
 {
 	if ((pixelShader.has_value() && pixelShader.value().get().GetType() != EShaderType::PS)
 		|| vertexShader.GetType() != EShaderType::VS)
@@ -91,7 +91,7 @@ bool aZero::NEW_Pipeline::RenderPass::CompileVertexPass(const VertexPassDesc& de
 	return true;
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CompileMeshletPass(const MeshletPassDesc& desc, ID3D12DeviceX* device, std::optional<std::reference_wrapper<const Shader>> amplificationShader, const Shader& meshShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
+bool aZero::Pipeline::RenderPass::CompileMeshletPass(const MeshletPassDesc& desc, ID3D12DeviceX* device, std::optional<std::reference_wrapper<const Shader>> amplificationShader, const Shader& meshShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
 {
 	if ((amplificationShader.has_value() && amplificationShader.value().get().GetType() != EShaderType::AS)
 		|| meshShader.GetType() != EShaderType::MS
@@ -130,7 +130,7 @@ bool aZero::NEW_Pipeline::RenderPass::CompileMeshletPass(const MeshletPassDesc& 
 	return true;
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CompileComputePass(ID3D12DeviceX* device, const Shader& computeShader)
+bool aZero::Pipeline::RenderPass::CompileComputePass(ID3D12DeviceX* device, const Shader& computeShader)
 {
 	if (computeShader.GetType() != EShaderType::CS)
 	{
@@ -155,7 +155,7 @@ bool aZero::NEW_Pipeline::RenderPass::CompileComputePass(ID3D12DeviceX* device, 
 	return true;
 }
 
-void aZero::NEW_Pipeline::RenderPass::ExtractRootParameters(const Shader& shader, D3D12_SHADER_VISIBILITY shaderVisType, std::vector<D3D12_ROOT_PARAMETER>& inoutRootParams, MappedBufferBindings& inoutBufferBindings, MappedConstantBindings& inoutConstantBindings)
+void aZero::Pipeline::RenderPass::ExtractRootParameters(const Shader& shader, D3D12_SHADER_VISIBILITY shaderVisType, std::vector<D3D12_ROOT_PARAMETER>& inoutRootParams, MappedBufferBindings& inoutBufferBindings, MappedConstantBindings& inoutConstantBindings)
 {
 	ID3D12ShaderReflection* reflection = shader.GetReflection();
 	D3D12_SHADER_DESC shaderDesc{};
@@ -260,7 +260,7 @@ void aZero::NEW_Pipeline::RenderPass::ExtractRootParameters(const Shader& shader
 	}
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CreateRootSignature(ID3D12DeviceX* device, const std::vector<D3D12_ROOT_PARAMETER>& rootParams)
+bool aZero::Pipeline::RenderPass::CreateRootSignature(ID3D12DeviceX* device, const std::vector<D3D12_ROOT_PARAMETER>& rootParams)
 {
 	// todo Fill in?
 	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers;
@@ -294,7 +294,7 @@ bool aZero::NEW_Pipeline::RenderPass::CreateRootSignature(ID3D12DeviceX* device,
 	return true;
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CreateVertexPipelineState(const VertexPassDesc& desc, ID3D12DeviceX* device, const Shader& vertexShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
+bool aZero::Pipeline::RenderPass::CreateVertexPipelineState(const VertexPassDesc& desc, ID3D12DeviceX* device, const Shader& vertexShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc;
 	ZeroMemory(&pipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
@@ -333,7 +333,7 @@ bool aZero::NEW_Pipeline::RenderPass::CreateVertexPipelineState(const VertexPass
 			D3D12_INPUT_ELEMENT_DESC{
 				.SemanticName = inputElementSemanticNames.back().c_str(),
 				.SemanticIndex = SignatureParameterDesc.SemanticIndex,
-				.Format = NEW_Pipeline::ReflectionMaskToDXGIFormat(SignatureParameterDesc.Mask),
+				.Format = Pipeline::ReflectionMaskToDXGIFormat(SignatureParameterDesc.Mask),
 				.InputSlot = 0u,
 				.AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT,
 				.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, // No way to get this via dxcompiler :(
@@ -413,7 +413,7 @@ bool aZero::NEW_Pipeline::RenderPass::CreateVertexPipelineState(const VertexPass
 	return true;
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CreateMeshletPipelineState(const MeshletPassDesc& desc, ID3D12DeviceX* device, std::optional<std::reference_wrapper<const Shader>> amplificationShader, const Shader& meshShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
+bool aZero::Pipeline::RenderPass::CreateMeshletPipelineState(const MeshletPassDesc& desc, ID3D12DeviceX* device, std::optional<std::reference_wrapper<const Shader>> amplificationShader, const Shader& meshShader, std::optional<std::reference_wrapper<const Shader>> pixelShader)
 {
 	struct PSO_STREAM
 	{
@@ -514,7 +514,7 @@ bool aZero::NEW_Pipeline::RenderPass::CreateMeshletPipelineState(const MeshletPa
 	return true;
 }
 
-bool aZero::NEW_Pipeline::RenderPass::CreateComputePipelineState(ID3D12DeviceX* device, const Shader& computeShader)
+bool aZero::Pipeline::RenderPass::CreateComputePipelineState(ID3D12DeviceX* device, const Shader& computeShader)
 {
 	struct PSO_STREAM
 	{

@@ -86,7 +86,7 @@ namespace aZero
 			}
 
 			// NEW
-			void NEW_SetGraphicsRootShaderResourceViewSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			void SetGraphicsRootShaderResourceViewSafe(std::optional<std::reference_wrapper<aZero::Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
 			{
 				if (bufferBinding.has_value())
 				{
@@ -94,7 +94,7 @@ namespace aZero
 				}
 			}
 
-			void NEW_SetGraphicsRootUnorderedAccessViewSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			void SetGraphicsRootUnorderedAccessViewSafe(std::optional<std::reference_wrapper<aZero::Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
 			{
 				if (bufferBinding.has_value())
 				{
@@ -102,7 +102,15 @@ namespace aZero
 				}
 			}
 
-			void NEW_SetGraphicsRoot32BitConstantsSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::ConstantBinding>> constantBinding, const void* pSrcData, uint32_t destOffsetIn32BitValues)
+			void SetGraphicsConstantBufferViewSafe(std::optional<std::reference_wrapper<aZero::Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (bufferBinding.has_value())
+				{
+					m_CommandList->SetGraphicsRootConstantBufferView(bufferBinding.value().get().GetRootIndex(), address);
+				}
+			}
+
+			void SetGraphicsRoot32BitConstantsSafe(std::optional<std::reference_wrapper<aZero::Pipeline::ConstantBinding>> constantBinding, const void* pSrcData, uint32_t destOffsetIn32BitValues)
 			{
 				if (constantBinding.has_value())
 				{
@@ -110,7 +118,7 @@ namespace aZero
 				}
 			}
 
-			void NEW_SetComputeRootShaderResourceViewSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			void SetComputeRootShaderResourceViewSafe(std::optional<std::reference_wrapper<aZero::Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
 			{
 				if (bufferBinding.has_value())
 				{
@@ -118,7 +126,7 @@ namespace aZero
 				}
 			}
 
-			void NEW_SetComputeRootUnorderedAccessViewSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			void SetComputeRootUnorderedAccessViewSafe(std::optional<std::reference_wrapper<aZero::Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
 			{
 				if (bufferBinding.has_value())
 				{
@@ -126,7 +134,15 @@ namespace aZero
 				}
 			}
 
-			void NEW_SetComputeRoot32BitConstantsSafe(std::optional<std::reference_wrapper<aZero::NEW_Pipeline::ConstantBinding>> constantBinding, const void* pSrcData, uint32_t destOffsetIn32BitValues)
+			void SetComputeConstantBufferViewSafe(std::optional<std::reference_wrapper<aZero::Pipeline::BufferBinding>> bufferBinding, D3D12_GPU_VIRTUAL_ADDRESS address)
+			{
+				if (bufferBinding.has_value())
+				{
+					m_CommandList->SetComputeRootConstantBufferView(bufferBinding.value().get().GetRootIndex(), address);
+				}
+			}
+
+			void SetComputeRoot32BitConstantsSafe(std::optional<std::reference_wrapper<aZero::Pipeline::ConstantBinding>> constantBinding, const void* pSrcData, uint32_t destOffsetIn32BitValues)
 			{
 				if (constantBinding.has_value())
 				{

@@ -1,50 +1,39 @@
-#include "SceneRenderCommon.hlsli"
+#include "MeshDefinitions.hlsli"
+#include "GeometryPipeline_IA.hlsli"
+#include "Camera.hlsli"
 
-ConstantBuffer<GPUDrivenRenderConstants> Constants : register(b0);
-StructuredBuffer<MeshInstance> MeshInstances : register(t0);
-RWStructuredBuffer<MeshCull_Count> MeshInstanceIndexCounter : register(u0);
-RWStructuredBuffer<MeshletCull_IA> MeshletCullPass_IA : register(u1);
+struct MeshCullConstantsData
+{
+	uint4 MeshInstanceCount;
+};
+ConstantBuffer<MeshCullConstantsData> MeshCull_CONSTANT : register(b0);
 
-// Split the number of mesh instance across THREADS_PER_X threads per group
-[numthreads(THREADS_PER_X, 1, 1)]
+ConstantBuffer<Camera> CameraBuffer : register(b1);
+
+StructuredBuffer<MeshInstanceData> MeshInstances : register(t0);
+
+struct IndirectArgumentCounterData
+{
+	uint Count;
+};
+RWStructuredBuffer<IndirectArgumentCounterData> IndirectArgumentCounter : register(u0);
+RWStructuredBuffer<IndirectArgumentStruct> IndirectArguments : register(u1);
+
+[numthreads(32, 1, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-    if (Constants.MeshInstancesCount > dtid.x)
+    if (MeshCull_CONSTANT.MeshInstanceCount.x > dtid.x)
     {
-        //const MeshInstance meshInstance = MeshInstances[dtid.x]; // Each thread from 0-n accesses an unique mesh instance
-        
-        // Perform frustum culling on the mesh instance
-        //const float3 boundsWP = mul(meshInstance.WorldTransform, float4(meshInstance.MeshBounds.Position, 1.f)).xyz;
-        //const BoundingSphere bounds = CreateBoundingSphere(boundsWP, meshInstance.MeshBounds.Radius);
-        //if (Constants.CameraFrustum.Intersects(bounds, Constants.CameraView))
-        
-        //float4x4 view;
-        //view._11_12_13_14 = float4(-1, 0, 0, 0);
-        //view._21_22_23_24 = float4(0, 1, 0, 0);
-        //view._31_32_33_34 = float4(0, 0, -1, 0);
-        //view._41_42_43_44 = float4(10, 0, 30, 1);
+        const MeshInstanceData meshInstance = MeshInstances[dtid.x];
 
-        //BoundingFrustum frust;
-        //frust.Rotation = float4(0, 0, 0, 1);
-        //frust.Position = float3(10, 0, 30);
-        //frust.RightSlope = -1.77636278;
-        //frust.LeftSlope = 1.77636278;
-        //frust.TopSlope = -0.999204040;
-        //frust.BottomSlope = 0.999204040;
-        //frust.Near = -1092.26672;
-        //frust.Far = -0.00100000005;
-
-        //if (frust.Intersects(bounds, view))
+        if (CameraBuffer.Frustum.Intersects(meshInstance.MeshBounds, CameraBuffer.ViewMatrix))
         {
-            uint meshObjectIndex;
-            InterlockedAdd(MeshInstanceIndexCounter[0].Count, 1, meshObjectIndex);
-            MeshletCullPass_IA[meshObjectIndex].MeshInstance.WorldTransform = MeshInstances[dtid.x].WorldTransform;
-            MeshletCullPass_IA[meshObjectIndex].MeshInstance.MeshletCount = MeshInstances[dtid.x].MeshletCount;
-            MeshletCullPass_IA[meshObjectIndex].MeshInstance.MeshBuffer_Bindless = MeshInstances[dtid.x].MeshBuffer_Bindless;
-            MeshletCullPass_IA[meshObjectIndex].MaterialConstants.MaterialIndex = MeshInstances[dtid.x].MaterialIndex;
-            MeshletCullPass_IA[meshObjectIndex].GroupsX = ceil(MeshInstances[dtid.x].MeshletCount / (float) THREADS_PER_X); // Splits the passed mesh instance's meshlets across THREADS_PER_X num groups (rounded up)
-            MeshletCullPass_IA[meshObjectIndex].GroupsY = 1;
-            MeshletCullPass_IA[meshObjectIndex].GroupsZ = 1;
+            uint meshInstanceIndex;
+            InterlockedAdd(IndirectArgumentCounter[0].Count, 1, meshInstanceIndex);
+            IndirectArguments[meshInstanceIndex].Data.MeshInstanceIndex.x = dtid.x;
+            IndirectArguments[meshInstanceIndex].GroupX = ceil(meshInstance.Instance.MeshletCount / 32.f);
+            IndirectArguments[meshInstanceIndex].GroupY = 1;
+            IndirectArguments[meshInstanceIndex].GroupZ = 1;
         }
     }
 }

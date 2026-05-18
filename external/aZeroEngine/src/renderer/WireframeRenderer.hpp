@@ -2,9 +2,9 @@
 #include "misc/Maths.hpp"
 #include "WireframeShapes.hpp"
 #include "WinPixEventRuntime/pix3.h"
-#include "pipeline/pass/VertexShaderPass.hpp"
 #include "pipeline/RenderPass.hpp"
 #include "ecs/Components.hpp"
+#include "graphics_api/resource/buffer/Buffer.hpp"
 
 namespace aZero
 {
@@ -37,7 +37,7 @@ namespace aZero
             void BeginFrame();
 
             //Pipeline::VertexShaderPass m_Pass;
-            NEW_Pipeline::RenderPass m_Pass;
+            Pipeline::RenderPass m_Pass;
 
             std::array<RenderAPI::Buffer, 3> m_VertexBuffers;
             D3D12_VERTEX_BUFFER_VIEW m_VBView;

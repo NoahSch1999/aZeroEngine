@@ -1,9 +1,9 @@
-#include "ShaderNEW.hpp"
+#include "Shader.hpp"
 
 #include <filesystem>
 #include <fstream>
 
-bool aZero::NEW_Pipeline::Shader::Reflect(IDxcResult* compilationResult, IDxcUtils* utils)
+bool aZero::Pipeline::Shader::Reflect(IDxcResult* compilationResult, IDxcUtils* utils)
 {
 	Microsoft::WRL::ComPtr<IDxcBlob> reflectionData = nullptr;
 	const HRESULT reflectionDataOutputRes = compilationResult->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(reflectionData.GetAddressOf()), nullptr);
@@ -32,7 +32,7 @@ bool aZero::NEW_Pipeline::Shader::Reflect(IDxcResult* compilationResult, IDxcUti
 	return true;
 }
 
-bool aZero::NEW_Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_view path)
+bool aZero::Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_view path)
 {
 	if (!path.ends_with("hlsl"))
 	{
@@ -136,7 +136,7 @@ bool aZero::NEW_Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_v
 	if (SUCCEEDED(pdbRes))
 	{
 		const std::wstring shaderPath(debugDataPath->GetStringPointer());
-		std::string outputPath(NEW_Pipeline::GetShaderDebugDirectoryPath() + std::string(shaderPath.begin(), shaderPath.end()));
+		std::string outputPath(Pipeline::GetShaderDebugDirectoryPath() + std::string(shaderPath.begin(), shaderPath.end()));
 		std::filesystem::path dir = std::filesystem::path(outputPath).parent_path();
 		std::filesystem::create_directories(dir);
 
@@ -164,7 +164,7 @@ bool aZero::NEW_Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_v
 	return true;
 }
 
-aZero::NEW_Pipeline::EShaderType aZero::NEW_Pipeline::Shader::DeduceShadertype(std::string_view shaderName)
+aZero::Pipeline::EShaderType aZero::Pipeline::Shader::DeduceShadertype(std::string_view shaderName)
 {
 	if (shaderName.ends_with("vs"))
 	{

@@ -1,13 +1,13 @@
 #pragma once
 #include <optional>
 #include <unordered_map>
-#include "ShaderNEW.hpp"
+#include "Shader.hpp"
 
 namespace aZero
 {
 	namespace RenderAPI { class CommandList; }
 
-	namespace NEW_Pipeline
+	namespace Pipeline
 	{
 		enum class ERenderPassType { INVALID, VERTEX, MESHLET, COMPUTE };
 		enum ETopologyType { UNDEFINED = 0, POINT = 1, LINE = 2, TRIANGLE = 3 }; // Matches D3D12_PRIMITIVE_TOPOLOGY_TYPE

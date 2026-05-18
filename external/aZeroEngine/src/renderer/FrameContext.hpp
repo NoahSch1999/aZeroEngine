@@ -20,7 +20,7 @@ namespace aZero
 			//		So there needs to be a dedicated staging buffer, per primitive type, that the compute shader reads from.
 			//		Then there needs to be a dedicated vram-only buffer, per primitive, that the compute shader writes to.
 			RenderAPI::Buffer m_StaticMeshBuffer;
-			RenderAPI::ShaderResourceView m_StaticMeshDescriptor;
+			RenderAPI::Buffer m_CameraBuffer;
 
 			/*RenderAPI::Buffer m_PointLightBuffer;
 			RenderAPI::ShaderResourceView m_PointLightDescriptor;
@@ -87,8 +87,8 @@ namespace aZero
 				const uint32_t frameBufferSize = 1000000;
 				m_FrameAllocator = LinearFrameAllocator(device, frameBufferSize, recycler);
 
-				RenderAPI::Buffer::Desc primitiveBufferDesc(sizeof(GPUProxy::StaticMeshInstance) * maxInstances, D3D12_HEAP_TYPE_UPLOAD);
-				m_StaticMeshBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
+				m_StaticMeshBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPUProxy::StaticMeshInstance) * maxInstances, D3D12_HEAP_TYPE_UPLOAD), &recycler);
+				m_CameraBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPUProxy::Camera), D3D12_HEAP_TYPE_UPLOAD), &recycler);
 
 				//primitiveBufferDesc.NumBytes = sizeof(GPUProxy::PointLight) * 1000;
 				//m_PointLightBuffer = RenderAPI::Buffer(device, primitiveBufferDesc, &recycler);
@@ -100,8 +100,6 @@ namespace aZero
 				m_DirectCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 				m_CopyCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COPY);
 				m_ComputeCmdList = RenderAPI::CommandList(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
-
-				m_StaticMeshDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_StaticMeshBuffer, maxInstances, sizeof(GPUProxy::StaticMeshInstance), 0);
 
 				//m_PointLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_PointLightBuffer, 1000, sizeof(Scene::RenderData::PointLight), 0);
 				//m_SpotLightDescriptor = RenderAPI::ShaderResourceView(device, resourceHeap, m_SpotLightBuffer, 1000, sizeof(Scene::RenderData::SpotLight), 0);

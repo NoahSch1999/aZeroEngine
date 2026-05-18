@@ -1,44 +1,48 @@
-#include "SceneRenderCommon.hlsli"
+#include "MeshDefinitions.hlsli"
 #include "Util.hlsli"
+#include "PayloadDefinitions.hlsli"
+#include "GeometryPipeline_IA.hlsli"
+#include "Camera.hlsli"
 
-struct ConstantData
-{
-    float4x4 CameraVP;
-};
+ConstantBuffer<IndirectArgumentConstantData> Input_CONSTANT : register(b0);
 
-//ConstantBuffer<MeshletDrawConstantsData> MeshletDrawConstants : register(b0); // Passed from MeshCull compute shader pass
-ConstantBuffer<ConstantData> ConstantsMS : register(b1);
+ConstantBuffer<Camera> CameraBuffer : register(b1);
+
+StructuredBuffer<MeshInstanceData> MeshInstances : register(t0);
 
 [NumThreads(128, 1, 1)]
 [OutputTopology("triangle")]
 void main(
-    uint localThreadIndex : SV_GroupIndex, // One per vertex in the meshlet
-    uint meshletIndex : SV_GroupID,                    // One per meshlet
-    in payload MeshletPayload payload,
-    out vertices PipelineVertex verts[64],
+    uint localThreadIndex : SV_GroupIndex,
+    uint meshletIndex : SV_GroupID,
+    in payload Payload payload,
+    out vertices RasterVertex verts[64],
     out indices uint3 tris[126]
 )
 {
-    if (payload.VisibleMeshletsCount > meshletIndex)
+    const MeshInstanceData meshInstance = MeshInstances[Input_CONSTANT.MeshInstanceIndex.x]; // Top stall???? Doesn't seem like it
+    if (meshInstance.Instance.MeshletCount > meshletIndex)
     {
-        SetMeshOutputCounts(payload.VertexCount[meshletIndex], payload.PrimitiveCount[meshletIndex]);
+        const StructuredBuffer<Meshlet> Meshlets = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex];
+        const Meshlet meshlet = Meshlets[payload.MeshletIndex[meshletIndex]]; // Top stall
+        SetMeshOutputCounts(meshlet.VertexCount, meshlet.PrimitiveCount);
     
-        if (localThreadIndex < payload.PrimitiveCount[meshletIndex])
+        if (localThreadIndex < meshlet.PrimitiveCount)
         {
-            const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[payload.MeshBuffer_Bindless + 1];
-            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[payload.PrimitiveOffset[meshletIndex] + localThreadIndex]);
+            const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 1];
+            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[meshlet.PrimitiveOffset + localThreadIndex]);
         }
     
-        if (localThreadIndex < payload.VertexCount[meshletIndex])
+        if (localThreadIndex < meshlet.VertexCount)
         {
             
-            const StructuredBuffer<uint> indices = ResourceDescriptorHeap[payload.MeshBuffer_Bindless + 3];
-            uint vertexIndex = indices[payload.VertexOffset[meshletIndex] + localThreadIndex];
+            const StructuredBuffer<uint> indices = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 3];
+            uint vertexIndex = indices[meshlet.VertexOffset + localThreadIndex];
             
-            const StructuredBuffer<MeshVertex> vertexPositionBuffer = ResourceDescriptorHeap[payload.MeshBuffer_Bindless + 2];
+            const StructuredBuffer<MeshVertex> vertexPositionBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 2];
             
-            PipelineVertex newVertex;
-            GetVertex(newVertex, vertexIndex, ConstantsMS.CameraVP, vertexPositionBuffer, payload.WorldTransform);
+            RasterVertex newVertex;
+            GetVertex(newVertex, CameraBuffer.ViewProjectionMatrix, vertexPositionBuffer[vertexIndex] /* Top stall */, meshInstance.Instance.WorldTransform);
             verts[localThreadIndex] = newVertex;
         }
     }
