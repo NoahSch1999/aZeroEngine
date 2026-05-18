@@ -83,17 +83,17 @@ namespace aZero::Rendering
 
 		// ---------------------------------------------------------------------------------------------------------------------------------------------------
 
-		void InitGPUDrivenRenderPipeline_NEW();
-		void RecordGPUDrivenRenderPipeline_NEW(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, const Rendering::GPUProxy::Camera& camera, uint32_t numStaticMeshes);
+		void InitGPUDrivenRenderPipeline();
+		void RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, const Rendering::GPUProxy::Camera& camera, uint32_t numStaticMeshes);
 
 		// New version of GPU-driven
-		Pipeline::RenderPass m_MeshCullPass_NEW;
-		Pipeline::Shader m_MeshCullCS_NEW;
+		Pipeline::RenderPass m_MeshCullPass;
+		Pipeline::Shader m_MeshCullCS;
 
-		Pipeline::RenderPass m_MeshletDrawPass_NEW;
-		Pipeline::Shader m_MeshletDrawAS_NEW;
-		Pipeline::Shader m_MeshletDrawMS_NEW;
-		Pipeline::Shader m_MeshletDrawPS_NEW;
+		Pipeline::RenderPass m_MeshletDrawPass;
+		Pipeline::Shader m_MeshletDrawAS;
+		Pipeline::Shader m_MeshletDrawMS;
+		Pipeline::Shader m_MeshletDrawPS;
 
 		RenderAPI::Buffer m_IndirectArguments;
 		RenderAPI::Buffer m_IndirectArgumentCounter;

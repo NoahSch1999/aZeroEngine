@@ -4,7 +4,7 @@
 
 namespace aZero::Rendering::GPU_Struct
 {
-    struct MeshInstance
+ /*   struct MeshInstance
     {
         DXM::Matrix WorldTransform;
         uint32_t MeshBufferIndex;
@@ -12,7 +12,7 @@ namespace aZero::Rendering::GPU_Struct
         uint32_t MeshletCount;
         uint32_t MaterialIndex;
         DirectX::BoundingSphere MeshBounds;
-    };
+    };*/
 
     struct IndirectArgumentCounter
     {

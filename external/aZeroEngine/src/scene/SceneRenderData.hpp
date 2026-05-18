@@ -11,7 +11,7 @@ namespace aZero::Rendering {
 
 			DXM::Matrix m_WorldTransform;
 			uint32_t m_MeshBufferIndex;
-			uint32_t MeshletOffset;
+			uint32_t m_MeshletOffset;
 			uint32_t m_MeshletCount;
 			uint32_t m_MaterialIndex;
 			DirectX::BoundingSphere m_MeshBounds;
@@ -27,7 +27,7 @@ namespace aZero::Rendering {
 				DirectX::BoundingSphere bounds;
 				mesh.GetBounds().Transform(bounds, m_WorldTransform);
 				m_MeshBounds = bounds;
-				MeshletOffset = 0;
+				m_MeshletOffset = 0;
 			}
 		};
 

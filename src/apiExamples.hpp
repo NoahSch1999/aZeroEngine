@@ -14,8 +14,9 @@ namespace Example {
 		Input::KeyboardListener& keyboardListener
 	)
 	{
+		std::string meshName = "goblin";
 		aZero::Asset::AssetManager& aManager = engine.GetAssetManager();
-		aManager.LoadMesh(aZero::Asset::GetMeshDirectoryPath() + "goblin.fbx");
+		aManager.LoadMesh(aZero::Asset::GetMeshDirectoryPath() + meshName + ".fbx");
 		aManager.LoadMaterial(aZero::Asset::GetMaterialDirectoryPath() + "TestMaterial.json");
 		
 
@@ -27,7 +28,7 @@ namespace Example {
 		{
 			flecs::entity entMesh = scene.GetEntityWorld().entity().is_a(scene.GetRigidbodyStaticMeshPrefab());
 			entMesh.set_name("Mesh");
-			entMesh.set(Component::Mesh(*aManager.GetMesh("goblin").value(), *aManager.GetMaterial("TestMaterial").value()));
+			entMesh.set(Component::Mesh(*aManager.GetMesh(meshName).value(), *aManager.GetMaterial("TestMaterial").value()));
 			Component::Rigidbody& rb = entMesh.get_mut<Component::Rigidbody>();
 			rb.SetCreationSettings(boxSettings);
 			scene.RegisterToPhysics(entMesh);
@@ -49,7 +50,7 @@ namespace Example {
 					flecs::entity ent = scene.GetEntityWorld().entity().is_a(scene.GetStaticMeshPrefab());
 					std::string name = std::string("Mesh") + std::to_string(i) + std::to_string(j);
 					ent.set_name(name.c_str());
-					ent.set(Component::Mesh(*aManager.GetMesh("goblin").value(), *aManager.GetMaterial("TestMaterial").value()));
+					ent.set(Component::Mesh(*aManager.GetMesh(meshName).value(), *aManager.GetMaterial("TestMaterial").value()));
 					ent.set<Component::Position>(DXM::Vector3(i, 2, j));
 					ent.set<Component::Rotation>(DXM::Vector3(0, 3.14, 0));
 					//Component::Rigidbody& rb = ent.get_mut<Component::Rigidbody>();
