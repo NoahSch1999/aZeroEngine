@@ -1,3 +1,6 @@
+#ifndef UTIL_INCLUDED
+#define UTIL_INCLUDED
+
 float3 HashColor(uint id)
 {
     // Simple hash → color
@@ -16,6 +19,14 @@ uint3 Unpack32To8(uint input)
     return uint3(ch1, ch2, ch3);
 }
 
+uint2 Unpack32To16(uint input)
+{
+    uint ch1, ch2;
+    ch1 = (input & 0x0000ffff);
+    ch2 = (input & 0xffff0000) >> 16;
+    return uint2(ch1, ch2);
+}
+
 void Matrix4x3_To_Matrix4x4(in float4x3 input, out float4x4 output)
 {
     output[0] = float4(input[0], 0);
@@ -23,3 +34,21 @@ void Matrix4x3_To_Matrix4x4(in float4x3 input, out float4x4 output)
     output[2] = float4(input[2], 0);
     output[3] = float4(input[3], 1);
 }
+
+float3 DecodeNormalOctahedral(float2 e)
+{
+    float3 n = float3(e.x, e.y, 1.0 - abs(e.x) - abs(e.y));
+
+    if (n.z < 0.0)
+    {
+        float2 signNotZero = float2(
+            n.x >= 0.0 ? 1.0 : -1.0,
+            n.y >= 0.0 ? 1.0 : -1.0
+        );
+
+        n.xy = (1.0 - abs(n.yx)) * signNotZero;
+    }
+
+    return normalize(n);
+}
+#endif

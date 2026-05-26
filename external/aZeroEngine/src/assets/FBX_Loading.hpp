@@ -80,10 +80,11 @@ namespace aZero::FBX
 				positions.reserve(mesh->mNumVertices);
 				for (uint32_t i = 0; i < mesh->mNumVertices; i++)
 				{
-					Asset::Vertex vertex;
-					vertex.Position = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
-					vertex.UV = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
-					vertex.Normal = { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z };
+					Asset::Vertex vertex = Asset::PackVertex(
+						{ mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z },
+						Helper::EncodeNormalOctahedral({ mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }),
+						{ mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y }
+					);
 					submesh.Vertices.emplace_back(vertex);
 
 					positions.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);

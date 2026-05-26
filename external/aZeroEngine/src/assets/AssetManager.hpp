@@ -65,31 +65,6 @@ namespace aZero::Asset
 			return false;
 		}
 
-		// Loading
-		bool LoadMesh(const std::string& filePath)
-		{
-			std::string meshName = Helper::GetFilenameFromPath(filePath);
-			meshName = Helper::StripSuffixFromFilePath(meshName);
-			if (m_Meshes.count(meshName))
-			{
-				DEBUG_PRINT("Mesh can't load since it's already in the AssetManager.\n");
-				return false;
-			}
-
-			Asset::Mesh newMesh;
-			bool loaded = newMesh.LoadFromFile(filePath);
-			if (loaded)
-			{
-				m_Meshes[meshName] = std::move(newMesh);
-				m_diRenderer->UpdateRenderState(m_Meshes[meshName]);
-			}
-			else
-			{
-				DEBUG_PRINT("Mesh can't load.\n");
-			}
-			return loaded;
-		}
-
 		bool LoadTexture(const std::string& filePath, DXGI_FORMAT format)
 		{
 			std::string textureName = Helper::GetFilenameFromPath(filePath);

@@ -87,7 +87,6 @@ namespace aZero
 				}
 			}
 
-			// 3. Find farthest point from i1
 			int i2 = i1;
 			maxDist = 0.0f;
 
@@ -101,11 +100,9 @@ namespace aZero
 				}
 			}
 
-			// 4. Initial sphere
 			DXM::Vector3 center = (points[i1] + points[i2]) * 0.5f;
 			float radius = (points[i2] - center).Length();
 
-			// 5. Expand sphere
 			for (const auto& p : points)
 			{
 				DXM::Vector3 d = p - center;
@@ -122,6 +119,27 @@ namespace aZero
 			}
 
 			return { DXM::Vector3(center.x, center.y, center.z), radius };
+		}
+
+		inline DXM::Vector2 EncodeNormalOctahedral(const DXM::Vector3& n)
+		{
+			float invL1 = 1.0f / (std::fabs(n.x) + std::fabs(n.y) + std::fabs(n.z));
+			float x = n.x * invL1;
+			float y = n.y * invL1;
+			float z = n.z * invL1;
+
+			DXM::Vector2 enc = { x, y };
+
+			if (z < 0.0f)
+			{
+				float oldX = enc.x;
+				float oldY = enc.y;
+
+				enc.x = (1.0f - std::fabs(oldY)) * (oldX >= 0.0f ? 1.0f : -1.0f);
+				enc.y = (1.0f - std::fabs(oldX)) * (oldY >= 0.0f ? 1.0f : -1.0f);
+			}
+
+			return enc;
 		}
 	}
 }

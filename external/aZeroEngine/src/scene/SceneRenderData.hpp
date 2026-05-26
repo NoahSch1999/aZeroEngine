@@ -4,8 +4,6 @@
 
 namespace aZero::Rendering {
 	namespace GPUProxy {
-		using MeshMaterialID = uint32_t;
-		constexpr static MeshMaterialID InvalidMeshMaterialID = std::numeric_limits<MeshMaterialID>::max();
 
 		struct StaticMeshInstance {
 
@@ -13,7 +11,6 @@ namespace aZero::Rendering {
 			uint32_t m_MeshBufferIndex;
 			uint32_t m_MeshletOffset;
 			uint32_t m_MeshletCount;
-			uint32_t m_PrimitiveOffset, m_VertexOffset, m_IndexOffset;
 			uint32_t m_MaterialIndex;
 			DirectX::BoundingSphere m_MeshBounds;
 
@@ -26,9 +23,6 @@ namespace aZero::Rendering {
 				m_MeshBufferIndex = meshID;
 				m_MeshletCount = submesh.MeshletCount;
 				m_MeshletOffset = submesh.MeshletOffset;
-				m_PrimitiveOffset = submesh.PrimitiveOffset;
-				m_VertexOffset = submesh.VertexOffset;
-				m_IndexOffset = submesh.IndexOffset;
 				m_MaterialIndex = submesh.m_MaterialID;
 				DirectX::BoundingSphere bounds;
 				submesh.m_Bounds.Transform(bounds, m_WorldTransform);

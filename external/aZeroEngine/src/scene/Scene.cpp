@@ -112,9 +112,14 @@ void aZero::Scene::Scene::AddDebugDrawArguments(Asset::AssetManager& assetManage
 		meshQuery.each([&wireframeRenderer, &allMeshes](const Component::Mesh& mesh, const Component::Position& position) {
 
 			// Lmao this is so bad, but whatever... It's just for debugging... :P
-			for (const auto& [name, meshAsset] : allMeshes) {
-				if (meshAsset.GetRenderID() == mesh.GetMeshID()) {
-					wireframeRenderer.AddShape(Rendering::WireframeShape::Sphere(DXM::Vector3(0, 0, 1), DXM::Vector3::Transform(meshAsset.GetVertexData().Bounds.Center, DXM::Matrix::CreateTranslation(position)), meshAsset.GetVertexData().Bounds.Radius, 10));
+			for (const auto& [name, meshAsset] : allMeshes) 
+			{
+				if (meshAsset.GetRenderID() == mesh.GetMeshID()) 
+				{
+					for (const auto& submesh : meshAsset.GetSubmeshes())
+					{
+						wireframeRenderer.AddShape(Rendering::WireframeShape::Sphere(DXM::Vector3(0, 0, 1), DXM::Vector3::Transform(submesh.Bounds.Center, DXM::Matrix::CreateTranslation(position)), submesh.Bounds.Radius, 10));
+					}
 				}
 			}
 		});

@@ -104,19 +104,17 @@ namespace aZero
                 if (mesh.GetRenderID() != Asset::InvalidRenderID && material.GetRenderID() != Asset::InvalidRenderID) {
                     m_MeshID = mesh.GetRenderID();
 
-                    for (uint32_t i = 0; i < mesh.m_Submeshes.size(); i++)
+                    auto& submeshes = mesh.GetSubmeshes();
+                    for (uint32_t i = 0; i < submeshes.size(); i++)
                     {
                         Submesh newSubmesh;
-                        newSubmesh.MeshletCount = mesh.m_Submeshes[i].MeshletCount;
-                        newSubmesh.MeshletOffset = mesh.m_Submeshes[i].MeshletOffset;
-                        newSubmesh.VertexOffset = mesh.m_Submeshes[i].VertexOffset;
-                        newSubmesh.PrimitiveOffset = mesh.m_Submeshes[i].PrimitiveOffset;
-                        newSubmesh.IndexOffset = mesh.m_Submeshes[i].IndexOffset;
-                        newSubmesh.m_Bounds = mesh.m_Submeshes[i].Bounds;
+                        newSubmesh.MeshletCount = submeshes[i].MeshletCount;
+                        newSubmesh.MeshletOffset = submeshes[i].MeshletOffset;
+                        newSubmesh.m_Bounds = submeshes[i].Bounds;
                         newSubmesh.m_MaterialID = material.GetRenderID();
                         m_Submeshes[i] = newSubmesh;
                     }
-                    m_NumSubmeshes = mesh.m_Submeshes.size();
+                    m_NumSubmeshes = submeshes.size();
                 }
             }
 
@@ -144,7 +142,6 @@ namespace aZero
             {
                 DirectX::BoundingSphere m_Bounds;
                 uint32_t MeshletOffset, MeshletCount;
-                uint32_t VertexOffset, PrimitiveOffset, IndexOffset;
                 Asset::RenderID m_MaterialID;
             };
 

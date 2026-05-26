@@ -30,51 +30,19 @@ void main(
         if (localThreadIndex < meshlet.PrimitiveCount)
         {
             const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 1];
-            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[meshlet.PrimitiveOffset + localThreadIndex + meshInstance.Instance.PrimitiveOffset]);
+            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[meshlet.PrimitiveOffset + localThreadIndex]);
         }
     
         if (localThreadIndex < meshlet.VertexCount)
         {
             const StructuredBuffer<uint> indices = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 3];
-            uint vertexIndex = indices[meshlet.VertexOffset + localThreadIndex + meshInstance.Instance.IndexOffset];
+            uint vertexIndex = indices[meshlet.VertexOffset + localThreadIndex];
             
             const StructuredBuffer<MeshVertex> vertexPositionBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 2];
             
             RasterVertex newVertex;
-            GetVertex(newVertex, CameraBuffer.ViewProjectionMatrix, vertexPositionBuffer[vertexIndex + meshInstance.Instance.VertexOffset] /* Top stall */, meshInstance.Instance.WorldTransform);
+            GetVertex(newVertex, CameraBuffer.ViewProjectionMatrix, vertexPositionBuffer[vertexIndex] /* Top stall */, meshInstance.Instance.WorldTransform);
             verts[localThreadIndex] = newVertex;
         }
     }
-    
-    //const MeshInstanceData meshInstance = MeshInstances[Input_CONSTANT.MeshInstanceIndex.x]; // Top stall???? Doesn't seem like it
-    //if (meshInstance.Instance.MeshletCount > meshletIndex)
-    //{
-    //    const StructuredBuffer<Meshlet> Meshlets = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex];
-    //    const Meshlet meshlet = Meshlets[payload.MeshletIndex[meshletIndex]]; // Top stall
-    //    SetMeshOutputCounts(meshlet.VertexCount, meshlet.PrimitiveCount);
-    
-    //    uint vertexIndex;
-    //    if (localThreadIndex < meshlet.VertexCount)
-    //    {
-    //        const StructuredBuffer<uint> indices = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 3];
-    //        vertexIndex = indices[meshlet.VertexOffset + localThreadIndex];
-    //    }
-
-    //    if (localThreadIndex < meshlet.PrimitiveCount)
-    //    {
-    //        const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 1];
-    //        tris[localThreadIndex] = Unpack32To8(primitiveBuffer[meshlet.PrimitiveOffset + localThreadIndex]);
-    //    }
-
-    //    if (localThreadIndex < meshlet.VertexCount)
-    //    {
-       
-        
-    //        const StructuredBuffer<MeshVertex> vertexPositionBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 2];
-        
-    //        RasterVertex newVertex;
-    //        GetVertex(newVertex, CameraBuffer.ViewProjectionMatrix, vertexPositionBuffer[vertexIndex] /* Top stall */, meshInstance.Instance.WorldTransform);
-    //        verts[localThreadIndex] = newVertex;
-    //    }
-    //}
 }

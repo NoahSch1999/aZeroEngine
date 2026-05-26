@@ -12,7 +12,7 @@ struct PassConstantData
     float Time;
 };
 
-ConstantBuffer<PassConstantData> Default_Phong_CONSTANT : register(b1);
+ConstantBuffer<PassConstantData> Default_Phong_CONSTANT : register(b0);
 
 struct Output
 {
@@ -22,9 +22,9 @@ struct Output
 Output main(RasterVertex pin)
 {
     Output output;
-    output.color = float4(pin.Normal.xy, 0.f, 1);
-//output.color = float4(surfaceColor, 1); // normal
-//output.color = float4(pin.MeshletColor, 1.f);
+    const SamplerState samplerState = SamplerDescriptorHeap[0];
+    const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[5];
+    output.color = float4(albedoTexture.Sample(samplerState, pin.UV).xyz, 1);
 
     return output;
 //    const SamplerState samplerState = SamplerDescriptorHeap[Default_Phong_Constants.SamplerIndex];

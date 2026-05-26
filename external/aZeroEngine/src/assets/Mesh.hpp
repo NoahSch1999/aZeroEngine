@@ -10,11 +10,6 @@ namespace aZero
 		struct FBX_Mesh;
 	}
 
-	namespace Scene
-	{
-		struct RenderData;
-	}
-
 	namespace Asset
 	{
 		struct Meshlet
@@ -28,40 +23,31 @@ namespace aZero
 
 		struct MeshletMeshData
 		{
-			std::string Name;
 			std::vector<Meshlet> Meshlets;
 			std::vector<Vertex> Vertices;
 			std::vector<uint32_t> Primitives;
 			std::vector<Index> Indices;
-			DirectX::BoundingSphere Bounds;
 		};
-
-		std::vector<MeshletMeshData> LoadFromFile(const std::string& filePath);
 
 		struct Submesh
 		{
 			std::string Name;
 			uint32_t MeshletOffset, MeshletCount;
-			uint32_t PrimitiveOffset, VertexOffset, IndexOffset;
 			DirectX::BoundingSphere Bounds;
 		};
 
 		class Mesh : public AssetBase
 		{
-			friend struct Scene::RenderData;
 		public:
 			Mesh() = default;
 			Mesh(const FBX::FBX_Mesh& mesh);
 
 			const MeshletMeshData& GetVertexData() const { return m_VertexData; }
+			const std::vector<Submesh>& GetSubmeshes() const { return m_Submeshes; }
 
-			bool LoadFromFile(const std::string& filePath);
-
-			std::vector<Submesh> m_Submeshes;
 		private:
+			std::vector<Submesh> m_Submeshes;
 			MeshletMeshData m_VertexData;
-
-
 		};
 	}
 }

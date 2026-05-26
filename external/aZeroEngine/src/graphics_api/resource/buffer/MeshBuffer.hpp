@@ -24,28 +24,28 @@ namespace aZero
 				desc.NumBytes = data.Meshlets.size() * sizeof(data.Meshlets[0]);
 				m_MeshBuffer = Buffer(device, desc, &resourceRecycler);
 				m_MeshletDescriptor = ShaderResourceView(device, std::move(descriptors[0]), m_MeshBuffer, data.Meshlets.size(), sizeof(data.Meshlets[0]));
-				std::string strN = "Meshletbuffer: " + data.Name;
+				std::string strN = "Meshletbuffer";
 				std::wstring str(strN.begin(), strN.end());
 				m_MeshBuffer.GetResource()->SetName(str.c_str());
 
 				desc.NumBytes = data.Primitives.size() * sizeof(data.Primitives[0]);
 				m_PrimitivesBuffer = Buffer(device, desc, &resourceRecycler);
 				m_PrimitivesDescriptor = ShaderResourceView(device, std::move(descriptors[1]), m_PrimitivesBuffer, data.Primitives.size(), sizeof(data.Primitives[0]));
-				strN = "Primitivebuffer: " + data.Name;
+				strN = "Primitivebuffer";
 				str.assign(strN.begin(), strN.end());
 				m_PrimitivesBuffer.GetResource()->SetName(str.c_str());
 
 				desc.NumBytes = data.Vertices.size() * sizeof(data.Vertices[0]);
 				m_VerticesBuffer = Buffer(device, desc, &resourceRecycler);
 				m_VerticesDescriptor = ShaderResourceView(device, std::move(descriptors[2]), m_VerticesBuffer, data.Vertices.size(), sizeof(data.Vertices[0]));
-				strN = "VertexBuffer: " + data.Name;
+				strN = "VertexBuffer";
 				str.assign(strN.begin(), strN.end());
 				m_VerticesBuffer.GetResource()->SetName(str.c_str());
 
 				desc.NumBytes = data.Indices.size() * sizeof(data.Indices[0]);
 				m_IndicesBuffer = Buffer(device, desc, &resourceRecycler);
 				m_IndicesDescriptor = ShaderResourceView(device, std::move(descriptors[3]), m_IndicesBuffer, data.Indices.size(), sizeof(data.Indices[0]));
-				strN = "IndicesBuffer: " + data.Name;
+				strN = "IndicesBuffer";
 				str.assign(strN.begin(), strN.end());
 				m_IndicesBuffer.GetResource()->SetName(str.c_str());
 

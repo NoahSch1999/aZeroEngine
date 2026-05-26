@@ -2,6 +2,7 @@
 #define MESH_DEFINITIONS_RENDERDATA_INCLUDED
 
 #include "Volumes.hlsli"
+#include "Util.hlsli"
 
 struct RasterVertex
 {
@@ -17,9 +18,8 @@ struct RasterVertex
 struct MeshVertex
 {
     float3 Position;
-    float2 UV;
-    float3 Normal;
-    float3 Tangent;
+    uint UV;
+    uint Normal;
 };
 
 struct Meshlet
@@ -37,9 +37,6 @@ struct MeshInstance
     uint MeshBufferIndex;
     uint MeshletOffset;
     uint MeshletCount;
-    uint PrimitiveOffset;
-    uint VertexOffset;
-    uint IndexOffset;
     uint MaterialIndex;
 };
 
@@ -49,6 +46,19 @@ struct MeshInstanceData
     BoundingSphere MeshBounds;
 };
 
+float2 UnpackOct16(uint2 p)
+{
+    float2 n;
+    n.x = (p.x / 65535.0) * 2.0 - 1.0;
+    n.y = (p.y / 65535.0) * 2.0 - 1.0;
+    return n;
+}
+
+float2 UnpackUV16(uint2 p)
+{
+    return p / 65535.0;
+}
+
 void GetVertex(out RasterVertex output, in float4x4 vpMatrix, in MeshVertex vertex, in float4x4 transform)
 {
     float4 position = mul(transform, float4(vertex.Position, 1.f));
@@ -56,7 +66,8 @@ void GetVertex(out RasterVertex output, in float4x4 vpMatrix, in MeshVertex vert
     position = mul(vpMatrix, position);
     output.Position = position;
     
-    const float3 normal = normalize(mul(transform, float4(vertex.Normal, 0.f))).xyz;
+    const float3 normal = normalize(mul(transform, float4(DecodeNormalOctahedral(UnpackOct16(Unpack32To16(vertex.Normal))), 0.f))).xyz;
+    //const float3 normal = normalize(mul(transform, float4(float3(vertex.Normal, 0), 0.f))).xyz;
     output.Normal = normal;
     
 #if !NORMAL_MAP
@@ -71,7 +82,7 @@ void GetVertex(out RasterVertex output, in float4x4 vpMatrix, in MeshVertex vert
     output.TBN = float3x3(tangent, biTangent, normal);
 #endif
     
-    output.UV = vertex.UV;
+    output.UV = UnpackUV16(Unpack32To16(vertex.UV));
 }
 
 #endif
