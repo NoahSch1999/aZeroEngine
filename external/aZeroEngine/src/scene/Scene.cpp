@@ -52,7 +52,10 @@ std::tuple<std::vector<aZero::Rendering::GPUProxy::StaticMeshInstance>, std::vec
 	staticMeshes.reserve(m_StaticMeshQuery.count());
 	m_StaticMeshQuery.each([&staticMeshes](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
 		{
-			staticMeshes.emplace_back(mesh, position, rotation, scale);
+			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
+			{
+				staticMeshes.emplace_back(mesh.GetMeshID(), mesh.m_Submeshes[i], position, rotation, scale);
+			}
 		});
 
 	std::vector<Rendering::GPUProxy::Camera> cameras;
@@ -87,10 +90,14 @@ void aZero::Scene::Scene::RemoveMeshesWithMaterial(Asset::RenderID withID)
 	m_World.defer_begin();
 	m_World.query<Component::Mesh>().each(
 		[withID](flecs::entity entity, Component::Mesh& mesh) {
-			if (mesh.GetMaterialID() == withID)
+			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
 			{
-				entity.remove<Component::Mesh>();
+				if (mesh.m_Submeshes[i].m_MaterialID == withID)
+				{
+					entity.remove<Component::Mesh>();
+				}
 			}
+			
 		}
 	);
 	m_World.defer_end();

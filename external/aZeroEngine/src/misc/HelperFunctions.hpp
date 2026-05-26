@@ -69,5 +69,59 @@ namespace aZero
 		{
 			return std::make_tuple(static_cast<uint16_t>(value32Bit & 0xFFFF), static_cast<uint16_t>((value32Bit >> 16) & 0xFFFF));
 		}
+
+		inline DirectX::BoundingSphere ComputeBoundingSphere(const std::vector<DXM::Vector3>& points)
+		{
+			DXM::Vector3 p0 = points[0];
+
+			int i1 = 0;
+			float maxDist = 0.0f;
+
+			for (int i = 0; i < points.size(); i++)
+			{
+				float d = (points[i] - p0).LengthSquared();
+				if (d > maxDist)
+				{
+					maxDist = d;
+					i1 = i;
+				}
+			}
+
+			// 3. Find farthest point from i1
+			int i2 = i1;
+			maxDist = 0.0f;
+
+			for (int i = 0; i < points.size(); i++)
+			{
+				float d = (points[i] - points[i1]).LengthSquared();
+				if (d > maxDist)
+				{
+					maxDist = d;
+					i2 = i;
+				}
+			}
+
+			// 4. Initial sphere
+			DXM::Vector3 center = (points[i1] + points[i2]) * 0.5f;
+			float radius = (points[i2] - center).Length();
+
+			// 5. Expand sphere
+			for (const auto& p : points)
+			{
+				DXM::Vector3 d = p - center;
+				float dist = d.Length();
+
+				if (dist > radius)
+				{
+					float newRadius = (radius + dist) * 0.5f;
+					float k = (newRadius - radius) / dist;
+
+					center += d * k;
+					radius = newRadius;
+				}
+			}
+
+			return { DXM::Vector3(center.x, center.y, center.z), radius };
+		}
 	}
 }

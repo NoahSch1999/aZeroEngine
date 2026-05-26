@@ -37,6 +37,9 @@ struct MeshInstance
     uint MeshBufferIndex;
     uint MeshletOffset;
     uint MeshletCount;
+    uint PrimitiveOffset;
+    uint VertexOffset;
+    uint IndexOffset;
     uint MaterialIndex;
 };
 
@@ -57,8 +60,8 @@ void GetVertex(out RasterVertex output, in float4x4 vpMatrix, in MeshVertex vert
     output.Normal = normal;
     
 #if !NORMAL_MAP
-    float3 tangent = normalize(mul(transform, float4(vertex.Tangent, 0.f))).xyz;
-    
+    //float3 tangent = normalize(mul(transform, float4(vertex.Tangent, 0.f))).xyz;
+    float3 tangent = float3(1, 0, 0);
     // Re-ortogonalize the tangent since they might not be ortogonal anymore after transform and precision changes. 
     // n * dot(n, t) creates a vector which when you subtract from the tangent creates the new ortogonalized tangent. So its like the "error" vector.
     tangent = tangent - normal * dot(normal, tangent);

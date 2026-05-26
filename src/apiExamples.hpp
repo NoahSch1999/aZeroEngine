@@ -14,9 +14,13 @@ namespace Example {
 		Input::KeyboardListener& keyboardListener
 	)
 	{
-		std::string meshName = "goblin";
+		std::string meshName = "Mesh";
 		aZero::Asset::AssetManager& aManager = engine.GetAssetManager();
-		aManager.LoadMesh(aZero::Asset::GetMeshDirectoryPath() + meshName + ".fbx");
+
+		auto res = FBX::LoadFBX(aZero::Asset::GetMeshDirectoryPath() + "multimat.fbx");
+
+		//aManager.LoadMesh(aZero::Asset::GetMeshDirectoryPath() + meshName + ".fbx");
+		aManager.AddMesh(res.value().Meshes[0]);
 		aManager.LoadMaterial(aZero::Asset::GetMaterialDirectoryPath() + "TestMaterial.json");
 		
 

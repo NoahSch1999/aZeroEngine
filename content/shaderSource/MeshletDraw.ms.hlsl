@@ -30,18 +30,18 @@ void main(
         if (localThreadIndex < meshlet.PrimitiveCount)
         {
             const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 1];
-            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[meshlet.PrimitiveOffset + localThreadIndex]);
+            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[meshlet.PrimitiveOffset + localThreadIndex + meshInstance.Instance.PrimitiveOffset]);
         }
     
         if (localThreadIndex < meshlet.VertexCount)
         {
             const StructuredBuffer<uint> indices = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 3];
-            uint vertexIndex = indices[meshlet.VertexOffset + localThreadIndex];
+            uint vertexIndex = indices[meshlet.VertexOffset + localThreadIndex + meshInstance.Instance.IndexOffset];
             
             const StructuredBuffer<MeshVertex> vertexPositionBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 2];
             
             RasterVertex newVertex;
-            GetVertex(newVertex, CameraBuffer.ViewProjectionMatrix, vertexPositionBuffer[vertexIndex] /* Top stall */, meshInstance.Instance.WorldTransform);
+            GetVertex(newVertex, CameraBuffer.ViewProjectionMatrix, vertexPositionBuffer[vertexIndex + meshInstance.Instance.VertexOffset] /* Top stall */, meshInstance.Instance.WorldTransform);
             verts[localThreadIndex] = newVertex;
         }
     }

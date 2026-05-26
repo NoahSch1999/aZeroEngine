@@ -4,6 +4,7 @@
 #include "Material.hpp"
 #include "misc/NonCopyable.hpp"
 #include "renderer/Renderer.hpp"
+#include "FBX_Loading.hpp"
 
 namespace aZero::Asset
 {
@@ -51,6 +52,17 @@ namespace aZero::Asset
 				return false;
 			}
 			return m_Materials[existingMaterialName].Save(Asset::GetMaterialDirectoryPath() + outputFilename + ".json");
+		}
+
+		bool AddMesh(const FBX::FBX_Mesh& mesh)
+		{
+			if (mesh.Submeshes.size())
+			{
+				m_Meshes[mesh.Submeshes[0].Name] = Asset::Mesh(mesh);
+				m_diRenderer->UpdateRenderState(m_Meshes[mesh.Submeshes[0].Name]);
+				return true;
+			}
+			return false;
 		}
 
 		// Loading

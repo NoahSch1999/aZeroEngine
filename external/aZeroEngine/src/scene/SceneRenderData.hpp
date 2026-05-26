@@ -13,21 +13,26 @@ namespace aZero::Rendering {
 			uint32_t m_MeshBufferIndex;
 			uint32_t m_MeshletOffset;
 			uint32_t m_MeshletCount;
+			uint32_t m_PrimitiveOffset, m_VertexOffset, m_IndexOffset;
 			uint32_t m_MaterialIndex;
 			DirectX::BoundingSphere m_MeshBounds;
 
 			StaticMeshInstance() = default;
-			StaticMeshInstance(const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
+
+			StaticMeshInstance(Asset::RenderID meshID, const Component::Mesh::Submesh& submesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
 			{
 				// TODO: Avoid this much data
 				m_WorldTransform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
-				m_MeshBufferIndex = mesh.GetMeshID();
-				m_MeshletCount = mesh.GetMeshletCount();
-				m_MaterialIndex = 1337;// mesh.GetMaterialID();
+				m_MeshBufferIndex = meshID;
+				m_MeshletCount = submesh.MeshletCount;
+				m_MeshletOffset = submesh.MeshletOffset;
+				m_PrimitiveOffset = submesh.PrimitiveOffset;
+				m_VertexOffset = submesh.VertexOffset;
+				m_IndexOffset = submesh.IndexOffset;
+				m_MaterialIndex = submesh.m_MaterialID;
 				DirectX::BoundingSphere bounds;
-				mesh.GetBounds().Transform(bounds, m_WorldTransform);
+				submesh.m_Bounds.Transform(bounds, m_WorldTransform);
 				m_MeshBounds = bounds;
-				m_MeshletOffset = 0;
 			}
 		};
 

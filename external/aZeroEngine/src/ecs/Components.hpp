@@ -5,6 +5,7 @@
 #include "assets/Texture.hpp"
 #include "assets/Material.hpp"
 #include "physics/TriggerBody.hpp"
+#include <array>
 
 namespace aZero
 {
@@ -96,21 +97,32 @@ namespace aZero
         public:
             Mesh() = default;
             Mesh(const Asset::Mesh& mesh, const Asset::Material& material) {
-                this->SetMesh(mesh);
-                this->SetMaterial(material);
+                this->SetMesh(mesh, material);
             }
 
-            void SetMesh(const Asset::Mesh& mesh) {
-                if (mesh.GetRenderID() != Asset::InvalidRenderID) {
+            void SetMesh(const Asset::Mesh& mesh, const Asset::Material& material) {
+                if (mesh.GetRenderID() != Asset::InvalidRenderID && material.GetRenderID() != Asset::InvalidRenderID) {
                     m_MeshID = mesh.GetRenderID();
-                    m_MeshletCount = mesh.GetVertexData().Meshlets.size();
-                    m_MeshBounds = mesh.GetVertexData().Bounds;
+
+                    for (uint32_t i = 0; i < mesh.m_Submeshes.size(); i++)
+                    {
+                        Submesh newSubmesh;
+                        newSubmesh.MeshletCount = mesh.m_Submeshes[i].MeshletCount;
+                        newSubmesh.MeshletOffset = mesh.m_Submeshes[i].MeshletOffset;
+                        newSubmesh.VertexOffset = mesh.m_Submeshes[i].VertexOffset;
+                        newSubmesh.PrimitiveOffset = mesh.m_Submeshes[i].PrimitiveOffset;
+                        newSubmesh.IndexOffset = mesh.m_Submeshes[i].IndexOffset;
+                        newSubmesh.m_Bounds = mesh.m_Submeshes[i].Bounds;
+                        newSubmesh.m_MaterialID = material.GetRenderID();
+                        m_Submeshes[i] = newSubmesh;
+                    }
+                    m_NumSubmeshes = mesh.m_Submeshes.size();
                 }
             }
 
-            void SetMaterial(const Asset::Material& material) {
-                if (material.GetRenderID() != Asset::InvalidRenderID) {
-                    m_MaterialID = material.GetRenderID();
+            void SetMaterial(uint32_t submeshIndex, const Asset::Material& material) {
+                if (material.GetRenderID() != Asset::InvalidRenderID && submeshIndex < m_NumSubmeshes) {
+                    m_Submeshes[submeshIndex].m_MaterialID = material.GetRenderID();
                 }
             }
 
@@ -127,15 +139,20 @@ namespace aZero
             }*/
 
             Asset::RenderID GetMeshID() const { return m_MeshID; }
-            DirectX::BoundingSphere GetBounds() const { return m_MeshBounds; }
-            uint32_t GetMeshletCount() const { return m_MeshletCount; }
-            Asset::RenderID GetMaterialID() const { return m_MaterialID; }
+
+            struct Submesh
+            {
+                DirectX::BoundingSphere m_Bounds;
+                uint32_t MeshletOffset, MeshletCount;
+                uint32_t VertexOffset, PrimitiveOffset, IndexOffset;
+                Asset::RenderID m_MaterialID;
+            };
+
+            std::array<Submesh, 10> m_Submeshes;
+            uint32_t m_NumSubmeshes = 0;
+            Asset::RenderID m_MeshID;
 
         private:
-            DirectX::BoundingSphere m_MeshBounds;
-            uint32_t m_MeshletCount;
-            Asset::RenderID m_MeshID;
-            Asset::RenderID m_MaterialID;
         };
 
         struct PointLight {
