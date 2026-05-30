@@ -7,7 +7,6 @@ namespace aZero::Asset
 
 	struct Vertex
 	{
-		DXM::Vector3 Position;
 		uint16_t UV[2];
 		uint16_t Normal[2];
 	};
@@ -18,10 +17,9 @@ namespace aZero::Asset
 		return (uint16_t)(v * 65535.0f + 0.5f);
 	}
 
-	inline Vertex PackVertex(const DXM::Vector3& position, const DXM::Vector2& encNormal, const DXM::Vector2& uv)
+	inline Vertex PackVertex(const DXM::Vector2& encNormal, const DXM::Vector2& uv)
 	{
 		Vertex p{};
-		p.Position = position;
 
 		p.Normal[0] = FloatToUNorm16(encNormal.x * 0.5f + 0.5f);
 		p.Normal[1] = FloatToUNorm16(encNormal.y * 0.5f + 0.5f);

@@ -51,4 +51,25 @@ float3 DecodeNormalOctahedral(float2 e)
 
     return normalize(n);
 }
+
+// Thanks Frisvad
+void CalcTangentAndBitangent(float3 N, out float3 T, out float3 B)
+{
+    float s = sign(N.z);
+    float a = -1.0 / (s + N.z);
+    float b = N.x * N.y * a;
+
+    T = float3(
+        1.0 + s * N.x * N.x * a,
+        s * b,
+        -s * N.x
+    );
+
+    B = float3(
+        b,
+        s + N.y * N.y * a,
+        -N.y
+    );
+}
+
 #endif

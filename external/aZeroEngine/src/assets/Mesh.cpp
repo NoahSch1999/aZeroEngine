@@ -5,6 +5,7 @@
 #include "misc/HelperFunctions.hpp"
 
 void Meshletize( // Named it myself :))
+	std::vector<DXM::Vector3>& positions,
 	std::vector<aZero::Asset::Vertex>& vertices,
 	std::vector<aZero::Asset::Index>& indices,
 	std::vector<aZero::Asset::Meshlet>& outMeshlets,
@@ -13,13 +14,13 @@ void Meshletize( // Named it myself :))
 )
 {
 	const size_t max_vertices = 64;
-	const size_t max_triangles = 126;
+	const size_t max_triangles = 84;
 
 	const size_t max_meshlets = meshopt_buildMeshletsBound(
 		indices.size(), max_vertices, max_triangles);
 
-	meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
-	meshopt_optimizeOverdraw(indices.data(), indices.data(), indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(vertices[0]), 1.05f);
+	meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), positions.size());
+	meshopt_optimizeOverdraw(indices.data(), indices.data(), indices.size(), &positions[0].x, positions.size(), sizeof(positions[0]), 1.05f);
 
 	std::vector<unsigned int> remap(vertices.size());
 
@@ -27,14 +28,15 @@ void Meshletize( // Named it myself :))
 		remap.data(),
 		indices.data(),
 		indices.size(),
-		vertices.size()
+		positions.size()
 	);
 
+	meshopt_remapVertexBuffer(positions.data(), positions.data(), positions.size(), sizeof(positions[0]), remap.data());
 	meshopt_remapVertexBuffer(vertices.data(), vertices.data(), vertices.size(), sizeof(vertices[0]), remap.data());
 
 	meshopt_remapIndexBuffer(indices.data(), indices.data(), indices.size(), remap.data());
 
-	meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
+	meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), positions.size());
 
 	std::vector<meshopt_Meshlet> tempMeshlets;
 	std::vector<aZero::Asset::Index> local_indices;
@@ -43,7 +45,7 @@ void Meshletize( // Named it myself :))
 	local_indices.resize(max_meshlets * max_vertices);
 	primitives.resize(max_meshlets * max_triangles * 3);
 	size_t meshlet_count = meshopt_buildMeshlets(tempMeshlets.data(), local_indices.data(), primitives.data(), indices.data(),
-		indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(vertices[0]), max_vertices, max_triangles, 0.f);
+		indices.size(), &positions[0].x, positions.size(), sizeof(positions[0]), max_vertices, max_triangles, 0.f);
 
 	const meshopt_Meshlet& last = tempMeshlets[meshlet_count - 1];
 
@@ -58,7 +60,7 @@ void Meshletize( // Named it myself :))
 		aZero::Asset::Meshlet newMeshlet;
 
 		meshopt_Bounds bounds = meshopt_computeMeshletBounds(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset],
-			meshlet.triangle_count, &vertices[0].Position.x, vertices.size(), sizeof(vertices[0]));
+			meshlet.triangle_count, &positions[0].x, positions.size(), sizeof(positions[0]));
 		newMeshlet.Bounds = DirectX::BoundingSphere(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius);
 
 		newMeshlet.PrimitiveCount = meshlet.triangle_count;
@@ -83,10 +85,11 @@ aZero::Asset::Mesh::Mesh(const FBX::FBX_Mesh& mesh)
 	for (const FBX::FBX_Submesh& submesh : mesh.Submeshes)
 	{
 		std::vector<Vertex> vertices(submesh.Vertices);
+		std::vector<DXM::Vector3> positions(submesh.Positions);
 		std::vector<Index> indices(submesh.Indices);
 		std::vector<Meshlet> meshlets;
 		std::vector<uint32_t> primitives;
-		Meshletize(vertices, indices, meshlets, primitives, m_VertexData.Primitives.size(), m_VertexData.Indices.size());
+		Meshletize(positions, vertices, indices, meshlets, primitives, m_VertexData.Primitives.size(), m_VertexData.Indices.size());
 
 		for (auto& index : indices)
 		{
@@ -99,6 +102,7 @@ aZero::Asset::Mesh::Mesh(const FBX::FBX_Mesh& mesh)
 		newSubmesh.MeshletOffset = m_VertexData.Meshlets.size();
 		newSubmesh.MeshletCount = meshlets.size();
 
+		m_VertexData.Positions.insert(m_VertexData.Positions.end(), positions.begin(), positions.end());
 		m_VertexData.Vertices.insert(m_VertexData.Vertices.end(), vertices.begin(), vertices.end());
 		m_VertexData.Indices.insert(m_VertexData.Indices.end(), indices.begin(), indices.end());
 		m_VertexData.Meshlets.insert(m_VertexData.Meshlets.end(), meshlets.begin(), meshlets.end());

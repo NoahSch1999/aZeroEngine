@@ -21,16 +21,13 @@ void main(uint3 dtid : SV_DispatchThreadID, uint3 gid : SV_GroupThreadID)
         const StructuredBuffer<Meshlet> Meshlets = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex];
         const Meshlet meshlet = Meshlets[meshInstance.Instance.MeshletOffset + dtid.x];
         
-        const BoundingSphere bounds = CreateBoundingSphere(mul(meshInstance.Instance.WorldTransform, float4(meshlet.Bounds.Position, 1.f)).xyz, meshlet.Bounds.Radius);
-        visible = CameraBuffer.Frustum.Intersects(bounds, CameraBuffer.ViewMatrix);
+        visible = CameraBuffer.Frustum.Intersects(CreateBoundingSphere(mul(meshInstance.Instance.WorldTransform, float4(meshlet.Bounds.Position, 1.f)).xyz, meshlet.Bounds.Radius), CameraBuffer.ViewMatrix);
         
         if (visible)
         {
-            const uint index = WavePrefixCountBits(visible); 
-            payload.MeshletIndex[index] = meshInstance.Instance.MeshletOffset + dtid.x;
+            payload.MeshletIndex[WavePrefixCountBits(visible)] = meshInstance.Instance.MeshletOffset + dtid.x;
         }
     }
     
-    const uint visibleMeshletsInWave = WaveActiveCountBits(visible);
-    DispatchMesh(visibleMeshletsInWave, 1, 1, payload);
+    DispatchMesh(WaveActiveCountBits(visible), 1, 1, payload);
 }

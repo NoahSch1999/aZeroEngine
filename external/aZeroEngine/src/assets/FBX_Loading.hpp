@@ -27,6 +27,7 @@ namespace aZero::FBX
 		std::string Name;
 		DirectX::BoundingSphere Bounds;
 		FBX_Material Material;
+		std::vector<DXM::Vector3> Positions;
 		std::vector<Asset::Vertex> Vertices;
 		std::vector<uint32_t> Indices;
 	};
@@ -74,20 +75,17 @@ namespace aZero::FBX
 				submesh.Name = mesh->mName.C_Str();
 
 				submesh.Vertices.reserve(mesh->mNumVertices);
+				submesh.Positions.reserve(mesh->mNumVertices);
 				submesh.Indices.reserve(mesh->mNumFaces * 3);
 
-				std::vector<DXM::Vector3> positions;
-				positions.reserve(mesh->mNumVertices);
 				for (uint32_t i = 0; i < mesh->mNumVertices; i++)
 				{
 					Asset::Vertex vertex = Asset::PackVertex(
-						{ mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z },
 						Helper::EncodeNormalOctahedral({ mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }),
 						{ mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y }
 					);
 					submesh.Vertices.emplace_back(vertex);
-
-					positions.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+					submesh.Positions.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
 				}
 
 				for (uint32_t i = 0; i < mesh->mNumFaces; i++)
@@ -98,7 +96,7 @@ namespace aZero::FBX
 					submesh.Indices.emplace_back(face.mIndices[2]);
 				}
 
-				submesh.Bounds = Helper::ComputeBoundingSphere(positions);
+				submesh.Bounds = Helper::ComputeBoundingSphere(submesh.Positions);
 
 				// Material processing
 				const aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];

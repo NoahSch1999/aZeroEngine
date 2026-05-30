@@ -1,6 +1,7 @@
 #include "Materials.hlsli"
 #include "Lights.hlsli"
 #include "MeshDefinitions.hlsli"
+#include "Util.hlsli"
 
 struct PassConstantData
 {
@@ -23,8 +24,20 @@ Output main(RasterVertex pin)
 {
     Output output;
     const SamplerState samplerState = SamplerDescriptorHeap[0];
-    const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[5];
+    
+    float3 tangent;
+    float3 bitangent;
+    CalcTangentAndBitangent(pin.Normal, tangent, bitangent);
+    float3x3 TBN = float3x3(tangent, bitangent, pin.Normal);
+    
+    const Texture2D<float4> normalMap = ResourceDescriptorHeap[7];
+    float3 fragmentNormal = normalMap.Sample(samplerState, pin.UV).xyz;
+    fragmentNormal = normalize(fragmentNormal * 2.f - 1.f);
+    fragmentNormal = normalize(mul(fragmentNormal, TBN));
+    
+    const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[6];
     output.color = float4(albedoTexture.Sample(samplerState, pin.UV).xyz, 1);
+    output.color = float4(fragmentNormal.xyz, 1);
 
     return output;
 //    const SamplerState samplerState = SamplerDescriptorHeap[Default_Phong_Constants.SamplerIndex];

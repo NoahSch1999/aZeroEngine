@@ -24,6 +24,7 @@ namespace aZero
 		struct MeshletMeshData
 		{
 			std::vector<Meshlet> Meshlets;
+			std::vector<DXM::Vector3> Positions;
 			std::vector<Vertex> Vertices;
 			std::vector<uint32_t> Primitives;
 			std::vector<Index> Indices;
