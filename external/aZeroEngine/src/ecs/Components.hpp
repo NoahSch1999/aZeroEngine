@@ -109,7 +109,8 @@ namespace aZero
                     {
                         Submesh newSubmesh;
                         newSubmesh.MeshletCount = submeshes[i].MeshletCount;
-                        newSubmesh.MeshletOffset = submeshes[i].MeshletOffset;
+                        newSubmesh.MeshletGlobalOffset = mesh.m_MeshletGlobalOffset + submeshes[i].MeshletOffset;
+                        newSubmesh.VertexGlobalOffset = mesh.m_VertexGlobalOffset;
                         newSubmesh.m_Bounds = submeshes[i].Bounds;
                         newSubmesh.m_MaterialID = material.GetRenderID();
                         m_Submeshes[i] = newSubmesh;
@@ -141,7 +142,7 @@ namespace aZero
             struct Submesh
             {
                 DirectX::BoundingSphere m_Bounds;
-                uint32_t MeshletOffset, MeshletCount;
+                uint32_t MeshletGlobalOffset, VertexGlobalOffset, MeshletCount;
                 Asset::RenderID m_MaterialID;
             };
 

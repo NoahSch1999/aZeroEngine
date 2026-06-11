@@ -4,6 +4,7 @@
 #include "graphics_api/resource/texture/Texture2D.hpp"
 #include "graphics_api/resource/ResourceRecycler.hpp"
 #include "graphics_api/descriptor/DescriptorHeap.hpp"
+#include "misc/FreelistAllocator.hpp"
 #include "FrameContext.hpp"
 
 namespace aZero
@@ -21,12 +22,27 @@ namespace aZero
 				uint32_t NormalIndex; // Index to descriptor
 			};
 
+			struct MeshData
+			{
+				aZero::FreelistAllocator::Allocation MeshletGlobalAllocation;
+				aZero::FreelistAllocator::Allocation VertexGlobalAllocation;
+			};
+
 		public:
 			// Looked up in shader via split batchid
 			ResourceManager() = default;
 
 			ResourceManager(ID3D12DeviceX* device, RenderAPI::ResourceRecycler* recycler, RenderAPI::DescriptorHeap& descriptorHeap)
 			{
+				uint64_t MAX_MESHLETS = 100000;
+				uint64_t MAX_VERTICES = 10000000;
+				m_MeshletBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(Asset::Meshlet), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
+				m_PositionBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(DXM::Vector3), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
+				m_VertexBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(Asset::Vertex), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
+
+				m_MeshletFreelist = aZero::FreelistAllocator(MAX_MESHLETS * sizeof(Asset::Meshlet));
+				m_VertexFreelist = aZero::FreelistAllocator(MAX_VERTICES * sizeof(Asset::Vertex));
+
 				m_MaterialDataBuffer = RenderAPI::IndexedBuffer<MaterialData>(device, 1000, recycler);
 				m_MaterialBufferView = RenderAPI::ShaderResourceView(device, descriptorHeap, m_MaterialDataBuffer.GetBuffer(), 1000, sizeof(MaterialData), 0);
 			}
@@ -43,7 +59,35 @@ namespace aZero
 				}
 			}
 
-			void UpdateRenderState(LinearFrameAllocator& frameAllocator, RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Material& material)
+			void UpdateRenderState_NEW(LinearFrameAllocator& frameAllocator, aZero::Asset::Mesh& mesh)
+			{
+				if (mesh.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
+				{
+					// TODO: Handle oom
+
+					MeshData data{
+						.MeshletGlobalAllocation = m_MeshletFreelist.Allocate(mesh.GetVertexData().Meshlets.size() * sizeof(mesh.GetVertexData().Meshlets[0])),
+						.VertexGlobalAllocation = m_VertexFreelist.Allocate(mesh.GetVertexData().Vertices.size() * sizeof(mesh.GetVertexData().Vertices[0]))
+					};
+
+					frameAllocator.AddAllocation(mesh.GetVertexData().Meshlets.data(), &m_MeshletBuffer, data.MeshletGlobalAllocation.Offset, data.MeshletGlobalAllocation.Size);
+					frameAllocator.AddAllocation(mesh.GetVertexData().MeshletBounds.data(), &m_MeshletBoundsBuffer, sizeof(mesh.GetVertexData().MeshletBounds[0]) * (data.MeshletGlobalAllocation.Offset / sizeof(mesh.GetVertexData().Meshlets[0])),
+						sizeof(mesh.GetVertexData().MeshletBounds[0]) * (data.MeshletGlobalAllocation.Size / sizeof(mesh.GetVertexData().Meshlets[0]));
+
+					frameAllocator.AddAllocation(mesh.GetVertexData().Vertices.data(), &m_VertexBuffer, data.VertexGlobalAllocation.Offset, data.VertexGlobalAllocation.Size);
+					frameAllocator.AddAllocation(mesh.GetVertexData().Positions.data(), 
+						&m_PositionBuffer, sizeof(mesh.GetVertexData().Positions[0]) * (data.VertexGlobalAllocation.Offset / sizeof(mesh.GetVertexData().Vertices[0])), 
+						sizeof(mesh.GetVertexData().Positions[0]) * (data.VertexGlobalAllocation.Size / sizeof(mesh.GetVertexData().Vertices[0])));
+
+					mesh.m_RenderID = data.MeshletGlobalAllocation.Offset;
+					mesh.m_MeshletGlobalOffset = data.MeshletGlobalAllocation.Offset;
+					mesh.m_VertexGlobalOffset = data.VertexGlobalAllocation.Offset;
+					m_MeshBufferMap_NEW[data.MeshletGlobalAllocation.Offset] = data;
+					m_MeshMap_NEW[mesh.GetAssetID()] = data.MeshletGlobalAllocation.Offset;
+				}
+			}
+
+			void UpdateRenderState(LinearFrameAllocator& frameAllocator, Asset::Material& material)
 			{
 				// TODO: Validate material data
 				// TODO: Handle overwriting of the data... defer actual resource destruction until last usage or something...
@@ -109,6 +153,20 @@ namespace aZero
 				}
 			}
 
+			void RemoveRenderState_NEW(Asset::Mesh& mesh)
+			{
+				if (mesh.GetRenderID() != Asset::InvalidRenderID)
+				{
+					auto alloc = m_MeshBufferMap_NEW[mesh.GetRenderID()];
+					m_MeshletFreelist.Free(alloc.MeshletGlobalAllocation);
+					m_VertexFreelist.Free(alloc.VertexGlobalAllocation);
+
+					m_MeshBufferMap_NEW.erase(mesh.GetRenderID());
+					m_MeshMap_NEW.erase(mesh.GetAssetID());
+					mesh.m_RenderID = Asset::InvalidRenderID;
+				}
+			}
+
 			void RemoveRenderState(Asset::Material& material)
 			{
 				if (material.GetRenderID() != Asset::InvalidRenderID)
@@ -129,8 +187,21 @@ namespace aZero
 				}
 			}
 
+			RenderAPI::Buffer m_MeshletBuffer;
+			RenderAPI::Buffer m_MeshletBoundsBuffer;
+			aZero::FreelistAllocator m_MeshletFreelist;
+
+			RenderAPI::Buffer m_PositionBuffer;
+			RenderAPI::Buffer m_VertexBuffer;
+			aZero::FreelistAllocator m_VertexFreelist;
+
+			std::unordered_map<Asset::AssetID, Asset::RenderID> m_MeshMap_NEW;
+			std::unordered_map<Asset::RenderID, MeshData> m_MeshBufferMap_NEW;
+
+			//
 			std::unordered_map<Asset::AssetID, Asset::RenderID> m_MeshMap;
 			std::unordered_map<Asset::RenderID, RenderAPI::MeshBuffer> m_MeshBufferMap;
+			//
 
 			RenderAPI::IndexedBuffer<MaterialData> m_MaterialDataBuffer;
 			RenderAPI::ShaderResourceView m_MaterialBufferView;

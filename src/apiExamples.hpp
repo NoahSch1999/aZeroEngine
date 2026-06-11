@@ -14,10 +14,10 @@ namespace Example {
 		Input::KeyboardListener& keyboardListener
 	)
 	{
-		std::string meshName = "Mesh";
+		std::string meshName = "Cube";
 		aZero::Asset::AssetManager& aManager = engine.GetAssetManager();
 
-		auto res = FBX::LoadFBX(aZero::Asset::GetMeshDirectoryPath() + "multimat.fbx");
+		auto res = FBX::LoadFBX(aZero::Asset::GetMeshDirectoryPath() + "cube.fbx");
 
 		//aManager.LoadMesh(aZero::Asset::GetMeshDirectoryPath() + meshName + ".fbx");
 		aManager.AddMesh(res.value().Meshes[0]);

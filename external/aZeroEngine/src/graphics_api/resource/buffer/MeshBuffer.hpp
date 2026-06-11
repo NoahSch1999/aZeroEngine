@@ -16,7 +16,7 @@ namespace aZero
 			MeshBuffer() = default;
 			MeshBuffer(ID3D12DeviceX* device, ResourceRecycler& resourceRecycler, DescriptorHeap& heap, CommandList& cmdList, const Asset::MeshletMeshData& data)
 			{
-				Buffer::Desc desc;
+				/*Buffer::Desc desc;
 				desc.AccessType = D3D12_HEAP_TYPE_DEFAULT;
 
 				std::vector<Descriptor> descriptors = heap.CreateContiguousDescriptors(5);
@@ -88,7 +88,7 @@ namespace aZero
 
 				stagingBuffer.Write(data.Positions.data(), data.Positions.size() * sizeof(data.Positions[0]), offset);
 				cmdList->CopyBufferRegion(m_PositionBuffer.GetResource(), 0, stagingBuffer.GetResource(), offset, data.Positions.size() * sizeof(data.Positions[0]));
-				offset += data.Positions.size() * sizeof(data.Positions[0]);
+				offset += data.Positions.size() * sizeof(data.Positions[0]);*/
 				
 			}
 

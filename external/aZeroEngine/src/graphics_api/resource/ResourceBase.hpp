@@ -27,6 +27,7 @@ namespace aZero
 			ResourceBase(ResourceBase&& other) noexcept;
 			ResourceBase& operator=(ResourceBase&& other) noexcept;
 			ID3D12Resource* GetResource() const { return m_Resource.Get(); }
+			ResourceRecycler& GetResourceRecycler() { return *m_diResourceRecycler; }
 
 		protected:
 			Microsoft::WRL::ComPtr<ID3D12Resource> m_Resource = nullptr;

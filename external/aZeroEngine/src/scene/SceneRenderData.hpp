@@ -5,31 +5,6 @@
 namespace aZero::Rendering {
 	namespace GPUProxy {
 
-		struct StaticMeshInstance {
-
-			DXM::Matrix m_WorldTransform;
-			uint32_t m_MeshBufferIndex;
-			uint32_t m_MeshletOffset;
-			uint32_t m_MeshletCount;
-			uint32_t m_MaterialIndex;
-			DirectX::BoundingSphere m_MeshBounds;
-
-			StaticMeshInstance() = default;
-
-			StaticMeshInstance(Asset::RenderID meshID, const Component::Mesh::Submesh& submesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
-			{
-				// TODO: Avoid this much data
-				m_WorldTransform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
-				m_MeshBufferIndex = meshID;
-				m_MeshletCount = submesh.MeshletCount;
-				m_MeshletOffset = submesh.MeshletOffset;
-				m_MaterialIndex = submesh.m_MaterialID;
-				DirectX::BoundingSphere bounds;
-				submesh.m_Bounds.Transform(bounds, m_WorldTransform);
-				m_MeshBounds = bounds;
-			}
-		};
-
 		struct PointLight {
 			DXM::Vector3 m_Position;
 			DXM::Vector3 m_Color;

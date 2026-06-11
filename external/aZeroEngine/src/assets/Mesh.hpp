@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <array>
 #include "Asset.hpp"
 #include "Vertex.hpp"
 
@@ -12,22 +13,23 @@ namespace aZero
 
 	namespace Asset
 	{
+		static inline constexpr uint32_t g_VerticesPerMeshlet = 64;
+		static inline constexpr uint32_t g_PrimitivesPerMeshlet = 84;
+
 		struct Meshlet
 		{
 			uint32_t VertexOffset;
 			uint32_t VertexCount;
-			uint32_t PrimitiveOffset;
 			uint32_t PrimitiveCount;
-			DirectX::BoundingSphere Bounds;
+			std::array<uint32_t, g_PrimitivesPerMeshlet> Primitives;
 		};
 
 		struct MeshletMeshData
 		{
 			std::vector<Meshlet> Meshlets;
+			std::vector<DirectX::BoundingSphere> MeshletBounds;
 			std::vector<DXM::Vector3> Positions;
 			std::vector<Vertex> Vertices;
-			std::vector<uint32_t> Primitives;
-			std::vector<Index> Indices;
 		};
 
 		struct Submesh
@@ -39,6 +41,7 @@ namespace aZero
 
 		class Mesh : public AssetBase
 		{
+			friend Rendering::ResourceManager;
 		public:
 			Mesh() = default;
 			Mesh(const FBX::FBX_Mesh& mesh);
@@ -46,6 +49,10 @@ namespace aZero
 			const MeshletMeshData& GetVertexData() const { return m_VertexData; }
 			const std::vector<Submesh>& GetSubmeshes() const { return m_Submeshes; }
 
+			// Mesh Info
+			uint32_t m_MeshletGlobalOffset;
+			uint32_t m_VertexGlobalOffset;
+			//
 		private:
 			std::vector<Submesh> m_Submeshes;
 			MeshletMeshData m_VertexData;

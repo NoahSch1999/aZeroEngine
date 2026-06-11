@@ -4,24 +4,52 @@
 
 namespace aZero::Rendering::GPU_Struct
 {
- /*   struct MeshInstance
+    struct CameraData
     {
-        DXM::Matrix WorldTransform;
-        uint32_t MeshBufferIndex;
-        uint32_t MeshletOffset;
-        uint32_t MeshletCount;
-        uint32_t MaterialIndex;
-        DirectX::BoundingSphere MeshBounds;
-    };*/
+        DXM::Matrix ViewMatrix;
+        DXM::Matrix ViewProjectionMatrix;
+        Component::Camera::BoundingFrustum Frustum;
+    };
 
+    // Object cull
     struct IndirectArgumentCounter
     {
         uint32_t Count;
     };
 
+    /*
+    Per-object
+    Updated on entity update
+    */
+    struct InstanceData
+    {
+        DXM::Matrix Transform;
+    };
+
     struct IndirectArgumentConstantData
     {
-        uint32_t MeshInstanceIndex;
+        uint32_t InstanceIndex;
+        uint32_t GlobalMeshletOffset;
+        uint32_t GlobalVertexOffset;
+        uint32_t MaterialIndex;
+    };
+
+    /*
+    Per-object
+    Updated on entity update
+    Used in the object culling CS to check object-visibility.
+    */
+    struct ObjectCullData
+    {
+        DirectX::BoundingSphere Bounds;
+        uint32_t GlobalMeshletOffset;
+        uint32_t GlobalVertexOffset;
+        uint32_t MaterialIndex;
+    };
+
+    struct MeshCullConstantsData
+    {
+        uint32_t MeshInstanceCount;
         uint32_t Pad1;
         uint32_t Pad2;
         uint32_t Pad3;
@@ -34,26 +62,7 @@ namespace aZero::Rendering::GPU_Struct
         uint32_t GroupY;
         uint32_t GroupZ;
     };
-
-    struct MaterialConstantData
-    {
-        uint32_t MaterialIndex;
-    };
-
-    struct CameraData
-    {
-        DXM::Matrix ViewMatrix;
-        DXM::Matrix ViewProjectionMatrix;
-        Component::Camera::BoundingFrustum Frustum;
-    };
-
-    struct MeshCullConstantsData
-    {
-        uint32_t MeshInstanceCount;
-        uint32_t Pad1;
-        uint32_t Pad2;
-        uint32_t Pad3;
-    };
+    //
 
     struct PhongPixelConstantData
     {

@@ -7,6 +7,7 @@
 #include "LinearFrameAllocator.hpp"
 #include "graphics_api/descriptor/ResourceView.hpp"
 #include "scene/SceneRenderData.hpp"
+#include "LinearAllocator.hpp"
 
 namespace aZero
 {
@@ -15,6 +16,9 @@ namespace aZero
 		// New wrappers and frame context
 		struct FrameContext : public NonCopyable
 		{
+			aZero::LinearAllocator<> m_FrameLinearAllocator;
+			RenderAPI::Buffer m_FrameDataBuffer;
+
 			// todo Remove these and replace with a gpu-only buffer that is owned by the scene, but accessed in the renderer only, and that contains all the scene's primitive data
 			//		This buffer should be updated via a compute shader that takes all entity updates done through UpdateRenderState() and copies them to the buffer in vram
 			//		So there needs to be a dedicated staging buffer, per primitive type, that the compute shader reads from.
@@ -87,6 +91,10 @@ namespace aZero
 				const uint32_t frameBufferSize = 1000000;
 				m_FrameAllocator = LinearFrameAllocator(device, frameBufferSize, recycler);
 
+				uint64_t frameBufferSize = static_cast<uint64_t>(1024 * 1024);
+				m_FrameDataBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(frameBufferSize, D3D12_HEAP_TYPE_UPLOAD), &recycler);
+				m_FrameLinearAllocator = aZero::LinearAllocator<>(static_cast<std::byte*>(m_FrameDataBuffer.GetCPUAccessibleMemory()), frameBufferSize);
+
 				m_StaticMeshBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPUProxy::StaticMeshInstance) * maxInstances, D3D12_HEAP_TYPE_UPLOAD), &recycler);
 				m_CameraBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPUProxy::Camera), D3D12_HEAP_TYPE_UPLOAD), &recycler);
 
@@ -121,6 +129,8 @@ namespace aZero
 				m_DirectCmdList.ClearCommandBuffer();
 				m_CopyCmdList.ClearCommandBuffer();
 				m_ComputeCmdList.ClearCommandBuffer();
+
+				m_FrameLinearAllocator.Rewind();
 			}
 		};
 

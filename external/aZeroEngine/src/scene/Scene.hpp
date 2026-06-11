@@ -4,6 +4,15 @@
 #include "misc/SparseSet.hpp"
 
 #include "SceneRenderData.hpp"
+#include "LinearAllocator.hpp"
+
+/*
+TODO:
+fix so shaders use the new structs etc
+change so ::Render() uses ::GetRenderData()
+
+
+*/
 
 namespace aZero
 {
@@ -22,10 +31,24 @@ namespace aZero
 		class WireframeRenderer;
 	}
 
+	namespace RenderAPI
+	{
+		class Buffer;
+		class Commandlist;
+		class ResourceRecycler;
+	}
+
 	class Engine;
 
 	namespace Scene
 	{
+		struct SceneRenderData
+		{
+			RenderAPI::Buffer ObjectCullDataBuffer;
+			RenderAPI::Buffer InstanceBuffer;
+			std::vector<Rendering::GPU_Struct::CameraData> CameraData;
+		};
+
 		using SceneID = uint32_t;
 
 		/*  ------------------------------------------------------------
@@ -47,7 +70,7 @@ namespace aZero
 			flecs::entity GetRigidbodyStaticMeshPrefab() const { return m_RigidbodyStaticMeshPrefab; }
 			flecs::entity GetCameraPrefab() const { return m_CameraPrefab; }
 
-			std::tuple<std::vector<Rendering::GPUProxy::StaticMeshInstance>, std::vector<Rendering::GPUProxy::Camera>> GetWorldRenderData() const;
+			std::tuple<uint32_t, std::reference_wrapper<SceneRenderData>> GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList, bool recache);
 
 			void AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
 
@@ -70,7 +93,7 @@ namespace aZero
 
 			flecs::world m_World;
 
-			flecs::query<Component::Mesh, Component::Position, Component::Rotation, Component::Scale> m_StaticMeshQuery;
+			flecs::query<Component::Mesh, Component::Position, Component::Rotation, Component::Scale> m_MovableMeshQuery;
 			flecs::query<Component::Camera, Component::Position, Component::Rotation> m_CameraQuery;
 			flecs::query<Component::Rigidbody, Component::Position, Component::Rotation> m_ApplyPhysicsQuery;
 
@@ -83,6 +106,9 @@ namespace aZero
 
 			SceneID m_SceneID;
 			static inline std::atomic<SceneID> m_IncrementingID = 0;
+
+			SceneRenderData m_RenderData;
+			uint32_t m_LastCachedEntityIndex;
 		};
 	}
 }

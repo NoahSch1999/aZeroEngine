@@ -2,6 +2,7 @@
 #include "physics/PhysicsEngine.hpp"
 #include "renderer/WireframeRenderer.hpp"
 #include "assets/AssetManager.hpp"
+#include "renderer/GPU_Driven_Pipeline_Structs.hpp"
 
 aZero::Scene::Scene::Scene()
 {
@@ -18,7 +19,7 @@ aZero::Scene::Scene::Scene(Physics::PhysicsEngine& physicsEngine)
 aZero::Scene::Scene::~Scene()
 {
 	// Reset queries since they should live shorter than the world
-	m_StaticMeshQuery = {};
+	m_MovableMeshQuery = {};
 	m_CameraQuery = {};
 	m_ApplyPhysicsQuery = {};
 }
@@ -32,7 +33,7 @@ void aZero::Scene::Scene::Init()
 	m_RigidbodyStaticMeshPrefab = m_World.prefab("RigidbodyStaticMeshPrefab").set(Component::Rigidbody()).set(Component::Mesh()).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0)).set(Component::Scale(1, 1, 1));
 	m_CameraPrefab = m_World.prefab("CameraPrefab").set(Component::Camera(3.14f / 2.f, 0.001f, 1000.f, true, { 0,0 }, { 1920, 1080 })).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0));
 
-	m_StaticMeshQuery = m_World.query_builder<Component::Mesh, Component::Position, Component::Rotation, Component::Scale>().cached().build();
+	m_MovableMeshQuery = m_World.query_builder<Component::Mesh, Component::Position, Component::Rotation, Component::Scale>().cached().build(); // TODO: Check if it has movable component
 	m_CameraQuery = m_World.query_builder<Component::Camera, Component::Position, Component::Rotation>().cached().build();
 	m_ApplyPhysicsQuery = m_World.query_builder<Component::Rigidbody, Component::Position, Component::Rotation>().cached().build();
 }
@@ -46,29 +47,80 @@ void aZero::Scene::Scene::UpdateTemp()
 		});*/
 }
 
-std::tuple<std::vector<aZero::Rendering::GPUProxy::StaticMeshInstance>, std::vector<aZero::Rendering::GPUProxy::Camera>> aZero::Scene::Scene::GetWorldRenderData() const
+std::tuple<uint32_t, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZero::Scene::Scene::GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList, bool recache)
 {
-	std::vector<Rendering::GPUProxy::StaticMeshInstance> staticMeshes;
-	staticMeshes.reserve(m_StaticMeshQuery.count());
-	m_StaticMeshQuery.each([&staticMeshes](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
-		{
-			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
-			{
-				staticMeshes.emplace_back(mesh.GetMeshID(), mesh.m_Submeshes[i], position, rotation, scale);
-			}
-		});
+	using namespace Rendering;
 
-	std::vector<Rendering::GPUProxy::Camera> cameras;
-	cameras.reserve(m_CameraQuery.count());
-	m_CameraQuery.each([&cameras](const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
+	bool shouldRecache = recache;
+	if (!m_RenderData.ObjectCullDataBuffer.GetResource())
+	{
+		ID3D12DeviceX* device = GetID3D12DeviceX(cmdList.Get());
+		m_RenderData.ObjectCullDataBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::ObjectCullData) * 100000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
+		m_RenderData.InstanceBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::InstanceData) * 100000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
+		shouldRecache = true; // Force a rebuild of the cache if its the first time
+	}
+
+	m_CameraQuery.each([this](const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
 		{
 			if (camera.isActive)
 			{
-				cameras.emplace_back(camera, position, rotation);
+				GPU_Struct::CameraData cameraData;
+				cameraData.ViewMatrix = camera.GetViewMatrix(position, rotation);
+				cameraData.ViewProjectionMatrix = cameraData.ViewMatrix * camera.GetProjectionMatrix();
+				cameraData.Frustum = camera.GetFrustum();
+				this->m_RenderData.CameraData.emplace_back(cameraData);
 			}
 		});
 
-	return std::make_tuple(std::move(staticMeshes), std::move(cameras));
+	uint32_t entityUpdateCount = shouldRecache ? m_MovableMeshQuery.count() /* TODO: + number of stationary ones */ : m_MovableMeshQuery.count() - m_LastCachedEntityIndex;
+
+	// TODO: Handle resize of renderdata buffers
+	size_t objectCullDataOffset = frameDataAllocator.GetOffset();
+	GPU_Struct::ObjectCullData* pObjCull = static_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::ObjectCullData)));
+
+	size_t instanceDataOffset = frameDataAllocator.GetOffset();
+	GPU_Struct::InstanceData* pInstance = static_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::InstanceData)));
+
+	if (shouldRecache)
+	{
+		m_LastCachedEntityIndex = 0;
+
+		// TODO: Append static meshes to "objectCullDataOffset" etc
+
+	}
+
+	uint32_t totalNumEntities = 0; // TODO: Set to number of static entities since we dont wanna overwrite the cached ones
+	m_MovableMeshQuery.each([pObjCull, pInstance, &totalNumEntities](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
+		{
+			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
+			{
+				GPU_Struct::InstanceData instanceData;
+				instanceData.Transform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
+
+				GPU_Struct::ObjectCullData objectCullData;
+				mesh.m_Submeshes[i].m_Bounds.Transform(objectCullData.Bounds, instanceData.Transform);
+				objectCullData.GlobalMeshletOffset = mesh.m_Submeshes[i].MeshletGlobalOffset;
+				objectCullData.GlobalVertexOffset = mesh.m_Submeshes[i].VertexGlobalOffset;
+				objectCullData.MaterialIndex = mesh.m_Submeshes[i].m_MaterialID;
+
+				*(pObjCull + totalNumEntities) = objectCullData;
+				*(pInstance + totalNumEntities) = instanceData;
+
+				totalNumEntities++;
+			}
+		});
+
+	size_t copyDstOffsetIndex = shouldRecache ? 0 : m_LastCachedEntityIndex; // If recached => copy from 0, else => copy from the end of the cached entities
+
+	cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(),
+		copyDstOffsetIndex * sizeof(GPU_Struct::ObjectCullData),
+		frameDataBuffer.GetResource(), objectCullDataOffset, entityUpdateCount * sizeof(GPU_Struct::ObjectCullData));
+
+	cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(),
+		copyDstOffsetIndex * sizeof(GPU_Struct::InstanceData),
+		frameDataBuffer.GetResource(), objectCullDataOffset, entityUpdateCount * sizeof(GPU_Struct::InstanceData));
+
+	return { totalNumEntities, m_RenderData };
 }
 
 void aZero::Scene::Scene::RemoveMeshesWith(Asset::RenderID withID)

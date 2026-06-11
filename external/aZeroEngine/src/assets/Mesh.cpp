@@ -9,12 +9,11 @@ void Meshletize( // Named it myself :))
 	std::vector<aZero::Asset::Vertex>& vertices,
 	std::vector<aZero::Asset::Index>& indices,
 	std::vector<aZero::Asset::Meshlet>& outMeshlets,
-	std::vector<uint32_t>& outPrimitives,
-	uint32_t primitiveOffset, uint32_t vertexOffset
+	std::vector<DirectX::BoundingSphere>& outMeshletBounds
 )
 {
-	const size_t max_vertices = 64;
-	const size_t max_triangles = 84;
+	const size_t max_vertices = aZero::Asset::g_VerticesPerMeshlet;
+	const size_t max_triangles = aZero::Asset::g_PrimitivesPerMeshlet;
 
 	const size_t max_meshlets = meshopt_buildMeshletsBound(
 		indices.size(), max_vertices, max_triangles);
@@ -54,30 +53,39 @@ void Meshletize( // Named it myself :))
 	tempMeshlets.resize(meshlet_count);
 
 	outMeshlets.reserve(meshlet_count);
-	for (int i = 0; i < meshlet_count; i++)
+
+	std::vector<DXM::Vector3> outPositions;
+	std::vector<aZero::Asset::Vertex> outVertices;
+	for (uint32_t i = 0; i < meshlet_count; i++)
 	{
 		const meshopt_Meshlet& meshlet = tempMeshlets[i];
 		aZero::Asset::Meshlet newMeshlet;
 
 		meshopt_Bounds bounds = meshopt_computeMeshletBounds(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset],
 			meshlet.triangle_count, &positions[0].x, positions.size(), sizeof(positions[0]));
-		newMeshlet.Bounds = DirectX::BoundingSphere(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius);
+		outMeshletBounds.emplace_back(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius);
 
 		newMeshlet.PrimitiveCount = meshlet.triangle_count;
 		newMeshlet.VertexCount = meshlet.vertex_count;
-		newMeshlet.VertexOffset = meshlet.vertex_offset + vertexOffset;
-		newMeshlet.PrimitiveOffset = meshlet.triangle_offset / 3 + primitiveOffset;
+		newMeshlet.VertexOffset = meshlet.vertex_offset;
 
-		for (int j = 0; j < meshlet.triangle_count; j++)
+		for (uint32_t h = 0; h < meshlet.vertex_count; h++)
+		{
+			outPositions.push_back(positions[local_indices[h]]);
+			outVertices.push_back(vertices[local_indices[h]]);
+		}
+
+		for (uint32_t j = 0; j < meshlet.triangle_count; j++)
 		{
 			const uint32_t primOffset = meshlet.triangle_offset + j * 3;
-			outPrimitives.emplace_back(aZero::Helper::Pack8To32(primitives[primOffset], primitives[primOffset + 1], primitives[primOffset + 2], 0));
+			newMeshlet.Primitives[j] = aZero::Helper::Pack8To32(primitives[primOffset], primitives[primOffset + 1], primitives[primOffset + 2], 0);
 		}
 
 		outMeshlets.emplace_back(newMeshlet);
 	}
 
-	indices = std::move(local_indices);
+	positions = outPositions;
+	vertices = outVertices;
 }
 
 aZero::Asset::Mesh::Mesh(const FBX::FBX_Mesh& mesh)
@@ -88,13 +96,8 @@ aZero::Asset::Mesh::Mesh(const FBX::FBX_Mesh& mesh)
 		std::vector<DXM::Vector3> positions(submesh.Positions);
 		std::vector<Index> indices(submesh.Indices);
 		std::vector<Meshlet> meshlets;
-		std::vector<uint32_t> primitives;
-		Meshletize(positions, vertices, indices, meshlets, primitives, m_VertexData.Primitives.size(), m_VertexData.Indices.size());
-
-		for (auto& index : indices)
-		{
-			index += m_VertexData.Vertices.size();
-		}
+		std::vector<DirectX::BoundingSphere> meshletBounds;
+		Meshletize(positions, vertices, indices, meshlets, meshletBounds);
 		
 		Submesh newSubmesh;
 		newSubmesh.Name = submesh.Name;
@@ -104,9 +107,8 @@ aZero::Asset::Mesh::Mesh(const FBX::FBX_Mesh& mesh)
 
 		m_VertexData.Positions.insert(m_VertexData.Positions.end(), positions.begin(), positions.end());
 		m_VertexData.Vertices.insert(m_VertexData.Vertices.end(), vertices.begin(), vertices.end());
-		m_VertexData.Indices.insert(m_VertexData.Indices.end(), indices.begin(), indices.end());
 		m_VertexData.Meshlets.insert(m_VertexData.Meshlets.end(), meshlets.begin(), meshlets.end());
-		m_VertexData.Primitives.insert(m_VertexData.Primitives.end(), primitives.begin(), primitives.end());
+		m_VertexData.MeshletBounds.insert(m_VertexData.MeshletBounds.end(), meshletBounds.begin(), meshletBounds.end());
 
 		m_Submeshes.push_back(newSubmesh);
 	}
