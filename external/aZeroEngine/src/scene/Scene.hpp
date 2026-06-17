@@ -5,6 +5,8 @@
 
 #include "SceneRenderData.hpp"
 #include "LinearAllocator.hpp"
+#include "renderer/GPU_Driven_Pipeline_Structs.hpp"
+#include "graphics_api/resource/buffer/Buffer.hpp"
 
 /*
 TODO:
@@ -33,8 +35,7 @@ namespace aZero
 
 	namespace RenderAPI
 	{
-		class Buffer;
-		class Commandlist;
+		class CommandList;
 		class ResourceRecycler;
 	}
 
@@ -42,11 +43,17 @@ namespace aZero
 
 	namespace Scene
 	{
+		struct SceneRenderDataFrameInfo
+		{
+			uint32_t StaticMeshCount;
+		};
+
 		struct SceneRenderData
 		{
-			RenderAPI::Buffer ObjectCullDataBuffer;
-			RenderAPI::Buffer InstanceBuffer;
-			std::vector<Rendering::GPU_Struct::CameraData> CameraData;
+			aZero::RenderAPI::Buffer ObjectCullDataBuffer;
+			aZero::RenderAPI::Buffer InstanceBuffer;
+			aZero::RenderAPI::Buffer CameraBuffer;
+			std::vector<D3D12_VIEWPORT> CameraRSData;
 		};
 
 		using SceneID = uint32_t;
@@ -70,7 +77,7 @@ namespace aZero
 			flecs::entity GetRigidbodyStaticMeshPrefab() const { return m_RigidbodyStaticMeshPrefab; }
 			flecs::entity GetCameraPrefab() const { return m_CameraPrefab; }
 
-			std::tuple<uint32_t, std::reference_wrapper<SceneRenderData>> GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList, bool recache);
+			std::tuple<SceneRenderDataFrameInfo, std::reference_wrapper<SceneRenderData>> GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, aZero::RenderAPI::CommandList& cmdList, bool recache);
 
 			void AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
 
@@ -80,8 +87,6 @@ namespace aZero
 			void OptimizePhysics();
 			void RegisterToPhysics(flecs::entity entity);
 			void UnregisterFromPhysics(flecs::entity entity);
-
-			void UpdateTemp();
 
 			void RemoveMeshesWith(Asset::RenderID withID);
 			void RemoveMeshesWithMaterial(Asset::RenderID withID);

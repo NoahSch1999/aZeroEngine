@@ -37,6 +37,7 @@ namespace aZero
 				uint64_t MAX_MESHLETS = 100000;
 				uint64_t MAX_VERTICES = 10000000;
 				m_MeshletBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(Asset::Meshlet), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
+				m_MeshletBoundsBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(DirectX::BoundingSphere), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
 				m_PositionBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(DXM::Vector3), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
 				m_VertexBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(Asset::Vertex), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
 
@@ -64,6 +65,7 @@ namespace aZero
 				if (mesh.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
 					// TODO: Handle oom
+					// TODO: Stage without the frameallocator
 
 					MeshData data{
 						.MeshletGlobalAllocation = m_MeshletFreelist.Allocate(mesh.GetVertexData().Meshlets.size() * sizeof(mesh.GetVertexData().Meshlets[0])),
@@ -72,7 +74,7 @@ namespace aZero
 
 					frameAllocator.AddAllocation(mesh.GetVertexData().Meshlets.data(), &m_MeshletBuffer, data.MeshletGlobalAllocation.Offset, data.MeshletGlobalAllocation.Size);
 					frameAllocator.AddAllocation(mesh.GetVertexData().MeshletBounds.data(), &m_MeshletBoundsBuffer, sizeof(mesh.GetVertexData().MeshletBounds[0]) * (data.MeshletGlobalAllocation.Offset / sizeof(mesh.GetVertexData().Meshlets[0])),
-						sizeof(mesh.GetVertexData().MeshletBounds[0]) * (data.MeshletGlobalAllocation.Size / sizeof(mesh.GetVertexData().Meshlets[0]));
+						sizeof(mesh.GetVertexData().MeshletBounds[0]) * (data.MeshletGlobalAllocation.Size / sizeof(mesh.GetVertexData().Meshlets[0])));
 
 					frameAllocator.AddAllocation(mesh.GetVertexData().Vertices.data(), &m_VertexBuffer, data.VertexGlobalAllocation.Offset, data.VertexGlobalAllocation.Size);
 					frameAllocator.AddAllocation(mesh.GetVertexData().Positions.data(), 

@@ -185,7 +185,7 @@ namespace aZero
             DXM::Vector2 topleft;
             DXM::Vector2 dimensions;
 
-            struct alignas(16) BoundingFrustum
+            struct BoundingFrustum
             {
                 DXM::Vector4 Rotation;
 
@@ -198,7 +198,6 @@ namespace aZero
                 float Near;
 
                 float Far;
-                DXM::Vector3 pad;
             };
 
             BoundingFrustum GetFrustum() const

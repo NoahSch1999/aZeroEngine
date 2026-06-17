@@ -19,6 +19,11 @@ uint3 Unpack32To8(uint input)
     return uint3(ch1, ch2, ch3);
 }
 
+uint Pack16To32(uint2 input)
+{
+    return (input.x & 0xFFFF) | ((input.y & 0xFFFF) << 16);
+}
+
 uint2 Unpack32To16(uint input)
 {
     uint ch1, ch2;
@@ -70,6 +75,19 @@ void CalcTangentAndBitangent(float3 N, out float3 T, out float3 B)
         s + N.y * N.y * a,
         -N.y
     );
+}
+
+float2 UnpackOct16(uint2 p)
+{
+    float2 n;
+    n.x = (p.x / 65535.0) * 2.0 - 1.0;
+    n.y = (p.y / 65535.0) * 2.0 - 1.0;
+    return n;
+}
+
+float2 UnpackUV16(uint2 p)
+{
+    return p / 65535.0;
 }
 
 #endif

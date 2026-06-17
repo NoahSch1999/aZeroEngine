@@ -71,8 +71,8 @@ void Meshletize( // Named it myself :))
 
 		for (uint32_t h = 0; h < meshlet.vertex_count; h++)
 		{
-			outPositions.push_back(positions[local_indices[h]]);
-			outVertices.push_back(vertices[local_indices[h]]);
+			outPositions.push_back(positions[local_indices[meshlet.vertex_offset + h]]);
+			outVertices.push_back(vertices[local_indices[meshlet.vertex_offset + h]]);
 		}
 
 		for (uint32_t j = 0; j < meshlet.triangle_count; j++)

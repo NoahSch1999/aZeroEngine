@@ -38,16 +38,7 @@ void aZero::Scene::Scene::Init()
 	m_ApplyPhysicsQuery = m_World.query_builder<Component::Rigidbody, Component::Position, Component::Rotation>().cached().build();
 }
 
-void aZero::Scene::Scene::UpdateTemp()
-{/*
-	auto tempQuery = m_World.query_builder<Component::Mesh, Component::Position, Component::Rotation, Component::Scale>().without<Component::Rigidbody>().cached().build();
-	tempQuery.each([](Component::Mesh& mesh, Component::Position& position, Component::Rotation& rotation, Component::Scale& scale)
-		{
-			rotation.y += 3.14/100.f;
-		});*/
-}
-
-std::tuple<uint32_t, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZero::Scene::Scene::GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList, bool recache)
+std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZero::Scene::Scene::GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList, bool recache)
 {
 	using namespace Rendering;
 
@@ -57,29 +48,45 @@ std::tuple<uint32_t, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZer
 		ID3D12DeviceX* device = GetID3D12DeviceX(cmdList.Get());
 		m_RenderData.ObjectCullDataBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::ObjectCullData) * 100000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
 		m_RenderData.InstanceBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::InstanceData) * 100000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
+		m_RenderData.CameraBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::CameraData) * 1000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
 		shouldRecache = true; // Force a rebuild of the cache if its the first time
 	}
 
-	m_CameraQuery.each([this](const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
+	this->m_RenderData.CameraRSData.clear();
+
+	std::vector<Rendering::GPU_Struct::CameraData> cameraGPUData;
+	m_CameraQuery.each([this, &cameraGPUData](const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
 		{
 			if (camera.isActive)
 			{
 				GPU_Struct::CameraData cameraData;
 				cameraData.ViewMatrix = camera.GetViewMatrix(position, rotation);
-				cameraData.ViewProjectionMatrix = cameraData.ViewMatrix * camera.GetProjectionMatrix();
+				cameraData.ViewProjectionMatrix = camera.GetViewProjectionMatrix(position, rotation);
+
 				cameraData.Frustum = camera.GetFrustum();
-				this->m_RenderData.CameraData.emplace_back(cameraData);
+
+				// TODO: Rotation
+				cameraGPUData.emplace_back(cameraData);
+				this->m_RenderData.CameraRSData.emplace_back(camera.GetViewport());
 			}
 		});
+
+	size_t cameraDataOffset = frameDataAllocator.GetOffset();
+	GPU_Struct::CameraData* pCameraData = reinterpret_cast<GPU_Struct::CameraData*>(frameDataAllocator.Allocate(cameraGPUData.size() * sizeof(GPU_Struct::CameraData)));
+	memcpy(pCameraData, cameraGPUData.data(), cameraGPUData.size() * sizeof(GPU_Struct::CameraData));
+
+	cmdList->CopyBufferRegion(m_RenderData.CameraBuffer.GetResource(),
+		0, frameDataBuffer.GetResource(), cameraDataOffset, cameraGPUData.size() * sizeof(GPU_Struct::CameraData));
+
 
 	uint32_t entityUpdateCount = shouldRecache ? m_MovableMeshQuery.count() /* TODO: + number of stationary ones */ : m_MovableMeshQuery.count() - m_LastCachedEntityIndex;
 
 	// TODO: Handle resize of renderdata buffers
 	size_t objectCullDataOffset = frameDataAllocator.GetOffset();
-	GPU_Struct::ObjectCullData* pObjCull = static_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::ObjectCullData)));
+	GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::ObjectCullData)));
 
 	size_t instanceDataOffset = frameDataAllocator.GetOffset();
-	GPU_Struct::InstanceData* pInstance = static_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::InstanceData)));
+	GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::InstanceData)));
 
 	if (shouldRecache)
 	{
@@ -102,6 +109,7 @@ std::tuple<uint32_t, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZer
 				objectCullData.GlobalMeshletOffset = mesh.m_Submeshes[i].MeshletGlobalOffset;
 				objectCullData.GlobalVertexOffset = mesh.m_Submeshes[i].VertexGlobalOffset;
 				objectCullData.MaterialIndex = mesh.m_Submeshes[i].m_MaterialID;
+				objectCullData.MeshletCount = mesh.m_Submeshes[i].MeshletCount;
 
 				*(pObjCull + totalNumEntities) = objectCullData;
 				*(pInstance + totalNumEntities) = instanceData;
@@ -118,9 +126,9 @@ std::tuple<uint32_t, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZer
 
 	cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(),
 		copyDstOffsetIndex * sizeof(GPU_Struct::InstanceData),
-		frameDataBuffer.GetResource(), objectCullDataOffset, entityUpdateCount * sizeof(GPU_Struct::InstanceData));
+		frameDataBuffer.GetResource(), instanceDataOffset, entityUpdateCount * sizeof(GPU_Struct::InstanceData));
 
-	return { totalNumEntities, m_RenderData };
+	return { SceneRenderDataFrameInfo{.StaticMeshCount = totalNumEntities }, m_RenderData };
 }
 
 void aZero::Scene::Scene::RemoveMeshesWith(Asset::RenderID withID)

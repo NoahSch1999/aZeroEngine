@@ -1,19 +1,6 @@
-#include "Materials.hlsli"
-#include "Lights.hlsli"
-#include "MeshDefinitions.hlsli"
-#include "Util.hlsli"
+#include "NEW_GPU_Structs.hlsli"
 
-struct PassConstantData
-{
-    uint SamplerIndex;
-    uint MaterialBuffer;
-    uint PointLightBuffer;
-    uint SpotLightBuffer;
-    uint DirectionalLightBuffer;
-    float Time;
-};
-
-ConstantBuffer<PassConstantData> Default_Phong_CONSTANT : register(b0);
+ConstantBuffer<IndirectArgumentConstantData> Default_Phong_CONSTANT : register(b0);
 
 struct Output
 {
@@ -30,15 +17,15 @@ Output main(RasterVertex pin)
     CalcTangentAndBitangent(pin.Normal, tangent, bitangent);
     float3x3 TBN = float3x3(tangent, bitangent, pin.Normal);
     
-    const Texture2D<float4> normalMap = ResourceDescriptorHeap[7];
+    const Texture2D<float4> normalMap = ResourceDescriptorHeap[2];
     float3 fragmentNormal = normalMap.Sample(samplerState, pin.UV).xyz;
     fragmentNormal = normalize(fragmentNormal * 2.f - 1.f);
     fragmentNormal = normalize(mul(fragmentNormal, TBN));
     
-    const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[6];
+    const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[1];
     output.color = float4(albedoTexture.Sample(samplerState, pin.UV).xyz, 1);
     output.color = float4(fragmentNormal.xyz, 1);
-
+    //output.color = float4(1, 0, 0, 1);
     return output;
 //    const SamplerState samplerState = SamplerDescriptorHeap[Default_Phong_Constants.SamplerIndex];
 //    const StructuredBuffer<DefaultMaterial> MaterialBuffer = ResourceDescriptorHeap[Default_Phong_Constants.MaterialBuffer];

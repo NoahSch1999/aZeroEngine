@@ -1,56 +1,54 @@
-#include "MeshDefinitions.hlsli"
-#include "Util.hlsli"
-#include "PayloadDefinitions.hlsli"
-#include "GeometryPipeline_IA.hlsli"
-#include "Camera.hlsli"
+#include "NEW_GPU_Structs.hlsli"
 
 ConstantBuffer<IndirectArgumentConstantData> Input_CONSTANT : register(b0);
 
-ConstantBuffer<Camera> CameraBuffer : register(b1);
+ConstantBuffer<CameraData> CameraDataBuffer : register(b1);
 
-StructuredBuffer<MeshInstanceData> MeshInstances : register(t0);
+StructuredBuffer<Meshlet> MeshletBuffer : register(t0);
+StructuredBuffer<float3> PositionBuffer : register(t1);
+StructuredBuffer<MeshVertex> VertexBuffer : register(t2);
 
-[NumThreads(88, 1, 1)]
+[NumThreads(g_PrimitivesPerMeshlet + 4, 1, 1)]
 [OutputTopology("triangle")]
 void main(
     uint localThreadIndex : SV_GroupIndex,
     uint meshletIndex : SV_GroupID,
     in payload Payload payload,
-    out vertices RasterVertex verts[64],
-    out indices uint3 tris[84]
+    out vertices RasterVertex verts[g_VerticesPerMeshlet],
+    out indices uint3 tris[g_PrimitivesPerMeshlet]
 )
 {
-    const MeshInstanceData meshInstance = MeshInstances[Input_CONSTANT.MeshInstanceIndex.x];
-    if (meshInstance.Instance.MeshletCount > meshletIndex)
+    if (Input_CONSTANT.MeshletCount > meshletIndex)
     {
-        const StructuredBuffer<Meshlet> Meshlets = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex];
-        const Meshlet meshlet = Meshlets[payload.MeshletIndex[meshletIndex]]; // Top stall
-        SetMeshOutputCounts(meshlet.VertexCount, meshlet.PrimitiveCount);
+        const uint vertexCount = MeshletBuffer[payload.MeshletIndex[meshletIndex]].VertexCount;
+        {
+            const uint primitiveCount = MeshletBuffer[payload.MeshletIndex[meshletIndex]].PrimitiveCount;
+            
+            SetMeshOutputCounts(vertexCount, primitiveCount);
         
-        if (localThreadIndex < meshlet.PrimitiveCount)
-        {
-            const StructuredBuffer<uint> primitiveBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 1];
-            tris[localThreadIndex] = Unpack32To8(primitiveBuffer[meshlet.PrimitiveOffset + localThreadIndex]);
+            if (localThreadIndex < primitiveCount)
+            {
+                tris[localThreadIndex] = Unpack32To8(MeshletBuffer[payload.MeshletIndex[meshletIndex]].Primitives[localThreadIndex]);
+            }
         }
+        
     
-        if (localThreadIndex < meshlet.VertexCount)
+        if (localThreadIndex < vertexCount)
         {
-            const StructuredBuffer<uint> indices = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 3];
-            const uint index = indices[meshlet.VertexOffset + localThreadIndex]; // Top stall
+            const uint vertexOffset = MeshletBuffer[payload.MeshletIndex[meshletIndex]].VertexOffset;
+            { 
+                float3 position = PositionBuffer[Input_CONSTANT.GlobalVertexOffset + vertexOffset + localThreadIndex];
+                float4 positionWorld = mul(Input_CONSTANT.Instance, float4(position, 1.f));
+                verts[localThreadIndex].WorldPosition = positionWorld.xyz;
+                positionWorld = mul(CameraDataBuffer.ViewProjectionMatrix, positionWorld);
+                verts[localThreadIndex].Position = positionWorld;
+            }
             
-            const StructuredBuffer<float3> vertexPositionBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 4];
-            float3 position = vertexPositionBuffer[index];
-            
-            float4 positionWorld = mul(meshInstance.Instance.WorldTransform, float4(position, 1.f));
-            verts[localThreadIndex].WorldPosition = positionWorld.xyz;
-            positionWorld = mul(CameraBuffer.ViewProjectionMatrix, positionWorld);
-            verts[localThreadIndex].Position = positionWorld;
-            
-            const StructuredBuffer<MeshVertex> vertexBuffer = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex + 2];
-            
-            MeshVertex vertex = vertexBuffer[index];
-            verts[localThreadIndex].Normal = normalize(mul(meshInstance.Instance.WorldTransform, float4(DecodeNormalOctahedral(UnpackOct16(Unpack32To16(vertex.Normal))), 0.f))).xyz;
-            verts[localThreadIndex].UV = UnpackUV16(Unpack32To16(vertex.UV));
+            {
+                MeshVertex vertex = VertexBuffer[Input_CONSTANT.GlobalVertexOffset + vertexOffset + localThreadIndex];
+                verts[localThreadIndex].Normal = normalize(mul(Input_CONSTANT.Instance, float4(DecodeNormalOctahedral(UnpackOct16(Unpack32To16(vertex.Normal))), 0.f))).xyz;
+                verts[localThreadIndex].UV = UnpackUV16(Unpack32To16(vertex.UV));
+            }
         }
     }
 }

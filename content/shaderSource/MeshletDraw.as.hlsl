@@ -1,31 +1,26 @@
-#include "MeshDefinitions.hlsli"
-#include "PayloadDefinitions.hlsli"
-#include "GeometryPipeline_IA.hlsli"
-#include "Camera.hlsli"
+#include "NEW_GPU_Structs.hlsli"
 
 groupshared Payload payload;
 
 ConstantBuffer<IndirectArgumentConstantData> Input_CONSTANT : register(b0);
 
-ConstantBuffer<Camera> CameraBuffer : register(b1);
+ConstantBuffer<CameraData> CameraDataBuffer : register(b1);
 
-StructuredBuffer<MeshInstanceData> MeshInstances : register(t0);
+StructuredBuffer<InstanceData> InstanceDataBufferAS : register(t0);
+StructuredBuffer<BoundingSphere> MeshletBoundBuffer : register(t1);
 
-[NumThreads(32, 1, 1)]
+[NumThreads(TREADS_PER_WAVE, 1, 1)]
 void main(uint3 dtid : SV_DispatchThreadID, uint3 gid : SV_GroupThreadID)
 {
-    const MeshInstanceData meshInstance = MeshInstances[Input_CONSTANT.MeshInstanceIndex.x];
     bool visible = false;
-    if (dtid.x < meshInstance.Instance.MeshletCount)
+    if (dtid.x < Input_CONSTANT.MeshletCount)
     {
-        const StructuredBuffer<Meshlet> Meshlets = ResourceDescriptorHeap[meshInstance.Instance.MeshBufferIndex];
-        const Meshlet meshlet = Meshlets[meshInstance.Instance.MeshletOffset + dtid.x];
-        
-        visible = CameraBuffer.Frustum.Intersects(CreateBoundingSphere(mul(meshInstance.Instance.WorldTransform, float4(meshlet.Bounds.Position, 1.f)).xyz, meshlet.Bounds.Radius), CameraBuffer.ViewMatrix);
+        BoundingSphere meshletBounds = MeshletBoundBuffer[Input_CONSTANT.GlobalMeshletOffset + dtid.x];
+        visible = CameraDataBuffer.Frustum.Intersects(CreateBoundingSphere(mul(Input_CONSTANT.Instance, float4(meshletBounds.Position, 1.f)).xyz, meshletBounds.Radius), CameraDataBuffer.ViewMatrix);
         
         if (visible)
         {
-            payload.MeshletIndex[WavePrefixCountBits(visible)] = meshInstance.Instance.MeshletOffset + dtid.x;
+            payload.MeshletIndex[WavePrefixCountBits(visible)] = Input_CONSTANT.GlobalMeshletOffset + dtid.x;
         }
     }
     

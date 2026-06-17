@@ -40,7 +40,7 @@ namespace aZero::Rendering
 		bool TryBeginFrame();
 		void EndFrame();
 
-		void Render(const Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget);
+		void Render(Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget);
 
 		void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget);
 
@@ -84,7 +84,7 @@ namespace aZero::Rendering
 		// ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 		void InitGPUDrivenRenderPipeline();
-		void RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, const Rendering::GPUProxy::Camera& camera, uint32_t numStaticMeshes);
+		void RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, Scene::Scene& scene);
 
 		// New version of GPU-driven
 		Pipeline::RenderPass m_MeshCullPass;

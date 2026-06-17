@@ -88,7 +88,6 @@ int main(int argc, char* argv[])
 		while (window.IsOpen())
 		{
 			window.Update();
-			scene.UpdateTemp();
 
 			// Declares start of new frame and loops until the new frame can be rendered
 			while (!renderer.TryBeginFrame())

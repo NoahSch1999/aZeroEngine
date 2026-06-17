@@ -1,39 +1,34 @@
-#include "MeshDefinitions.hlsli"
-#include "GeometryPipeline_IA.hlsli"
-#include "Camera.hlsli"
+#include "NEW_GPU_Structs.hlsli"
 
-struct MeshCullConstantsData
-{
-	uint4 MeshInstanceCount;
-};
 ConstantBuffer<MeshCullConstantsData> MeshCull_CONSTANT : register(b0);
 
-ConstantBuffer<Camera> CameraBuffer : register(b1);
+ConstantBuffer<CameraData> CameraDataBuffer : register(b1);
 
-StructuredBuffer<MeshInstanceData> MeshInstances : register(t0);
+StructuredBuffer<ObjectCullData> ObjectCullDataBuffer : register(t0);
 
-struct IndirectArgumentCounterData
-{
-	uint Count;
-};
-RWStructuredBuffer<IndirectArgumentCounterData> IndirectArgumentCounter : register(u0);
-RWStructuredBuffer<IndirectArgumentStruct> IndirectArguments : register(u1);
+RWStructuredBuffer<IndirectArgumentCounter> IndirectArgumentCounterBuffer : register(u0);
+RWStructuredBuffer<IndirectArguments> IndirectArgumentsBuffer : register(u1);
 
-[numthreads(32, 1, 1)]
+StructuredBuffer<InstanceData> InstanceDataBufferMS : register(t3);
+[numthreads(TREADS_PER_WAVE, 1, 1)]
 void main(uint3 dtid : SV_DispatchThreadID)
 {
-    if (MeshCull_CONSTANT.MeshInstanceCount.x > dtid.x)
+    if (dtid.x < MeshCull_CONSTANT.MeshInstanceCount)
     {
-        const MeshInstanceData meshInstance = MeshInstances[dtid.x];
+        const ObjectCullData objectCullData = ObjectCullDataBuffer[dtid.x];
 
-        if (CameraBuffer.Frustum.Intersects(meshInstance.MeshBounds, CameraBuffer.ViewMatrix))
+        if (CameraDataBuffer.Frustum.Intersects(objectCullData.Bounds, CameraDataBuffer.ViewMatrix))
         {
             uint meshInstanceIndex;
-            InterlockedAdd(IndirectArgumentCounter[0].Count, 1, meshInstanceIndex);
-            IndirectArguments[meshInstanceIndex].Data.MeshInstanceIndex.x = dtid.x;
-            IndirectArguments[meshInstanceIndex].GroupX = ceil(meshInstance.Instance.MeshletCount / 32.f);
-            IndirectArguments[meshInstanceIndex].GroupY = 1;
-            IndirectArguments[meshInstanceIndex].GroupZ = 1;
+            InterlockedAdd(IndirectArgumentCounterBuffer[0].Count, 1, meshInstanceIndex);
+            IndirectArgumentsBuffer[meshInstanceIndex].Data.Instance = InstanceDataBufferMS[dtid.x].Transform;
+            IndirectArgumentsBuffer[meshInstanceIndex].Data.GlobalMeshletOffset = objectCullData.GlobalMeshletOffset;
+            IndirectArgumentsBuffer[meshInstanceIndex].Data.GlobalVertexOffset = objectCullData.GlobalVertexOffset;
+            IndirectArgumentsBuffer[meshInstanceIndex].Data.MaterialIndex = objectCullData.MaterialIndex;
+            IndirectArgumentsBuffer[meshInstanceIndex].Data.MeshletCount = objectCullData.MeshletCount;
+            IndirectArgumentsBuffer[meshInstanceIndex].GroupX = ceil(objectCullData.MeshletCount / (float)TREADS_PER_WAVE);
+            IndirectArgumentsBuffer[meshInstanceIndex].GroupY = 1;
+            IndirectArgumentsBuffer[meshInstanceIndex].GroupZ = 1;
         }
     }
 }

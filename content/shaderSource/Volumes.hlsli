@@ -30,7 +30,6 @@ struct BoundingFrustum
     float Near;
     
     float Far;
-    float3 pad;
     
     bool Intersects(BoundingSphere sphere, float4x4 viewMatrix)
     {

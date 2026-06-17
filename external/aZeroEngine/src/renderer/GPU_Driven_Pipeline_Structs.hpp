@@ -28,10 +28,13 @@ namespace aZero::Rendering::GPU_Struct
 
     struct IndirectArgumentConstantData
     {
-        uint32_t InstanceIndex;
+        DXM::Matrix InstanceIndex;
         uint32_t GlobalMeshletOffset;
         uint32_t GlobalVertexOffset;
         uint32_t MaterialIndex;
+        uint32_t MeshletCount;
+        uint32_t Pad[3];
+        // This will waste 3xuint...
     };
 
     /*
@@ -39,20 +42,21 @@ namespace aZero::Rendering::GPU_Struct
     Updated on entity update
     Used in the object culling CS to check object-visibility.
     */
+
+    // TODO: Replace GlobalMeshletOffset, GlobalVertexOffset, MeshletCount with a LOD-info index that is used in the object-cull shader to find the LOD that contains them
     struct ObjectCullData
     {
         DirectX::BoundingSphere Bounds;
         uint32_t GlobalMeshletOffset;
         uint32_t GlobalVertexOffset;
+        uint32_t MeshletCount;
         uint32_t MaterialIndex;
     };
 
     struct MeshCullConstantsData
     {
         uint32_t MeshInstanceCount;
-        uint32_t Pad1;
-        uint32_t Pad2;
-        uint32_t Pad3;
+        uint32_t Pad[3];
     };
 
     struct IndirectArguments
