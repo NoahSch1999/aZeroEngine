@@ -4,7 +4,7 @@
 #include "WinPixEventRuntime/pix3.h"
 #include "pipeline/RenderPass.hpp"
 #include "ecs/Components.hpp"
-#include "graphics_api/resource/buffer/Buffer.hpp"
+#include "render_api/resource/buffer/Buffer.hpp"
 
 namespace aZero
 {

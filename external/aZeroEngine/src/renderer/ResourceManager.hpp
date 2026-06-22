@@ -1,11 +1,13 @@
 #pragma once
-#include "graphics_api/resource/buffer/MeshBuffer.hpp"
-#include "graphics_api/resource/buffer/IndexedBuffer.hpp"
-#include "graphics_api/resource/texture/Texture2D.hpp"
-#include "graphics_api/resource/ResourceRecycler.hpp"
-#include "graphics_api/descriptor/DescriptorHeap.hpp"
+#include "render_api/resource/buffer/IndexedBuffer.hpp"
+#include "render_api/resource/texture/Texture2D.hpp"
+#include "render_api/resource/ResourceRecycler.hpp"
+#include "render_api/descriptor/DescriptorHeap.hpp"
 #include "misc/FreelistAllocator.hpp"
 #include "FrameContext.hpp"
+#include "assets/Mesh.hpp"
+#include "assets/Material.hpp"
+#include "assets/Texture.hpp"
 
 namespace aZero
 {
@@ -14,10 +16,9 @@ namespace aZero
 		// TODO: Impl re-upload to resources
 		class ResourceManager
 		{
-			// TODO: Change to uint16 for relevant things
-
 			struct MaterialData
 			{
+				// todo Pack as 16bit
 				uint32_t AlbedoIndex; // Index to descriptor
 				uint32_t NormalIndex; // Index to descriptor
 			};
@@ -29,17 +30,16 @@ namespace aZero
 			};
 
 		public:
-			// Looked up in shader via split batchid
 			ResourceManager() = default;
 
 			ResourceManager(ID3D12DeviceX* device, RenderAPI::ResourceRecycler* recycler, RenderAPI::DescriptorHeap& descriptorHeap)
 			{
 				uint64_t MAX_MESHLETS = 100000;
 				uint64_t MAX_VERTICES = 10000000;
-				m_MeshletBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(Asset::Meshlet), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
-				m_MeshletBoundsBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(DirectX::BoundingSphere), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
-				m_PositionBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(DXM::Vector3), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
-				m_VertexBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(Asset::Vertex), D3D12_HEAP_TYPE_DEFAULT, false), recycler); // TODO
+				m_MeshletBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(Asset::Meshlet), D3D12_HEAP_TYPE_DEFAULT, false), recycler);
+				m_MeshletBoundsBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(DirectX::BoundingSphere), D3D12_HEAP_TYPE_DEFAULT, false), recycler);
+				m_PositionBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(DXM::Vector3), D3D12_HEAP_TYPE_DEFAULT, false), recycler);
+				m_VertexBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(Asset::Vertex), D3D12_HEAP_TYPE_DEFAULT, false), recycler);
 
 				m_MeshletFreelist = aZero::FreelistAllocator(MAX_MESHLETS * sizeof(Asset::Meshlet));
 				m_VertexFreelist = aZero::FreelistAllocator(MAX_VERTICES * sizeof(Asset::Vertex));
@@ -48,25 +48,11 @@ namespace aZero
 				m_MaterialBufferView = RenderAPI::ShaderResourceView(device, descriptorHeap, m_MaterialDataBuffer.GetBuffer(), 1000, sizeof(MaterialData), 0);
 			}
 
-			void UpdateRenderState(ID3D12DeviceX* device, RenderAPI::CommandList& cmdList, LinearFrameAllocator& frameAllocator, RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Mesh& mesh)
-			{
-				if (mesh.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
-				{
-					aZero::RenderAPI::MeshBuffer MeshBuffer(device, recycler, descriptorHeap, cmdList, mesh.GetVertexData());
-					Asset::RenderID renderID = MeshBuffer.GetMeshletsIndex();
-					m_MeshMap[mesh.GetAssetID()] = renderID;
-					m_MeshBufferMap[renderID] = std::move(MeshBuffer);
-					mesh.m_RenderID = renderID; // Set to the MeshBuffer bindless index. The vertex buffer bindless index will always be meshletbindlessindex + 1.
-				}
-			}
-
+			// todo Use a seperate frameAllocator than the framecontext's when we are loading a lot of meshes at the same time
 			void UpdateRenderState_NEW(LinearFrameAllocator& frameAllocator, aZero::Asset::Mesh& mesh)
 			{
 				if (mesh.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
-					// TODO: Handle oom
-					// TODO: Stage without the frameallocator
-
 					MeshData data{
 						.MeshletGlobalAllocation = m_MeshletFreelist.Allocate(mesh.GetVertexData().Meshlets.size() * sizeof(mesh.GetVertexData().Meshlets[0])),
 						.VertexGlobalAllocation = m_VertexFreelist.Allocate(mesh.GetVertexData().Vertices.size() * sizeof(mesh.GetVertexData().Vertices[0]))
@@ -91,8 +77,6 @@ namespace aZero
 
 			void UpdateRenderState(LinearFrameAllocator& frameAllocator, Asset::Material& material)
 			{
-				// TODO: Validate material data
-				// TODO: Handle overwriting of the data... defer actual resource destruction until last usage or something...
 				if (material.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
 					material.m_RenderID = m_MaterialDataBuffer.Allocate();
@@ -117,7 +101,6 @@ namespace aZero
 			void UpdateRenderState(ID3D12DeviceX* device, RenderAPI::CommandList& cmdList, RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap, Asset::Texture& texture)
 			{
 				// TODO: Validate texture data
-				// TODO: Handle overwriting of the data... defer actual resource destruction until last usage or something...
 				if (texture.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
 					const auto& data = texture.GetData();
@@ -130,7 +113,7 @@ namespace aZero
 
 					D3D12_SUBRESOURCE_DATA subresourceData{};
 					subresourceData.pData = data.TexelData.data();
-					subresourceData.RowPitch = /*roundUp(*/data.Width * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/;
+					subresourceData.RowPitch = /*roundUp(*/data.Width * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/; // todo Rounding needed?
 					subresourceData.SlicePitch = subresourceData.RowPitch * data.Height;
 
 					UpdateSubresources(
@@ -142,16 +125,6 @@ namespace aZero
 					m_TextureMap[texture.GetAssetID()].CreateTransition(D3D12_RESOURCE_STATE_COPY_DEST);
 					auto barrier = m_TextureMap[texture.GetAssetID()].CreateTransition(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 					cmdList->ResourceBarrier(1, &barrier);
-				}
-			}
-
-			void RemoveRenderState(Asset::Mesh& mesh)
-			{
-				if (mesh.GetRenderID() != Asset::InvalidRenderID)
-				{
-					m_MeshBufferMap.erase(mesh.GetRenderID());
-					m_MeshMap.erase(mesh.GetAssetID());
-					mesh.m_RenderID = Asset::InvalidRenderID;
 				}
 			}
 
@@ -199,11 +172,6 @@ namespace aZero
 
 			std::unordered_map<Asset::AssetID, Asset::RenderID> m_MeshMap_NEW;
 			std::unordered_map<Asset::RenderID, MeshData> m_MeshBufferMap_NEW;
-
-			//
-			std::unordered_map<Asset::AssetID, Asset::RenderID> m_MeshMap;
-			std::unordered_map<Asset::RenderID, RenderAPI::MeshBuffer> m_MeshBufferMap;
-			//
 
 			RenderAPI::IndexedBuffer<MaterialData> m_MaterialDataBuffer;
 			RenderAPI::ShaderResourceView m_MaterialBufferView;

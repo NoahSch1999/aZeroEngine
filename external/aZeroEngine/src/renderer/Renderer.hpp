@@ -1,16 +1,16 @@
 #pragma once
-#include "graphics_api/resource/texture/DepthStencilTarget.hpp"
-#include "graphics_api/resource/texture/RenderTarget.hpp"
+#include "render_api/resource/texture/DepthStencilTarget.hpp"
+#include "render_api/resource/texture/RenderTarget.hpp"
 #include "SamplerManager.hpp"
 #include "ResourceManager.hpp"
 #include "pipeline/RenderPass.hpp"
-#include "GPU_Driven_Pipeline_Structs.hpp"
+#include "GPU_Structs.hpp"
 #include "misc/CallbackExecutor.hpp"
 
 namespace aZero
 {
 	namespace Asset { class Mesh; class Material; class Texture; }
-	namespace RenderAPI { class MeshBuffer; class SwapChain; }
+	namespace RenderAPI { class SwapChain; }
 	namespace Pipeline { class RenderPass; class Shader; }
 	namespace Scene { class Scene; }
 }
@@ -48,7 +48,7 @@ namespace aZero::Rendering
 		void UpdateRenderState(Asset::Material& material);
 		void UpdateRenderState(Asset::Texture& texture);
 
-		// TODO: Impl
+		// TODO: Impl removal logic
 		void RemoveRenderState(Asset::Mesh& mesh);
 		void RemoveRenderState(Asset::Material& material);
 		void RemoveRenderState(Asset::Texture& texture);
@@ -64,22 +64,14 @@ namespace aZero::Rendering
 
 	private:
 
-		// TODO: Figure out how this should be used to defer destruction of descriptors so that they wont be used until their no longer in use
+		// TODO: Remove and figure out a smooth way to replace it
 		aZero::CallbackExecutor m_CallbackExecutor;
 		RenderAPI::ResourceRecycler m_ResourceRecycler;
 
 		// Returns true if the frame context for the next frame has completed and is open for reuse
 		bool AdvanceFrameIfReady();
 
-		/*
-		---------------------------------------------------------------------------------------------------------------------------------------------
-		GPU Types
-		---------------------------------------------------------------------------------------------------------------------------------------------
-		*/
-
-		//
-
-		uint32_t MAX_INSTANCES = 1000000; // TODO: Make configurable
+		uint32_t MAX_INSTANCES = 1000000;
 
 		// ---------------------------------------------------------------------------------------------------------------------------------------------------
 

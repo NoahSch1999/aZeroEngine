@@ -25,17 +25,15 @@ namespace Example {
 		
 
 		JPH::BoxShapeSettings boxShape(JPH::Vec3(1, 1, 1));
-		JPH::BodyCreationSettings boxSettings(boxShape.Create().Get(), JPH::RVec3(0.0, 100.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, aZero::Physics::Layers::DYNAMIC);
+		auto shapeRes = boxShape.Create().Get();
+		JPH::BodyCreationSettings boxSettings(shapeRes, JPH::RVec3(0.0, 100.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, aZero::Physics::Layers::DYNAMIC);
 		boxSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
 		boxSettings.mMassPropertiesOverride.mMass = 1.0f;
-
 		{
-			flecs::entity entMesh = scene.GetEntityWorld().entity().is_a(scene.GetRigidbodyStaticMeshPrefab());
+			flecs::entity entMesh = scene.GetEntityWorld().entity().is_a(scene.GetStaticMeshPrefab());
+			entMesh.set<Component::Rigidbody>(boxSettings);
 			entMesh.set_name("Mesh");
 			entMesh.set(Component::Mesh(*aManager.GetMesh(meshName).value(), *aManager.GetMaterial("TestMaterial").value()));
-			Component::Rigidbody& rb = entMesh.get_mut<Component::Rigidbody>();
-			rb.SetCreationSettings(boxSettings);
-			scene.RegisterToPhysics(entMesh);
 		}
 
 		{
@@ -57,22 +55,19 @@ namespace Example {
 					ent.set(Component::Mesh(*aManager.GetMesh(meshName).value(), *aManager.GetMaterial("TestMaterial").value()));
 					ent.set<Component::Position>(DXM::Vector3(i, 2, j));
 					ent.set<Component::Rotation>(DXM::Vector3(0, 3.14, 0));
-					//Component::Rigidbody& rb = ent.get_mut<Component::Rigidbody>();
-					//rb.SetCreationSettings(boxSettings);
-					//scene.RegisterToPhysics(ent);
-					//ent.get_mut<Component::Rigidbody>().GetBody().SetPosition(Math::Convert(DXM::Vector3(i, 2, j)), JPH::EActivation::Activate);
+					ent.add<Component::Static>();
 				}
 			}
 		}
 
 		{
-			flecs::entity floorEnt = scene.GetEntityWorld().entity().is_a(scene.GetRigidbodyStaticMeshPrefab());
+			flecs::entity floorEnt = scene.GetEntityWorld().entity().is_a(scene.GetStaticMeshPrefab());
 			floorEnt.remove<Component::Mesh>();
 			JPH::BoxShapeSettings floor_shape_settings(JPH::Vec3(100.0f, 1.0f, 100.0f));
 			JPH::BodyCreationSettings floor_settings(floor_shape_settings.Create().Get(), JPH::RVec3(0.0, -1.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Static, aZero::Physics::Layers::STATIC);
-			Component::Rigidbody& rb = floorEnt.get_mut<Component::Rigidbody>();
-			rb.SetCreationSettings(floor_settings);
-			scene.RegisterToPhysics(floorEnt);
+			Component::Rigidbody rigidbodyFloor;
+			rigidbodyFloor.SetCreationSettings(floor_settings);
+			floorEnt.set<Component::Rigidbody>(rigidbodyFloor);
 			floorEnt.set_name("Floor");
 
 		}
@@ -101,6 +96,11 @@ namespace Example {
 	void ControlCamera(aZero::Scene::Scene& scene, Input::KeyboardListener& listener)
 	{
 		flecs::entity ent = scene.GetEntityWorld().lookup("Camera");
+
+		if (listener.GetDevice()->IsKeyDown(SDL_SCANCODE_0))
+		{
+			scene.MarkStaticMeshesDirty();
+		}
 
 		if (scene.HasPhysics() && ent.has<Component::Rigidbody>())
 		{

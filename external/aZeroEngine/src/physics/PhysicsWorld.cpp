@@ -30,7 +30,7 @@ aZero::Physics::Body aZero::Physics::PhysicsWorld::CreateBody(const JPH::BodyCre
 
 	if (!body)
 	{
-		throw; // TODO: Handle
+		throw; // TODO: Handle if theres no more space for any more bodies
 	}
 
 	return Body(body->GetID(), *m_BodyInterface, m_System.GetBodyLockInterface());
@@ -114,7 +114,7 @@ JPH::ValidateResult aZero::Physics::PhysicsWorld::MyContactListener::OnContactVa
 		static_cast<uint64_t>(inBody1.GetUserData()),
 		static_cast<uint64_t>(inBody2.GetUserData()),
 		inBaseOffset,
-		std::make_unique<JPH::CollideShapeResult>(inCollisionResult));
+		inCollisionResult);
 
 	// Allows you to ignore a contact before it is created (using layers to not make objects collide is cheaper!)
 	return JPH::ValidateResult::AcceptAllContactsForThisBodyPair;

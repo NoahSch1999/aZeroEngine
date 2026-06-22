@@ -1,12 +1,11 @@
 #pragma once
-#include "graphics_api/resource/buffer/Buffer.hpp"
-#include "graphics_api/resource/texture/Texture2D.hpp"
-#include "graphics_api/descriptor/DescriptorHeap.hpp"
-#include "graphics_api/command_recording/CommandList.hpp"
-#include "graphics_api/command_recording/CommandQueue.hpp"
+#include "render_api/resource/buffer/Buffer.hpp"
+#include "render_api/resource/texture/Texture2D.hpp"
+#include "render_api/descriptor/DescriptorHeap.hpp"
+#include "render_api/command_recording/CommandList.hpp"
+#include "render_api/command_recording/CommandQueue.hpp"
 #include "LinearFrameAllocator.hpp"
-#include "graphics_api/descriptor/ResourceView.hpp"
-#include "scene/SceneRenderData.hpp"
+#include "render_api/descriptor/ResourceView.hpp"
 #include "LinearAllocator.hpp"
 
 namespace aZero
@@ -50,10 +49,8 @@ namespace aZero
 			}
 
 			// Used when we wanna check if we should render the next frame
-			// todo Change this once several different kinds of queues are used
 			bool IsReady(RenderAPI::CommandQueue& directQueue)
 			{
-				// !note Currently stalls cpu if the next frame context isnt ready - Might wanna change it to return early to enable the game-loop to make another lap
 				return directQueue.WaitForSignal(m_FrameCompleteSignal, false);
 			}
 
@@ -68,9 +65,9 @@ namespace aZero
 			}
 			FrameContext& operator=(FrameContext&&) noexcept = default;
 
-			// TODO: Support dynamic resizing, or atleast easy resizing
 			void Init(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler, uint32_t maxInstances)
 			{
+				// TODO: Support dynamic resizing, or atleast easy resizing
 				uint64_t frameBufferSize = static_cast<uint64_t>(1024 * 1024);
 				m_FrameAllocator = LinearFrameAllocator(device, frameBufferSize, recycler);
 				m_FrameDataBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(frameBufferSize, D3D12_HEAP_TYPE_UPLOAD), &recycler);

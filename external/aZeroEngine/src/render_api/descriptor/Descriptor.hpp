@@ -1,7 +1,7 @@
 #pragma once
 #include "misc/IndexFreelist.hpp"
 #include "misc/NonCopyable.hpp"
-#include "graphics_api/D3D12Include.hpp"
+#include "render_api/D3D12Include.hpp"
 
 namespace aZero
 {
@@ -28,7 +28,6 @@ namespace aZero
 			bool IsValid() const { return m_HeapIndex != Descriptor::InvalidDescriptorIndex; }
 
 		private:
-			// TODO: Change so it's not a raw ptr. It needs to be valid if the heap is moved
 			DescriptorHeap* m_diOwningHeap = nullptr;
 			DescriptorIndex m_HeapIndex = Descriptor::InvalidDescriptorIndex;
 			D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;

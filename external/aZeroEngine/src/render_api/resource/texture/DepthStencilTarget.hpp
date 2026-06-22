@@ -1,6 +1,6 @@
 #pragma once
 #include "Texture2D.hpp"
-#include "graphics_api/descriptor/ResourceView.hpp"
+#include "render_api/descriptor/ResourceView.hpp"
 
 namespace aZero
 {

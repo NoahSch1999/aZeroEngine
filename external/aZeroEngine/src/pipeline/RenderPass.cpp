@@ -1,5 +1,5 @@
 #include "RenderPass.hpp"
-#include "graphics_api/command_recording/CommandList.hpp"
+#include "render_api/command_recording/CommandList.hpp"
 
 std::optional<std::reference_wrapper<aZero::Pipeline::BufferBinding>> aZero::Pipeline::RenderPass::GetBufferBinding(std::string_view name)
 {
@@ -80,7 +80,6 @@ bool aZero::Pipeline::RenderPass::CompileVertexPass(const VertexPassDesc& desc, 
 		return false;
 	}
 
-	// TODO: Create pipeline
 	if (!this->CreateVertexPipelineState(desc, device, vertexShader, pixelShader))
 	{
 		return false;
@@ -262,14 +261,10 @@ void aZero::Pipeline::RenderPass::ExtractRootParameters(const Shader& shader, D3
 
 bool aZero::Pipeline::RenderPass::CreateRootSignature(ID3D12DeviceX* device, const std::vector<D3D12_ROOT_PARAMETER>& rootParams)
 {
-	// todo Fill in?
-	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers;
-	//
-
 	const D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{
 		static_cast<UINT>(rootParams.size()),
 		rootParams.data(),
-		static_cast<UINT>(staticSamplers.size()), staticSamplers.data(),
+		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
 		| D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED
 		| D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED };
@@ -345,15 +340,12 @@ bool aZero::Pipeline::RenderPass::CreateVertexPipelineState(const VertexPassDesc
 	pipelineStateDesc.InputLayout.NumElements = inputElementDescs.size();
 	pipelineStateDesc.InputLayout.pInputElementDescs = inputElementDescs.data();
 
-	// todo Fix
 	m_TopologyType = desc.TopologyType;
 	pipelineStateDesc.PrimitiveTopologyType = static_cast<D3D12_PRIMITIVE_TOPOLOGY_TYPE>(m_TopologyType);
 
 	// todo Make this a setting
 	pipelineStateDesc.SampleMask = std::numeric_limits<uint32_t>::max();
 
-
-	// TODO: wrong usage of the depth?
 	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
 	depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;

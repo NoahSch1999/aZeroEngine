@@ -1,6 +1,6 @@
 #pragma once
-#include "graphics_api/resource/buffer/Buffer.hpp"
-#include "graphics_api/command_recording/CommandList.hpp"
+#include "render_api/resource/buffer/Buffer.hpp"
+#include "render_api/command_recording/CommandList.hpp"
 
 namespace aZero
 {

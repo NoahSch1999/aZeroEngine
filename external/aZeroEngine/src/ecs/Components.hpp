@@ -1,6 +1,6 @@
 #pragma once
 #include "ecs/FlecsInclude.hpp"
-#include "graphics_api/D3D12Include.hpp"
+#include "render_api/D3D12Include.hpp"
 #include "assets/Mesh.hpp"
 #include "assets/Texture.hpp"
 #include "assets/Material.hpp"
@@ -9,14 +9,8 @@
 
 namespace aZero
 {
-    // TODO: Make components user friendly
     namespace Component
     {
-        // Why doesn't doing this work with flecs? The cached queries seem to break...
-        /*
-        struct Position : public DXM::Vector3 {}
-        */
-        
         struct Position
         {
             float x, y, z;
@@ -125,18 +119,6 @@ namespace aZero
                 }
             }
 
-            /*void SetMesh(Asset::RenderID renderID) {
-                if (renderID != Asset::InvalidRenderID) {
-                    m_MeshID = renderID;
-                }
-            }
-
-            void SetMaterial(Asset::RenderID renderID) {
-                if (renderID != Asset::InvalidRenderID) {
-                    m_MaterialID = renderID;
-                }
-            }*/
-
             Asset::RenderID GetMeshID() const { return m_MeshID; }
 
             struct Submesh
@@ -174,7 +156,19 @@ namespace aZero
 
         struct Rigidbody : public Physics::TriggerBody
         {
+            Rigidbody() = default;
 
+            Rigidbody(const JPH::BodyCreationSettings& settings)
+                :Physics::TriggerBody(settings)
+            {
+
+            }
+
+            Rigidbody& operator=(const JPH::BodyCreationSettings& settings)
+            {
+                Physics::TriggerBody::operator=(settings);
+                return *this;
+            }
         };
 
         struct Camera {
@@ -261,9 +255,10 @@ namespace aZero
 
             DXM::Matrix GetViewProjectionMatrix(const Component::Position& cameraPosition, const Component::Rotation& cameraRotation) const
             {
-                // TODO: Use rotation to orient the view
                 return this->GetViewMatrix(cameraPosition, cameraRotation) * this->GetProjectionMatrix();
             }
         };
+
+        struct Static { };
     }
 }

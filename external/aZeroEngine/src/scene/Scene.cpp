@@ -2,7 +2,31 @@
 #include "physics/PhysicsEngine.hpp"
 #include "renderer/WireframeRenderer.hpp"
 #include "assets/AssetManager.hpp"
-#include "renderer/GPU_Driven_Pipeline_Structs.hpp"
+#include "renderer/GPU_Structs.hpp"
+
+// todo Test so that submeshes work as expected
+void WriteRenderFormat(aZero::Rendering::GPU_Struct::ObjectCullData* pObjCull, aZero::Rendering::GPU_Struct::InstanceData* pInstance,
+	const aZero::Component::Mesh& mesh, const aZero::Component::Position& position, const aZero::Component::Rotation& rotation, const aZero::Component::Scale& scale, uint32_t& count)
+{
+	using namespace aZero::Rendering;
+	for (uint32_t j = 0; j < mesh.m_NumSubmeshes; j++)
+	{
+		GPU_Struct::InstanceData instanceData;
+		instanceData.Transform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
+
+		GPU_Struct::ObjectCullData objectCullData;
+		mesh.m_Submeshes[j].m_Bounds.Transform(objectCullData.Bounds, instanceData.Transform);
+		objectCullData.GlobalMeshletOffset = mesh.m_Submeshes[j].MeshletGlobalOffset;
+		objectCullData.GlobalVertexOffset = mesh.m_Submeshes[j].VertexGlobalOffset;
+		objectCullData.MaterialIndex = mesh.m_Submeshes[j].m_MaterialID;
+		objectCullData.MeshletCount = mesh.m_Submeshes[j].MeshletCount;
+
+		*(pObjCull + count) = objectCullData;
+		*(pInstance + count) = instanceData;
+
+		count++;
+	}
+}
 
 aZero::Scene::Scene::Scene()
 {
@@ -19,37 +43,106 @@ aZero::Scene::Scene::Scene(Physics::PhysicsEngine& physicsEngine)
 aZero::Scene::Scene::~Scene()
 {
 	// Reset queries since they should live shorter than the world
-	m_MovableMeshQuery = {};
+	m_Dynamic_Mesh_Query = {};
+	m_Static_Mesh_Query = {};
 	m_CameraQuery = {};
 	m_ApplyPhysicsQuery = {};
+
+	if (m_PhysicsWorld.get())
+	{
+		m_Physics_OnSet_Observer.destruct();
+		m_Physics_OnRemove_Observer.destruct();
+		m_World.release(); // Need to be destroyed before the physics world since there's observers that use the physics world (unless they are disabled beforehand)
+		m_PhysicsWorld.reset();
+	}
 }
 
 void aZero::Scene::Scene::Init()
 {
 	m_SceneID = m_IncrementingID.fetch_add(1, std::memory_order_relaxed);
 
-	// TODO: Make prefab use default mesh and material
+	m_World.component<Component::Position>();
+	m_World.component<Component::Rotation>();
+	m_World.component<Component::Scale>();
+	m_World.component<Component::Camera>();
+	m_World.component<Component::Mesh>();
+	m_World.component<Component::PointLight>();
+	m_World.component<Component::SpotLight>();
+	m_World.component<Component::DirectionalLight>();
+	m_World.component<Component::Rigidbody>();
+	m_World.component<Component::Static>();
+
+	m_Static_Mesh_Query = m_World.query_builder<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale>().with<Component::Static>().build();
+	m_Dynamic_Mesh_Query = m_World.query_builder<Component::Mesh, Component::Position, Component::Rotation, Component::Scale>().without<Component::Static>().cached().build();
+	m_CameraQuery = m_World.query_builder<Component::Camera, Component::Position, Component::Rotation>().cached().build();
+
 	m_StaticMeshPrefab = m_World.prefab("StaticMeshPrefab").set(Component::Mesh()).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0)).set(Component::Scale(1, 1, 1));
-	m_RigidbodyStaticMeshPrefab = m_World.prefab("RigidbodyStaticMeshPrefab").set(Component::Rigidbody()).set(Component::Mesh()).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0)).set(Component::Scale(1, 1, 1));
 	m_CameraPrefab = m_World.prefab("CameraPrefab").set(Component::Camera(3.14f / 2.f, 0.001f, 1000.f, true, { 0,0 }, { 1920, 1080 })).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0));
 
-	m_MovableMeshQuery = m_World.query_builder<Component::Mesh, Component::Position, Component::Rotation, Component::Scale>().cached().build(); // TODO: Check if it has movable component
-	m_CameraQuery = m_World.query_builder<Component::Camera, Component::Position, Component::Rotation>().cached().build();
-	m_ApplyPhysicsQuery = m_World.query_builder<Component::Rigidbody, Component::Position, Component::Rotation>().cached().build();
+	if (m_PhysicsWorld.get()) 
+	{
+		m_RigidbodyStaticMeshPrefab = m_World.prefab("RigidbodyStaticMeshPrefab").set(Component::Rigidbody()).set(Component::Mesh()).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0)).set(Component::Scale(1, 1, 1));
+
+		m_ApplyPhysicsQuery = m_World.query_builder<Component::Rigidbody, Component::Position, Component::Rotation>().without<Component::Static>().cached().build();
+
+		m_Physics_OnSet_Observer = m_World.observer<Component::Rigidbody>().event(flecs::OnSet).each(
+			[this](flecs::entity entity, Component::Rigidbody& rb) {
+				this->RegisterToPhysics(entity, rb);
+			}
+		);
+
+		m_Physics_OnRemove_Observer = m_World.observer<Component::Rigidbody>().event(flecs::OnRemove).each(
+			[this](flecs::entity entity, Component::Rigidbody& rb) {
+				this->UnregisterFromPhysics(entity, rb);
+			}
+		);
+	}
+	
 }
 
-std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZero::Scene::Scene::GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList, bool recache)
+void aZero::Scene::Scene::RebuildStaticMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList)
+{
+	// todo Reset stuff, ex. tree, for the new cached data
+	// todo Rehash mesh in tree etc
+	m_NumStaticMeshEntities = m_Static_Mesh_Query.count();
+	m_Static_Mesh_Query.run([this, &frameDataAllocator, &frameDataBuffer, &cmdList] (flecs::iter& it) {
+		using namespace Rendering;
+		size_t objectCullDataOffset = frameDataAllocator.GetOffset();
+		GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(this->m_NumStaticMeshEntities * sizeof(GPU_Struct::ObjectCullData)));
+
+		size_t instanceDataOffset = frameDataAllocator.GetOffset();
+		GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(this->m_NumStaticMeshEntities * sizeof(GPU_Struct::InstanceData)));
+
+		uint32_t totalNumEntities = 0;
+
+		while (it.next())
+		{
+			auto mesh = it.field<const Component::Mesh>(0);
+			auto position = it.field<const Component::Position>(1);
+			auto rotation = it.field<const Component::Rotation>(2);
+			auto scale = it.field<const Component::Scale>(3);
+
+			for (auto i : it)
+			{
+				WriteRenderFormat(pObjCull, pInstance, mesh[i], position[i], rotation[i], scale[i], totalNumEntities);
+			}
+		}
+
+		cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(), 0, frameDataBuffer.GetResource(), objectCullDataOffset, this->m_NumStaticMeshEntities * sizeof(GPU_Struct::ObjectCullData));
+		cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(), 0, frameDataBuffer.GetResource(), instanceDataOffset, this->m_NumStaticMeshEntities * sizeof(GPU_Struct::InstanceData));
+	});
+}
+
+std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZero::Scene::Scene::GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList)
 {
 	using namespace Rendering;
 
-	bool shouldRecache = recache;
 	if (!m_RenderData.ObjectCullDataBuffer.GetResource())
 	{
 		ID3D12DeviceX* device = GetID3D12DeviceX(cmdList.Get());
 		m_RenderData.ObjectCullDataBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::ObjectCullData) * 100000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
 		m_RenderData.InstanceBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::InstanceData) * 100000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
 		m_RenderData.CameraBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::CameraData) * 1000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
-		shouldRecache = true; // Force a rebuild of the cache if its the first time
 	}
 
 	this->m_RenderData.CameraRSData.clear();
@@ -62,10 +155,7 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 				GPU_Struct::CameraData cameraData;
 				cameraData.ViewMatrix = camera.GetViewMatrix(position, rotation);
 				cameraData.ViewProjectionMatrix = camera.GetViewProjectionMatrix(position, rotation);
-
 				cameraData.Frustum = camera.GetFrustum();
-
-				// TODO: Rotation
 				cameraGPUData.emplace_back(cameraData);
 				this->m_RenderData.CameraRSData.emplace_back(camera.GetViewport());
 			}
@@ -78,57 +168,35 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 	cmdList->CopyBufferRegion(m_RenderData.CameraBuffer.GetResource(),
 		0, frameDataBuffer.GetResource(), cameraDataOffset, cameraGPUData.size() * sizeof(GPU_Struct::CameraData));
 
+	if (m_ShouldRebuildStaticMeshes)
+	{
+		this->RebuildStaticMeshes(frameDataAllocator, frameDataBuffer, cmdList);
+		m_ShouldRebuildStaticMeshes = false;
+	}
 
-	uint32_t entityUpdateCount = shouldRecache ? m_MovableMeshQuery.count() /* TODO: + number of stationary ones */ : m_MovableMeshQuery.count() - m_LastCachedEntityIndex;
+	uint32_t entityUpdateCount = m_Dynamic_Mesh_Query.count();
 
-	// TODO: Handle resize of renderdata buffers
 	size_t objectCullDataOffset = frameDataAllocator.GetOffset();
 	GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::ObjectCullData)));
 
 	size_t instanceDataOffset = frameDataAllocator.GetOffset();
 	GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::InstanceData)));
 
-	if (shouldRecache)
-	{
-		m_LastCachedEntityIndex = 0;
-
-		// TODO: Append static meshes to "objectCullDataOffset" etc
-
-	}
-
-	uint32_t totalNumEntities = 0; // TODO: Set to number of static entities since we dont wanna overwrite the cached ones
-	m_MovableMeshQuery.each([pObjCull, pInstance, &totalNumEntities](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
+	uint32_t numDynamicMeshEntities = 0; // TODO: Set to number of static entities since we dont wanna overwrite the cached ones
+	m_Dynamic_Mesh_Query.each([pObjCull, pInstance, &numDynamicMeshEntities](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
 		{
-			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
-			{
-				GPU_Struct::InstanceData instanceData;
-				instanceData.Transform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
-
-				GPU_Struct::ObjectCullData objectCullData;
-				mesh.m_Submeshes[i].m_Bounds.Transform(objectCullData.Bounds, instanceData.Transform);
-				objectCullData.GlobalMeshletOffset = mesh.m_Submeshes[i].MeshletGlobalOffset;
-				objectCullData.GlobalVertexOffset = mesh.m_Submeshes[i].VertexGlobalOffset;
-				objectCullData.MaterialIndex = mesh.m_Submeshes[i].m_MaterialID;
-				objectCullData.MeshletCount = mesh.m_Submeshes[i].MeshletCount;
-
-				*(pObjCull + totalNumEntities) = objectCullData;
-				*(pInstance + totalNumEntities) = instanceData;
-
-				totalNumEntities++;
-			}
+			WriteRenderFormat(pObjCull, pInstance, mesh, position, rotation, scale, numDynamicMeshEntities);
 		});
 
-	size_t copyDstOffsetIndex = shouldRecache ? 0 : m_LastCachedEntityIndex; // If recached => copy from 0, else => copy from the end of the cached entities
-
 	cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(),
-		copyDstOffsetIndex * sizeof(GPU_Struct::ObjectCullData),
+		m_NumStaticMeshEntities * sizeof(GPU_Struct::ObjectCullData), // Copy from the end of the cached mesh entities
 		frameDataBuffer.GetResource(), objectCullDataOffset, entityUpdateCount * sizeof(GPU_Struct::ObjectCullData));
 
 	cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(),
-		copyDstOffsetIndex * sizeof(GPU_Struct::InstanceData),
+		m_NumStaticMeshEntities * sizeof(GPU_Struct::InstanceData), // Copy from the end of the cached mesh entities
 		frameDataBuffer.GetResource(), instanceDataOffset, entityUpdateCount * sizeof(GPU_Struct::InstanceData));
 
-	return { SceneRenderDataFrameInfo{.StaticMeshCount = totalNumEntities }, m_RenderData };
+	return { SceneRenderDataFrameInfo{.StaticMeshCount = numDynamicMeshEntities + m_NumStaticMeshEntities }, m_RenderData };
 }
 
 void aZero::Scene::Scene::RemoveMeshesWith(Asset::RenderID withID)
@@ -190,17 +258,18 @@ void aZero::Scene::Scene::AddDebugDrawArguments(Asset::AssetManager& assetManage
 		if (m_PhysicsWorld.get())
 		{
 			m_ApplyPhysicsQuery.each([&wireframeRenderer](Component::Rigidbody& rigidBody, Component::Position& position, Component::Rotation& rotation) {
-				auto [lock, body] = rigidBody.m_Body.LockForRead();
-				if (lock->Succeeded())
+				auto lock = rigidBody.m_Body.LockForRead();
+				if (lock.Succeeded())
 				{
-					auto bounds = body->GetWorldSpaceBounds();
+					auto& body = lock.GetBody();
 
-					auto* shape = body->GetShape();
-					//const JPH::BoxShape* boxShape = dynamic_cast<const JPH::BoxShape*>(body->GetShape()); // Why crash with dynamic cast? Answer: RTTI OFF :(
-					if (body->GetShape()->GetSubType() == JPH::EShapeSubType::Box)
+					auto bounds = body.GetWorldSpaceBounds();
+
+					auto* shape = body.GetShape();
+					if (body.GetShape()->GetSubType() == JPH::EShapeSubType::Box)
 					{
-						const JPH::BoxShape* boxShape = static_cast<const JPH::BoxShape*>(body->GetShape());
-						wireframeRenderer.AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 0), Math::Convert(body->GetPosition()), Math::Convert(body->GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
+						const JPH::BoxShape* boxShape = static_cast<const JPH::BoxShape*>(body.GetShape());
+						wireframeRenderer.AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 0), Math::Convert(body.GetPosition()), Math::Convert(body.GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
 					}
 				}
 			});
@@ -215,11 +284,12 @@ void aZero::Scene::Scene::ApplyPhysics()
 		this->ResolveCollisionEvents();
 
 		m_ApplyPhysicsQuery.each([](Component::Rigidbody& rigidBody, Component::Position& position, Component::Rotation& rotation) {
-			auto [lock, body] = rigidBody.m_Body.LockForRead();
-			if (lock->Succeeded())
+			auto lock = rigidBody.m_Body.LockForRead();
+			if (lock.Succeeded())
 			{
-				position = Math::Convert(body->GetPosition());
-				rotation = Math::Convert(body->GetRotation()).ToEuler();
+				auto& body = lock.GetBody();
+				position = Math::Convert(body.GetPosition());
+				rotation = Math::Convert(body.GetRotation()).ToEuler();
 			}
 		});
 	}
@@ -244,26 +314,25 @@ void aZero::Scene::Scene::OptimizePhysics()
 	}
 }
 
-void aZero::Scene::Scene::RegisterToPhysics(flecs::entity entity)
+void aZero::Scene::Scene::RegisterToPhysics(flecs::entity entity, Component::Rigidbody& rigidbody)
 {
-	if (!m_PhysicsWorld.get())
-		return;
+	if (m_BodyID_To_EntityID.count(rigidbody.m_Body.GetBodyID().GetIndexAndSequenceNumber()))
+	{
+		this->UnregisterFromPhysics(entity, rigidbody);
+	}
 
-	Component::Rigidbody& rb = entity.get_mut<Component::Rigidbody>();
-	rb.m_TempBodySettings.mUserData = static_cast<uint64_t>(entity.id());
-
-	rb.m_Body = m_PhysicsWorld->CreateBody(rb.m_TempBodySettings, true);
-	m_BodyID_To_EntityID[rb.m_Body.GetBodyID()] = entity.id();
+	rigidbody.m_BodySettings.mUserData = static_cast<uint64_t>(entity.id());
+	rigidbody.m_Body = m_PhysicsWorld->CreateBody(rigidbody.m_BodySettings, true);
+	m_BodyID_To_EntityID[rigidbody.m_Body.GetBodyID().GetIndexAndSequenceNumber()] = entity.id();
 }
 
-void aZero::Scene::Scene::UnregisterFromPhysics(flecs::entity entity)
+void aZero::Scene::Scene::UnregisterFromPhysics(flecs::entity entity, Component::Rigidbody& rigidbody)
 {
-	if (!m_PhysicsWorld.get())
-		return;
-
-	Component::Rigidbody& rb = entity.get_mut<Component::Rigidbody>();
-	m_BodyID_To_EntityID.erase(rb.m_Body.GetBodyID());
-	m_PhysicsWorld->DestroyBody(rb.m_Body);
+	if (m_BodyID_To_EntityID.count(rigidbody.m_Body.GetBodyID().GetIndexAndSequenceNumber()))
+	{
+		m_BodyID_To_EntityID.erase(rigidbody.m_Body.GetBodyID().GetIndexAndSequenceNumber());
+		m_PhysicsWorld->DestroyBody(rigidbody.m_Body);
+	}
 }
 
 void aZero::Scene::Scene::ResolveCollisionEvents()
@@ -307,11 +376,11 @@ void aZero::Scene::Scene::ResolveCollisionEvents()
 					Component::Rigidbody& secondRb = secondEntity.get_mut<Component::Rigidbody>();
 
 					if (firstRb.m_OnContactValidate.has_value()) {
-						firstRb.m_OnContactValidate.value()(secondRb.m_Body, event.InBaseOffset, *event.InCollisionResult.get());
+						firstRb.m_OnContactValidate.value()(secondRb.m_Body, event.InBaseOffset, event.InCollisionResult);
 					}
 
 					if (secondRb.m_OnContactValidate.has_value()) {
-						secondRb.m_OnContactValidate.value()(firstRb.m_Body, event.InBaseOffset, *event.InCollisionResult.get());
+						secondRb.m_OnContactValidate.value()(firstRb.m_Body, event.InBaseOffset, event.InCollisionResult);
 					}
 				}
 			}
@@ -361,10 +430,10 @@ void aZero::Scene::Scene::ResolveCollisionEvents()
 		}
 
 		for (auto& event : m_PhysicsWorld->GetContactRemovedEvents()) {
-			if (m_BodyID_To_EntityID.count(event.InSubShapePair.GetBody1ID()) && m_BodyID_To_EntityID.count(event.InSubShapePair.GetBody2ID()))
+			if (m_BodyID_To_EntityID.count(event.InSubShapePair.GetBody1ID().GetIndexAndSequenceNumber()) && m_BodyID_To_EntityID.count(event.InSubShapePair.GetBody2ID().GetIndexAndSequenceNumber()))
 			{
-				flecs::entity firstEntity = m_World.entity(m_BodyID_To_EntityID.at(event.InSubShapePair.GetBody1ID()));
-				flecs::entity secondEntity = m_World.entity(m_BodyID_To_EntityID.at(event.InSubShapePair.GetBody2ID()));
+				flecs::entity firstEntity = m_World.entity(m_BodyID_To_EntityID.at(event.InSubShapePair.GetBody1ID().GetIndexAndSequenceNumber()));
+				flecs::entity secondEntity = m_World.entity(m_BodyID_To_EntityID.at(event.InSubShapePair.GetBody2ID().GetIndexAndSequenceNumber()));
 
 				if (firstEntity.has<Component::Rigidbody>() && secondEntity.has<Component::Rigidbody>())
 				{

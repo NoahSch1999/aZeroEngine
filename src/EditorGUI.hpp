@@ -63,13 +63,6 @@ namespace aZero::Editor::GUI
 				// Debug settings
 				ImGui::Begin("Debug");
 
-				if(ImGui::Button("TEST EVENT"))
-				{
-					auto ent = scene.GetEntityWorld().lookup("Mesh");
-					scene.UnregisterFromPhysics(ent);
-					ent.destruct();
-				}
-
 				if (ImGui::Checkbox("Enable physics camera", &m_PhysicsCamera))
 				{
 					flecs::entity ent = scene.GetEntityWorld().lookup("Camera");
@@ -80,18 +73,16 @@ namespace aZero::Editor::GUI
 						boxSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
 						boxSettings.mMassPropertiesOverride.mMass = 1.0f;
 
-						ent.set(Component::Rigidbody());
-						Component::Rigidbody& rb = ent.get_mut<Component::Rigidbody>();
-						rb.SetCreationSettings(boxSettings);
-						scene.RegisterToPhysics(ent);
-						rb.GetBody().SetPosition(Math::Convert(DXM::Vector3(ent.get<Component::Position>())), JPH::EActivation::Activate);
-						rb.SetOnContactAdded([&scene](Physics::Body& body, const JPH::ContactManifold& cm, const JPH::ContactSettings& cs) {
-							std::cout << "Camera collided with body: " << scene.GetEntityWorld().entity(scene.GetBodyID_To_EntityID_Map().at(body.GetBodyID())).name() << "\n";
+						Component::Rigidbody rb(boxSettings);
+
+						ent.set<Component::Rigidbody>(rb);
+						ent.get_mut<Component::Rigidbody>().GetBody().SetPosition(Math::Convert(DXM::Vector3(ent.get<Component::Position>())), JPH::EActivation::Activate);
+						ent.get_mut<Component::Rigidbody>().SetOnContactAdded([&scene](Physics::Body& body, const JPH::ContactManifold& cm, const JPH::ContactSettings& cs) {
+							std::cout << "Camera collided with body: " << scene.GetEntityWorld().entity(scene.GetBodyID_To_EntityID_Map().at(body.GetBodyID().GetIndexAndSequenceNumber())).name() << "\n";
 						});
 					}
 					else
 					{
-						scene.UnregisterFromPhysics(ent);
 						ent.remove<Component::Rigidbody>();
 					}
 				}

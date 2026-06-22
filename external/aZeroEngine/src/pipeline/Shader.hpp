@@ -1,7 +1,7 @@
 #pragma once
 #include <string_view>
 #include <array>
-#include "graphics_api/D3D12Include.hpp"
+#include "render_api/D3D12Include.hpp"
 
 namespace aZero
 {
@@ -90,10 +90,9 @@ namespace aZero
 			ID3D12ShaderReflection* GetReflection() const { return m_Reflection.Get(); }
 			IDxcBlob* GetBinary() const { return m_CompiledShader.Get(); }
 
-			bool Compile(IDxcCompilerX& compiler, std::string_view path);
+			bool Compile(IDxcCompilerX& compiler, std::string_view path, bool embedDebug = true);
 
 		private:
-			// TODO: Potentially add support for non-hlsl shaders, ex. slang
 			EShaderType DeduceShadertype(std::string_view shaderName);
 			bool Reflect(IDxcResult* compilationResult, IDxcUtils* utils);
 

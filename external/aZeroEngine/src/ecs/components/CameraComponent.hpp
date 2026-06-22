@@ -1,7 +1,7 @@
 #pragma once
-#include "graphics_api/D3D12Include.hpp"
-#include "graphics_api/resource/texture/RenderTarget.hpp"
-#include "graphics_api/resource/texture/DepthStencilTarget.hpp"
+#include "render_api/D3D12Include.hpp"
+#include "render_api/resource/texture/RenderTarget.hpp"
+#include "render_api/resource/texture/DepthStencilTarget.hpp"
 
 namespace aZero
 {

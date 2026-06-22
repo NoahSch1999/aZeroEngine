@@ -5,7 +5,6 @@
 namespace aZero
 {
 	namespace Scene { class Scene; }
-	namespace Scene { class Scene; }
 	namespace Physics
 	{
 		using BodyActivated_ResolveCallback = std::function<void()>;
@@ -19,13 +18,10 @@ namespace aZero
 		class TriggerBody
 		{
 			friend class aZero::Scene::Scene;
-			friend class aZero::Scene::Scene;
 		public:
 			TriggerBody() = default;
 			TriggerBody(const JPH::BodyCreationSettings& bodySettings)
-				:m_TempBodySettings(bodySettings) {}
-			TriggerBody(Physics::Body&& body)
-				:m_Body(std::move(body)) {}
+				:m_BodySettings(bodySettings) {}
 
 			Physics::Body& GetBody() { return m_Body; }
 
@@ -54,10 +50,10 @@ namespace aZero
 			void SetOnContactPersisted(ContactPersisted_ResolveCallback&& callback) { m_OnContactPersisted = std::move(callback); }
 			void SetOnContactRemoved(ContactRemoved_ResolveCallback&& callback) { m_OnContactRemoved = std::move(callback); }
 
-			void SetCreationSettings(const JPH::BodyCreationSettings& settings) { m_TempBodySettings = settings; }
+			void SetCreationSettings(const JPH::BodyCreationSettings& settings) { m_BodySettings = settings; }
 		private:
 			Physics::Body m_Body;
-			JPH::BodyCreationSettings m_TempBodySettings;
+			JPH::BodyCreationSettings m_BodySettings;
 
 			std::optional<BodyActivated_ResolveCallback> m_OnBodyActivated = std::optional<BodyActivated_ResolveCallback>();
 			std::optional<BodyDeactivated_ResolveCallback> m_OnBodyDeactivated = std::optional<BodyDeactivated_ResolveCallback>();

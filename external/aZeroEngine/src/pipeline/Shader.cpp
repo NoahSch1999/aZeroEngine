@@ -32,7 +32,7 @@ bool aZero::Pipeline::Shader::Reflect(IDxcResult* compilationResult, IDxcUtils* 
 	return true;
 }
 
-bool aZero::Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_view path)
+bool aZero::Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_view path, bool embedDebug)
 {
 	if (!path.ends_with("hlsl"))
 	{
@@ -60,10 +60,18 @@ bool aZero::Pipeline::Shader::Compile(IDxcCompilerX& compiler, std::string_view 
 	compilationArgs.push_back(L"-Qembed_debug");
 	compilationArgs.push_back(L"-Fd");
 	compilationArgs.push_back(pdbName.c_str());
-	compilationArgs.push_back(L"-Od");
+	compilationArgs.push_back(DXC_ARG_SKIP_OPTIMIZATIONS);
 #else
-	compilationArgs.push_back(L"-Qstrip_debug");
-	compilationArgs.push_back(L"-O3");
+	if (embedDebug) 
+	{
+		compilationArgs.push_back(DXC_ARG_DEBUG);
+		compilationArgs.push_back(L"-Qembed_debug");
+	}
+	else 
+	{
+		compilationArgs.push_back(L"-Qstrip_debug");
+	}
+	compilationArgs.push_back(DXC_ARG_OPTIMIZATION_LEVEL3);
 #endif
 
 

@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 
-#include "graphics_api/D3D12Include.hpp"
+#include "render_api/D3D12Include.hpp"
 
 namespace aZero
 {
@@ -40,7 +40,6 @@ namespace aZero
                 Sphere() = default;
                 Sphere(const DXM::Vector3& color, const DXM::Vector3& center, float radius, uint32_t detail)
                 {
-                    // TODO: Impl
                     const float PI = 3.1415;
                     for (uint32_t i = 1; i < detail; i++)
                     {
@@ -145,7 +144,7 @@ namespace aZero
 
             struct Frustum
             {
-                // TODO
+                // TODO impl
             };
         }
     }

@@ -1,7 +1,7 @@
 #pragma once
 #include "DescriptorHeap.hpp"
-#include "graphics_api/resource/buffer/Buffer.hpp"
-#include "graphics_api/resource/texture/Texture2D.hpp"
+#include "render_api/resource/buffer/Buffer.hpp"
+#include "render_api/resource/texture/Texture2D.hpp"
 
 namespace aZero
 {

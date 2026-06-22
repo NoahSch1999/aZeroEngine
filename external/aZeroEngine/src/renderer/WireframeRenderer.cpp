@@ -1,7 +1,7 @@
 #include "WireframeRenderer.hpp"
 #include "ecs/Components.hpp"
-#include "graphics_api/resource/texture/RenderTarget.hpp"
-#include "graphics_api/resource/texture/DepthStencilTarget.hpp"
+#include "render_api/resource/texture/RenderTarget.hpp"
+#include "render_api/resource/texture/DepthStencilTarget.hpp"
 #include "Renderer.hpp"
 
 aZero::Rendering::WireframeRenderer::WireframeRenderer(Rendering::Renderer& renderer, ID3D12DeviceX* device, IDxcCompilerX& compiler)

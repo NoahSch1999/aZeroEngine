@@ -7,7 +7,7 @@
 #include <SimpleMath.h>
 #include <stdexcept>
 #include "misc/EngineDebugMacros.hpp"
-#include "graphics_api/DXCompilerInclude.hpp"
+#include "render_api/DXCompilerInclude.hpp"
 
 #if USE_DEBUG
 #include <dxgidebug.h>

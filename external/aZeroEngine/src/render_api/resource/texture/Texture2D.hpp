@@ -1,5 +1,5 @@
 #pragma once
-#include "graphics_api/resource/ResourceBase.hpp"
+#include "render_api/resource/ResourceBase.hpp"
 
 namespace aZero
 {

@@ -45,7 +45,6 @@ int main(int argc, char* argv[])
 	
 	aZero::Window::Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD);
 
-	// TODO: Take in width/height instead of vector2f in the entire project when specifying window dimensions
 	try
 	{
 		// API Interfaces
@@ -79,7 +78,6 @@ int main(int argc, char* argv[])
 		Input::KeyboardListener keyboardListener;
 		Scene::Scene scene(engine.GetPhysicsEngine());
 		Example::Setup(engine, scene, { (float)width, (float)height }, rtv, dsv, window, keyboardListener);
-
 		assetManager.RegisterScene(scene);
 
 		renderer.FlushFrameAllocations();

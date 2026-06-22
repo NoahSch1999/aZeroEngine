@@ -13,16 +13,14 @@ namespace aZero
 		public:
 			Body() = default;
 
-			std::tuple<std::unique_ptr<JPH::BodyLockWrite>, JPH::Body*> LockForWrite()
+			JPH::BodyLockWrite LockForWrite()
 			{
-				std::unique_ptr<JPH::BodyLockWrite> lock = std::make_unique<JPH::BodyLockWrite>(*m_LockingInterface, m_ID);
-				return std::make_tuple<std::unique_ptr<JPH::BodyLockWrite>, JPH::Body*>(std::move(lock), m_LockingInterface->TryGetBody(m_ID));
+				return JPH::BodyLockWrite(*m_LockingInterface, m_ID);
 			}
 
-			std::tuple<std::unique_ptr<JPH::BodyLockRead>, JPH::Body*> LockForRead()
+			JPH::BodyLockRead LockForRead()
 			{
-				std::unique_ptr<JPH::BodyLockRead> lock = std::make_unique<JPH::BodyLockRead>(*m_LockingInterface, m_ID);
-				return std::make_tuple<std::unique_ptr<JPH::BodyLockRead>, JPH::Body*>(std::move(lock), m_LockingInterface->TryGetBody(m_ID));
+				return JPH::BodyLockRead(*m_LockingInterface, m_ID);
 			}
 
 			// Oh god...but this is for the best (thanks AI for speeding up the process):

@@ -37,7 +37,7 @@ namespace aZero
 				struct Event_ContactValidate {
 					uint64_t FirstEntityID, SecondEntityID;
 					JPH::RVec3Arg InBaseOffset;
-					std::unique_ptr<JPH::CollideShapeResult> InCollisionResult; // TODO: Avoid dynamic mem alloc
+					JPH::CollideShapeResult InCollisionResult;
 				};
 
 				struct Event_ContactAdded {

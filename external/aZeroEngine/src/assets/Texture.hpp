@@ -11,7 +11,6 @@ namespace aZero
 
 	namespace Asset
 	{
-		// TODO: Support mips
 		struct TextureData
 		{
 			std::vector<uint8_t> TexelData;

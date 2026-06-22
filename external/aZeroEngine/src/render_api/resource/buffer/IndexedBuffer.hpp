@@ -1,5 +1,5 @@
 #pragma once
-#include "graphics_api/resource/buffer/Buffer.hpp"
+#include "render_api/resource/buffer/Buffer.hpp"
 #include "misc/IndexFreelist.hpp"
 
 namespace aZero

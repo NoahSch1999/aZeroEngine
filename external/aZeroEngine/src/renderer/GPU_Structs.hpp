@@ -1,5 +1,5 @@
 #pragma once
-#include "graphics_api/D3D12Include.hpp"
+#include "render_api/D3D12Include.hpp"
 #include "ecs/Components.hpp"
 
 namespace aZero::Rendering::GPU_Struct
@@ -11,16 +11,11 @@ namespace aZero::Rendering::GPU_Struct
         Component::Camera::BoundingFrustum Frustum;
     };
 
-    // Object cull
     struct IndirectArgumentCounter
     {
         uint32_t Count;
     };
 
-    /*
-    Per-object
-    Updated on entity update
-    */
     struct InstanceData
     {
         DXM::Matrix Transform;
@@ -36,12 +31,6 @@ namespace aZero::Rendering::GPU_Struct
         uint32_t Pad[3];
         // This will waste 3xuint...
     };
-
-    /*
-    Per-object
-    Updated on entity update
-    Used in the object culling CS to check object-visibility.
-    */
 
     // TODO: Replace GlobalMeshletOffset, GlobalVertexOffset, MeshletCount with a LOD-info index that is used in the object-cull shader to find the LOD that contains them
     struct ObjectCullData
@@ -66,7 +55,6 @@ namespace aZero::Rendering::GPU_Struct
         uint32_t GroupY;
         uint32_t GroupZ;
     };
-    //
 
     struct PhongPixelConstantData
     {

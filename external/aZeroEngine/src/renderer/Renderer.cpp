@@ -1,9 +1,8 @@
 #include "Renderer.hpp"
 #include "scene/Scene.hpp"
 #include "WireframeRenderer.hpp"
-#include "graphics_api/resource/buffer/MeshBuffer.hpp"
 #include "FrameContext.hpp"
-#include "graphics_api/SwapChain.hpp"
+#include "render_api/SwapChain.hpp"
 #include "assets/Asset.hpp"
 #include "pipeline/RenderPass.hpp"
 
@@ -151,7 +150,7 @@ namespace aZero
 			RenderAPI::CommandList& cmdList = frameContext.m_DirectCmdList;
 			std::array<D3D12_RESOURCE_BARRIER, 2> barriers;
 
-			auto [renderDataFrameInfo, renderData] = scene.GetRenderData(frameContext.m_FrameLinearAllocator, frameContext.m_FrameDataBuffer, cmdList, true);
+			auto [renderDataFrameInfo, renderData] = scene.GetRenderData(frameContext.m_FrameLinearAllocator, frameContext.m_FrameDataBuffer, cmdList);
 
 			this->ClearRenderTarget(renderTarget);
 			this->ClearDepthStencilTarget(depthStencilTarget);
@@ -232,7 +231,7 @@ namespace aZero
 
 				m_MeshletDrawPass.Begin(cmdList);
 				cmdList.OMSetRenderTargets({ renderTarget.GetDescriptor() }, depthStencilTarget.GetDescriptor());
-				// TODO: Set stuff
+
 				cmdList.SetGraphicsConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferAS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBoundBuffer, m_ResourceManager.m_MeshletBoundsBuffer.GetResource()->GetGPUVirtualAddress());
@@ -262,16 +261,12 @@ namespace aZero
 
 			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 
-			// TODO: Change so not only the camera at index[0] will be used
-			// TODO: Render with each camera and its dsv/rtv or allow many ::Render() calls in a frame for the same scene...
 			this->RecordGPUDrivenRenderPipeline(renderTarget, depthStencilTarget, scene);
 		}
 
 		void Renderer::FlushRenderCommands()
 		{
 			m_DirectCommandQueue.Flush();
-
-			// todo When we're also using other types of queues we need to add them here and do some other stuff
 		}
 
 		void Renderer::CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget)
