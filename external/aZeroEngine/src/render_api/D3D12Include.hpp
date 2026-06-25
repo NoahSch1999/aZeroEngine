@@ -4,10 +4,11 @@
 #include <wrl.h>
 #include <dxgi1_5.h>
 #include <d3dcompiler.h>
+#include "dxcapi.h"
+#include "d3d12shader.h"
 #include <SimpleMath.h>
 #include <stdexcept>
 #include "misc/EngineDebugMacros.hpp"
-#include "render_api/DXCompilerInclude.hpp"
 
 #if USE_DEBUG
 #include <dxgidebug.h>

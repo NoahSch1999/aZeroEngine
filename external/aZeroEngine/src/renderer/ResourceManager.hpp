@@ -49,7 +49,7 @@ namespace aZero
 			}
 
 			// todo Use a seperate frameAllocator than the framecontext's when we are loading a lot of meshes at the same time
-			void UpdateRenderState_NEW(LinearFrameAllocator& frameAllocator, aZero::Asset::Mesh& mesh)
+			void UpdateRenderState(FrameStagingAllocator& frameAllocator, aZero::Asset::Mesh& mesh)
 			{
 				if (mesh.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
@@ -75,7 +75,7 @@ namespace aZero
 				}
 			}
 
-			void UpdateRenderState(LinearFrameAllocator& frameAllocator, Asset::Material& material)
+			void UpdateRenderState(FrameStagingAllocator& frameAllocator, Asset::Material& material)
 			{
 				if (material.GetRenderID() == Asset::InvalidRenderID) // Doesnt have a render proxy
 				{
@@ -128,7 +128,7 @@ namespace aZero
 				}
 			}
 
-			void RemoveRenderState_NEW(Asset::Mesh& mesh)
+			void RemoveRenderState(Asset::Mesh& mesh)
 			{
 				if (mesh.GetRenderID() != Asset::InvalidRenderID)
 				{

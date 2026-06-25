@@ -1,6 +1,6 @@
 #pragma once
 #include "render_api/D3D12Include.hpp"
-#include "physics/JoltInclude.hpp"
+#include "physics/Body.hpp"
 
 namespace aZero
 {

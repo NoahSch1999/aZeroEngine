@@ -11,7 +11,7 @@ public:
 	explicit RenderWindow(const aZero::Window::WindowDesc& desc, aZero::Rendering::Renderer& renderer)
 		:Window_Win32(desc), di_Renderer(&renderer)
 	{
-		m_SwapChain = aZero::RenderAPI::SwapChain(this->GetNativeHandle(), renderer.GetGraphicsCommandQueue(), { static_cast<float>(desc.rect.w), static_cast<float>(desc.rect.h) }, renderer.GetBufferingCount(), DXGI_FORMAT_R8G8B8A8_UNORM);
+		m_SwapChain = aZero::RenderAPI::SwapChain(this->GetNativeHandle(), renderer.GetGraphicsCommandQueue(), { static_cast<float>(desc.mRect.w), static_cast<float>(desc.mRect.h) }, renderer.GetBufferingCount(), DXGI_FORMAT_R8G8B8A8_UNORM);
 		
 		UINT latency = 2;
 		m_SwapChain.Get()->GetMaximumFrameLatency(&latency);

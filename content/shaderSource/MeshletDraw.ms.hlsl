@@ -1,4 +1,4 @@
-#include "NEW_GPU_Structs.hlsli"
+#include "GPU_Structs.hlsli"
 
 ConstantBuffer<IndirectArgumentConstantData> Input_CONSTANT : register(b0);
 

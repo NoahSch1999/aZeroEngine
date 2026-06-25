@@ -1,5 +1,5 @@
 #pragma once
-#include "ecs/FlecsInclude.hpp"
+#include "flecs.h"
 #include "render_api/D3D12Include.hpp"
 #include "assets/Mesh.hpp"
 #include "assets/Texture.hpp"

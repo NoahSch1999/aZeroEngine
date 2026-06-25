@@ -98,11 +98,8 @@ namespace aZero
 		void Renderer::FlushFrameAllocations()
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-
-			// Perform uploads for all updated/new assets and other stagings
-			frameContext.RecordFrameAllocations(frameContext.m_DirectCmdList);
-			frameContext.SetLatestSignal(m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, true));
-			frameContext.m_FrameAllocator.ClearQueuedAllocations();
+			frameContext.RecordFrameAllocations(frameContext.GetCommandList());
+			m_DirectCommandQueue.ExecuteCommandList(frameContext.GetCommandList(), false);
 		}
 
 
@@ -147,10 +144,10 @@ namespace aZero
 		void Renderer::RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, Scene::Scene& scene)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-			RenderAPI::CommandList& cmdList = frameContext.m_DirectCmdList;
+			RenderAPI::CommandList& cmdList = frameContext.GetCommandList();
 			std::array<D3D12_RESOURCE_BARRIER, 2> barriers;
 
-			auto [renderDataFrameInfo, renderData] = scene.GetRenderData(frameContext.m_FrameLinearAllocator, frameContext.m_FrameDataBuffer, cmdList);
+			auto [renderDataFrameInfo, renderData] = scene.GetRenderData(frameContext.GetFrameUploadAllocator(), frameContext.GetFrameUploadBuffer(), cmdList);
 
 			this->ClearRenderTarget(renderTarget);
 			this->ClearDepthStencilTarget(depthStencilTarget);
@@ -176,7 +173,7 @@ namespace aZero
 				// Reset the counting buffer used in the MeshCull pass
 				uint32_t count = 0;
 				frameContext.AddAllocation(count, m_IndirectArgumentCounter, 0);
-				frameContext.m_FrameAllocator.RecordAllocations(cmdList);
+				frameContext.GetFrameStagingAllocator().RecordAllocations(cmdList);
 			}
 
 			{
@@ -253,7 +250,7 @@ namespace aZero
 		void Renderer::Render(Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-			auto& cmdList = frameContext.m_DirectCmdList;
+			auto& cmdList = frameContext.GetCommandList();
 
 			PIXScopedEvent(cmdList.Get(), PIX_COLOR(255, 0, 0), "Render scene");
 
@@ -272,42 +269,43 @@ namespace aZero
 		void Renderer::CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
+			auto& cmdList = frameContext.GetCommandList();
 
 			std::vector<RenderAPI::ResourceTransitionBundles> preCopyBarriers;
 			preCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, swapChain.GetFrameBackBuffer() });
 			preCopyBarriers.push_back({ renderTarget.GetTexture().GetState(), D3D12_RESOURCE_STATE_COPY_SOURCE, renderTarget.GetTexture().GetResource() });
 
-			RenderAPI::TransitionResources(frameContext.m_DirectCmdList, preCopyBarriers);
+			RenderAPI::TransitionResources(cmdList, preCopyBarriers);
 
 			// TODO: Handle up/down-scaling when missmatched resources
-			frameContext.m_DirectCmdList->CopyResource(swapChain.GetFrameBackBuffer(), renderTarget.GetTexture().GetResource());
+			cmdList->CopyResource(swapChain.GetFrameBackBuffer(), renderTarget.GetTexture().GetResource());
 
 			std::vector<RenderAPI::ResourceTransitionBundles> postCopyBarriers;
 			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON, swapChain.GetFrameBackBuffer() });
 			postCopyBarriers.push_back({ D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, renderTarget.GetTexture().GetResource() });
 			renderTarget.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_RENDER_TARGET); // To update the internal state
 
-			RenderAPI::TransitionResources(frameContext.m_DirectCmdList, postCopyBarriers);
+			RenderAPI::TransitionResources(cmdList, postCopyBarriers);
 
-			m_DirectCommandQueue.ExecuteCommandList(frameContext.m_DirectCmdList, false);
+			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 		}
 
 		void Renderer::UpdateRenderState(Asset::Mesh& mesh)
 		{
 			FrameContext& context = this->GetCurrentContext();
-			m_ResourceManager.UpdateRenderState_NEW(context.m_FrameAllocator, mesh);
+			m_ResourceManager.UpdateRenderState(context.GetFrameStagingAllocator(), mesh);
 		}
 
 		void Renderer::UpdateRenderState(Asset::Material& material)
 		{
-			m_ResourceManager.UpdateRenderState(this->GetCurrentContext().m_FrameAllocator, material);
+			m_ResourceManager.UpdateRenderState(this->GetCurrentContext().GetFrameStagingAllocator(), material);
 		}
 
 		void Renderer::UpdateRenderState(Asset::Texture& texture)
 		{
 			FrameContext& context = this->GetCurrentContext();
-			m_ResourceManager.UpdateRenderState(m_diDevice, context.m_DirectCmdList, m_ResourceRecycler, m_ResourceHeap, texture);
-			m_DirectCommandQueue.ExecuteCommandList(context.m_DirectCmdList);
+			m_ResourceManager.UpdateRenderState(m_diDevice, context.GetCommandList(), m_ResourceRecycler, m_ResourceHeap, texture);
+			m_DirectCommandQueue.ExecuteCommandList(context.GetCommandList());
 		}
 
 		void Renderer::RemoveRenderState(Asset::Mesh& mesh)
@@ -328,7 +326,7 @@ namespace aZero
 		void  Renderer::ClearRenderTarget(Rendering::RenderTarget& rtv)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-			auto& cmdList = frameContext.m_DirectCmdList;
+			auto& cmdList = frameContext.GetCommandList();
 
 			if (rtv.GetTexture().GetState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 			{
@@ -341,7 +339,7 @@ namespace aZero
 		void Renderer::ClearDepthStencilTarget(Rendering::DepthStencilTarget& dsv)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
-			auto& cmdList = frameContext.m_DirectCmdList;
+			auto& cmdList = frameContext.GetCommandList();
 			if (dsv.GetTexture().GetState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
 			{
 				auto barrier = dsv.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);

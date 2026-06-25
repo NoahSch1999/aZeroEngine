@@ -1,7 +1,6 @@
 #pragma once
 #include <bitset>
 #include "misc/HelperFunctions.hpp"
-#include "misc/SparseSet.hpp"
 
 #include "LinearAllocator.hpp"
 #include "renderer/GPU_Structs.hpp"
@@ -9,28 +8,10 @@
 
 namespace aZero
 {
-	namespace Asset
-	{
-		class AssetManager;
-	}
-
-	namespace Physics
-	{
-		class PhysicsEngine;
-	}
-
-	namespace Rendering
-	{
-		class WireframeRenderer;
-	}
-
-	namespace RenderAPI
-	{
-		class CommandList;
-		class ResourceRecycler;
-	}
-
-	class Engine;
+	namespace Asset { class AssetManager; }
+	namespace Physics { class PhysicsEngine; }
+	namespace Rendering { class WireframeRenderer; }
+	namespace RenderAPI { class CommandList; }
 
 	namespace Scene
 	{
@@ -50,12 +31,6 @@ namespace aZero
 
 		using SceneID = uint32_t;
 
-		/*  ------------------------------------------------------------
-									WARNING!
-			The app will crash if the entity is destroyed or a rigidbody component is removed before unregistered using ::UnregisterFromPhysics().
-			The design choice is questionable, but this keeps the API clean...
-			------------------------------------------------------------
-		*/
 		class Scene
 		{
 		public:
@@ -83,15 +58,22 @@ namespace aZero
 			void RemoveMeshesWithMaterial(Asset::RenderID withID);
 
 			const std::unordered_map<uint32_t, flecs::entity_t>& GetBodyID_To_EntityID_Map() const { return m_BodyID_To_EntityID; } // This name...
+
+			// This is specialized to define custom behavior on asset erase on a per-asset level
+			template<typename AssetType>
+			void OnAssetErased(AssetType& asset)
+			{
+
+			}
+
 		private:
 			void Init();
+
+			void RebuildStaticMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList);
+
 			void ResolveCollisionEvents();
 			void RegisterToPhysics(flecs::entity entity, Component::Rigidbody& rigidbody);
 			void UnregisterFromPhysics(flecs::entity entity, Component::Rigidbody& rigidbody);
-
-			void RebuildStaticMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList);
-			/*void WriteRenderFormat(Rendering::GPU_Struct::ObjectCullData* pObjCull, Rendering::GPU_Struct::InstanceData* pInstance, 
-				const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale, uint32_t& count);*/
 
 			flecs::world m_World;
 			flecs::observer m_Physics_OnSet_Observer;

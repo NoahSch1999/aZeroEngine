@@ -19,7 +19,26 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 
 using namespace aZero;
 
-#include "pipeline/RenderPass.hpp"
+#include "assets/NEW_Asset.hpp"
+
+template<>
+void Rendering::Renderer::RegisterAsset(std::string& str)
+{
+	auto x = this->GetBufferingCount();
+	std::cout << "string specialization register\n";
+}
+
+template<>
+void Rendering::Renderer::UnregisterAsset(std::string& str)
+{
+	std::cout << "string specialization unregister\n";
+}
+
+template<>
+void Scene::Scene::OnAssetErased(std::string& str)
+{
+	std::cout << "string specialization scene remove\n";
+}
 
 int main(int argc, char* argv[])
 {
@@ -47,6 +66,7 @@ int main(int argc, char* argv[])
 
 	try
 	{
+
 		// API Interfaces
 		aZero::Engine engine(3);
 		Rendering::Renderer& renderer = engine.GetRenderer();
@@ -61,9 +81,9 @@ int main(int argc, char* argv[])
 #endif
 
 		// Create your own implemented window and swapchain + input system
-		//RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,1200,800/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
-		//RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,2560,1440 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
-		RenderWindow window(Window::WindowDesc("MyWindow", { 0,0,1920,1080 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE), renderer);
+		//RenderWindow window(Window::WindowDesc("aZero Engine", { 0,0,1200,800/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE, {}), renderer);
+		//RenderWindow window(Window::WindowDesc("aZero Engine", { 0,0,2560,1440 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE, {}), renderer);
+		RenderWindow window(Window::WindowDesc("aZero Engine", { 0,0,1920,1080 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE, std::string(aZero::Asset::GetTextureDirectoryPath() + std::string("editorIcon.png"))), renderer);
 		//
 
 		// Create render surfaces
@@ -80,9 +100,17 @@ int main(int argc, char* argv[])
 		Example::Setup(engine, scene, { (float)width, (float)height }, rtv, dsv, window, keyboardListener);
 		assetManager.RegisterScene(scene);
 
+		NEW_Asset::AssetManager<std::string, std::string> man(renderer);
+		man.RegisterScene(&scene);
+
+		man.Create<std::string>("hej", std::string("x"));
+
+		man.Erase<std::string>("hej");
+		//man.Clear<std::string>();
+
 		renderer.FlushFrameAllocations();
 
-		int frame = 0;
+		int64_t frame = 0;
 		while (window.IsOpen())
 		{
 			window.Update();
@@ -104,11 +132,12 @@ int main(int argc, char* argv[])
 
 			Example::ControlCamera(scene, keyboardListener);
 
-			renderer.Render(scene, rtv, dsv);
-			auto res = engine.GetDevice()->GetDeviceRemovedReason();
+			if (keyboardListener.GetDevice()->IsKeyDown(SDL_SCANCODE_K))
+			{
+				window.SetTitle("test");
+			}
 
-			/*renderer.ClearRenderTarget(rtv);
-			renderer.ClearDepthStencilTarget(dsv);*/
+			renderer.Render(scene, rtv, dsv);
 
 			flecs::entity camEnt = scene.GetEntityWorld().lookup("Camera");
 			wireframeRenderer.Render(camEnt.get<Component::Camera>(), camEnt.get<Component::Position>(), camEnt.get<Component::Rotation>(), rtv, dsv);

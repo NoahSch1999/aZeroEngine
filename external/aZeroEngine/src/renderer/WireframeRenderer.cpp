@@ -30,8 +30,8 @@ aZero::Rendering::WireframeRenderer::WireframeRenderer(Rendering::Renderer& rend
 void aZero::Rendering::WireframeRenderer::Render(const Component::Camera& camera, const Component::Position& cameraPosition, const Component::Rotation& cameraRotation, RenderTarget& rtv, DepthStencilTarget& dsv)
 {
     FrameContext& frameContext = m_diRenderer->GetCurrentContext();
-    PIXScopedEvent(frameContext.m_DirectCmdList.Get(), PIX_COLOR(0, 255, 255), "Render debug colliders");
-    RenderAPI::CommandList& cmdList = frameContext.m_DirectCmdList;
+    RenderAPI::CommandList& cmdList = frameContext.GetCommandList();
+    PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 255, 255), "Render debug colliders");
 
     cmdList.SetDescriptorHeaps(m_diRenderer->GetResourceHeap(), m_diRenderer->GetSamplerHeap());
 
@@ -57,7 +57,7 @@ void aZero::Rendering::WireframeRenderer::Render(const Component::Camera& camera
 
     cmdList->DrawInstanced(m_VertCount, 1, 0, 0);
 
-    m_diRenderer->GetGraphicsCommandQueue().ExecuteCommandList(frameContext.m_DirectCmdList);
+    m_diRenderer->GetGraphicsCommandQueue().ExecuteCommandList(cmdList);
 }
 
 void aZero::Rendering::WireframeRenderer::BeginFrame() { m_VertCount = 0; m_FrameIndex = m_diRenderer->GetFrameIndex(); }

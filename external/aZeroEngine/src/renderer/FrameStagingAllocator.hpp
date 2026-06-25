@@ -6,7 +6,7 @@ namespace aZero
 {
 	namespace Rendering
 	{
-		class LinearFrameAllocator : public NonCopyable
+		class FrameStagingAllocator : public NonCopyable
 		{
 		public:
 			struct Allocation
@@ -36,9 +36,9 @@ namespace aZero
 			}
 
 		public:
-			LinearFrameAllocator() = default;
+			FrameStagingAllocator() = default;
 
-			LinearFrameAllocator(ID3D12DeviceX* device, uint32_t numBytes, RenderAPI::ResourceRecycler& recycler)
+			FrameStagingAllocator(ID3D12DeviceX* device, uint32_t numBytes, RenderAPI::ResourceRecycler& recycler)
 			{
 				RenderAPI::Buffer::Desc desc(numBytes, D3D12_HEAP_TYPE_UPLOAD);
 				m_StagingBuffer = RenderAPI::Buffer(device, desc, &recycler);

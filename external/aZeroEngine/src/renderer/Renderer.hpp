@@ -44,6 +44,14 @@ namespace aZero::Rendering
 
 		void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget);
 
+		// This is specialized to define custom register-behavior on a per-asset level
+		template<typename AssetType>
+		void RegisterAsset(AssetType& asset) { }
+
+		// This is specialized to define custom unregister-behavior on a per-asset level
+		template<typename AssetType>
+		void UnregisterAsset(AssetType& asset) { }
+
 		void UpdateRenderState(Asset::Mesh& mesh);
 		void UpdateRenderState(Asset::Material& material);
 		void UpdateRenderState(Asset::Texture& texture);

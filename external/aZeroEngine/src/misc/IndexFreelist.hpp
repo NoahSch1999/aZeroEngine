@@ -1,5 +1,6 @@
 #pragma once
 #include <stack>
+#include <vector>
 
 namespace aZero
 {
@@ -8,11 +9,12 @@ namespace aZero
 
 	namespace DS
 	{
+		// todo Replace with https://github.com/NoahSch1999/aZero-IndexAllocator/tree/main
 		template<IntegralTypeConcept IndexType>
 		class IndexFreelist
 		{
 		private:
-			std::stack<IndexType> m_FreeIndices;
+			std::stack<IndexType, std::vector<IndexType>> m_FreeIndices;
 			IndexType m_NextFreeIndex;
 
 		public:

@@ -126,7 +126,7 @@ namespace aZero::Editor::GUI
 		{
 			if (m_ShowEditorGUI)
 			{
-				RenderAPI::CommandList& cmdList = renderer.GetCurrentContext().m_DirectCmdList;
+				RenderAPI::CommandList& cmdList = renderer.GetCurrentContext().GetCommandList();
 				auto rtvHandle = rtv.GetCpuHandle();
 
 				ImGui::Render();
@@ -135,9 +135,9 @@ namespace aZero::Editor::GUI
 				cmdList->SetDescriptorHeaps(heaps.size(), &heaps[0]);
 				cmdList->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
 
-				ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), renderer.GetCurrentContext().m_DirectCmdList.Get());
+				ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.Get());
 
-				renderer.GetGraphicsCommandQueue().ExecuteCommandList(renderer.GetCurrentContext().m_DirectCmdList, true);
+				renderer.GetGraphicsCommandQueue().ExecuteCommandList(cmdList, true);
 
 			}
 			else
