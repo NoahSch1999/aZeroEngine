@@ -178,7 +178,7 @@ add_library(${PROJECT_NAME}
     "src/ecs/ColliderComponent.cpp" 
     "src/renderer/WireframeRenderer.cpp" 
     "src/pipeline/Shader.cpp" 
-    "src/pipeline/RenderPass.cpp" "src/assets/NEW_Asset.cpp")
+    "src/pipeline/RenderPass.cpp"  "src/assets/MeshPrimtivies.cpp")
 
 target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS})
 

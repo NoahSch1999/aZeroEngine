@@ -17,7 +17,7 @@ namespace aZero
 
 namespace aZero::Rendering
 {
-	class FrameContext; class WireframeRenderer;
+	class FrameContext; class WireframeRenderer; class RenderAssetManager;
 
 	class Renderer : public NonCopyable
 	{
@@ -46,11 +46,11 @@ namespace aZero::Rendering
 
 		// This is specialized to define custom register-behavior on a per-asset level
 		template<typename AssetType>
-		void RegisterAsset(AssetType& asset) { }
+		void RegisterOrUpdateAsset(AssetType& asset);
 
 		// This is specialized to define custom unregister-behavior on a per-asset level
 		template<typename AssetType>
-		void UnregisterAsset(AssetType& asset) { }
+		void UnregisterAsset(AssetType& asset);
 
 		void UpdateRenderState(Asset::Mesh& mesh);
 		void UpdateRenderState(Asset::Material& material);
@@ -66,6 +66,8 @@ namespace aZero::Rendering
 
 		Rendering::RenderTarget CreateRenderTarget(const Rendering::RenderTarget::Desc& desc);
 		Rendering::DepthStencilTarget CreateDepthStencilTarget(const Rendering::DepthStencilTarget::Desc& desc);
+
+		Rendering::RenderAssetManager& GetRenderAssetManager() const { return *m_RenderAssetManager.get(); }
 
 		FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
 		uint32_t GetFramesInFlight() const { return m_FrameContexts.size(); }
@@ -119,8 +121,21 @@ namespace aZero::Rendering
 		RenderAPI::DescriptorHeap m_DSVHeap;
 
 		std::unique_ptr<Rendering::WireframeRenderer> m_WireframeRenderer;
+		std::unique_ptr<Rendering::RenderAssetManager> m_RenderAssetManager;
 
 		ID3D12DeviceX* m_diDevice;
 		IDxcCompilerX& m_diCompiler;
 	};
+
+	template<typename AssetType>
+	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset(AssetType&)
+	{
+
+	}
+
+	template<typename AssetType>
+	inline void aZero::Rendering::Renderer::UnregisterAsset(AssetType&)
+	{
+
+	}
 }

@@ -6,6 +6,7 @@
 #include "aZeroAudio.hpp"
 #include "physics/PhysicsEngine.hpp"
 #include "assets/AssetManager.hpp"
+#include "assets/NEW_AssetManager.hpp"
 
 namespace aZero
 {
@@ -34,6 +35,7 @@ namespace aZero
 		std::unique_ptr<Audio::AudioEngine> m_AudioEngine;
 		std::unique_ptr<Physics::PhysicsEngine> m_PhysicsEngine;
 		std::unique_ptr<Asset::AssetManager> m_AssetManager;
+		std::unique_ptr<NEW_Asset::AssetManager<std::string, NEW_Asset::Mesh, NEW_Asset::Material, NEW_Asset::Texture>> m_NEW_AssetManager;
 		//
 	};
 }

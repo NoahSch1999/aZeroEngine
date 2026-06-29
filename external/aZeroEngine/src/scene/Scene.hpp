@@ -54,17 +54,11 @@ namespace aZero
 
 			void MarkStaticMeshesDirty() { m_ShouldRebuildStaticMeshes = true; }
 
-			void RemoveMeshesWith(Asset::RenderID withID);
-			void RemoveMeshesWithMaterial(Asset::RenderID withID);
-
 			const std::unordered_map<uint32_t, flecs::entity_t>& GetBodyID_To_EntityID_Map() const { return m_BodyID_To_EntityID; } // This name...
 
 			// This is specialized to define custom behavior on asset erase on a per-asset level
 			template<typename AssetType>
-			void OnAssetErased(AssetType& asset)
-			{
-
-			}
+			void OnAssetErased(AssetType& asset) { }
 
 		private:
 			void Init();

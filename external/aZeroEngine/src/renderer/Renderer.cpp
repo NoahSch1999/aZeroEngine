@@ -5,6 +5,7 @@
 #include "render_api/SwapChain.hpp"
 #include "assets/Asset.hpp"
 #include "pipeline/RenderPass.hpp"
+#include "NEW_RenderAssetManager.hpp"
 
 #include "WinPixEventRuntime/pix3.h"
 
@@ -54,6 +55,7 @@ namespace aZero
 			m_SamplerManager = SamplerManager(device, m_SamplerHeap);
 
 			m_ResourceManager = ResourceManager(device, &m_ResourceRecycler, m_ResourceHeap);
+			m_RenderAssetManager = std::make_unique<Rendering::RenderAssetManager>(device, m_ResourceRecycler, m_ResourceHeap);
 
 			m_WireframeRenderer = std::make_unique<Rendering::WireframeRenderer>(*this, device, compiler);
 

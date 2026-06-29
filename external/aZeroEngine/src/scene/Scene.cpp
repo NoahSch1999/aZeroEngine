@@ -199,38 +199,6 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 	return { SceneRenderDataFrameInfo{.StaticMeshCount = numDynamicMeshEntities + m_NumStaticMeshEntities }, m_RenderData };
 }
 
-void aZero::Scene::Scene::RemoveMeshesWith(Asset::RenderID withID)
-{
-	m_World.defer_begin();
-	m_World.query<Component::Mesh>().each(
-		[withID] (flecs::entity entity, Component::Mesh& mesh) {
-			if (mesh.GetMeshID() == withID)
-			{
-				entity.remove<Component::Mesh>();
-			}
-		}
-	);
-	m_World.defer_end();
-}
-
-void aZero::Scene::Scene::RemoveMeshesWithMaterial(Asset::RenderID withID)
-{
-	m_World.defer_begin();
-	m_World.query<Component::Mesh>().each(
-		[withID](flecs::entity entity, Component::Mesh& mesh) {
-			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
-			{
-				if (mesh.m_Submeshes[i].m_MaterialID == withID)
-				{
-					entity.remove<Component::Mesh>();
-				}
-			}
-			
-		}
-	);
-	m_World.defer_end();
-}
-
 void aZero::Scene::Scene::AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds)
 {
 	if (showMeshBounds)

@@ -19,10 +19,8 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 
 using namespace aZero;
 
-#include "assets/NEW_Asset.hpp"
-
 template<>
-void Rendering::Renderer::RegisterAsset(std::string& str)
+void Rendering::Renderer::RegisterOrUpdateAsset(std::string& str)
 {
 	auto x = this->GetBufferingCount();
 	std::cout << "string specialization register\n";
@@ -100,13 +98,10 @@ int main(int argc, char* argv[])
 		Example::Setup(engine, scene, { (float)width, (float)height }, rtv, dsv, window, keyboardListener);
 		assetManager.RegisterScene(scene);
 
-		NEW_Asset::AssetManager<std::string, std::string> man(renderer);
+		NEW_Asset::AssetManager<std::string, NEW_Asset::Mesh> man(renderer);
 		man.RegisterScene(&scene);
 
-		man.Create<std::string>("hej", std::string("x"));
-
-		man.Erase<std::string>("hej");
-		//man.Clear<std::string>();
+		man.Create<NEW_Asset::Mesh>("idk");
 
 		renderer.FlushFrameAllocations();
 

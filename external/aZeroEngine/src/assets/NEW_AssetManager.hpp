@@ -3,75 +3,16 @@
 #include "misc/NonCopyable.hpp"
 #include "misc/HelperFunctions.hpp"
 #include "scene/Scene.hpp"
-#include "Vertex.hpp"
+#include "MeshPrimitives.hpp"
+
+#include "assets/NEW_Mesh.hpp"
+#include "assets/NEW_Material.hpp"
+#include "assets/NEW_Texture.hpp"
 
 namespace aZero
 {
 	namespace NEW_Asset
 	{
-		struct TextureData
-		{
-			struct RenderRef
-			{
-				uint32_t DescriptorIndex;
-			};
-
-			std::vector<uint8_t> TexelData;
-			uint32_t Width, Height, NumChannels;
-			DXGI_FORMAT Format;
-		};
-
-		struct MaterialData
-		{
-			struct RenderRef
-			{
-				uint32_t AlbedoTextureIndex;
-				uint32_t NormalMapIndex;
-			};
-
-			std::string AlbedoTexture;
-			std::string NormalMap;
-		};
-
-		static inline constexpr uint32_t g_VerticesPerMeshlet = 64;
-		static inline constexpr uint32_t g_PrimitivesPerMeshlet = 84;
-
-		struct Meshlet
-		{
-			uint32_t VertexOffset;
-			uint32_t VertexCount;
-			uint32_t PrimitiveCount;
-			std::array<uint32_t, g_PrimitivesPerMeshlet> Primitives;
-		};
-
-		struct MeshletMeshData
-		{
-			std::vector<Meshlet> Meshlets;
-			std::vector<DirectX::BoundingSphere> MeshletBounds;
-			std::vector<DXM::Vector3> Positions;
-			std::vector<aZero::Asset::Vertex> Vertices;
-		};
-
-		struct SubmeshData
-		{
-			std::string Name;
-			uint32_t MeshletOffset, MeshletCount;
-			DirectX::BoundingSphere Bounds;
-		};
-
-		struct MeshData
-		{
-			struct RenderRef
-			{
-				uint32_t m_MeshletGlobalOffset;
-				uint32_t m_VertexGlobalOffset;
-			};
-
-			std::vector<SubmeshData> m_Submeshes;
-			MeshletMeshData m_VertexData;
-		};
-
-
 		template<typename Key, typename ...AssetTypes>
 		class AssetManager
 		{
@@ -97,7 +38,7 @@ namespace aZero
 
 				AssetType* asset = container.emplace(key, std::make_unique<AssetType>(std::forward<CtorArgs>(args)...)).first->second.get();
 
-				m_diRenderer->RegisterAsset(*asset);
+				m_diRenderer->RegisterOrUpdateAsset(*asset);
 
 				return asset;
 			}
@@ -105,17 +46,15 @@ namespace aZero
 			template<typename AssetType>
 			bool Erase(const Key& key)
 			{
-				AssetType* asset = this->Get<AssetType>(key);
-				if (!asset)
-				{
-					return false;
-				}
-
-				this->EraseFromReferences(*asset);
-
 				auto& container = std::get<AssetContainer<AssetType>>(m_AssetContainer);
-				container.erase(key);
-				return true;
+				if (auto assetIter = container.find(key); assetIter != container.end())
+				{
+					this->EraseFromReferences(*assetIter->second.get());
+					container.erase(assetIter);
+					return true;
+				}
+				
+				return false;
 			}
 
 			template<typename AssetType>
@@ -148,16 +87,43 @@ namespace aZero
 
 			void UnregisterScene(const Scene::Scene& scene)
 			{
-				std::erase_if(m_RegisteredScenes, [&scene](const auto& sceneIter) {
-					return sceneIter.first == scene.GetSceneID();
-				});
+				if (auto sceneIter = m_RegisteredScenes.find(scene.GetSceneID()); sceneIter != m_RegisteredScenes.end())
+				{
+					m_RegisteredScenes.erase(sceneIter);
+				}
 			}
 
 		private:
 			template<typename AssetType>
 			bool EraseFromReferences(AssetType& asset)
 			{
-				this->OnErase(asset);
+				if constexpr (std::is_same<AssetType, NEW_Asset::Texture>::value) // Ugly, but needed for this case
+				{
+					auto& materials = std::get<AssetContainer<NEW_Asset::Material>>(m_AssetContainer);
+					auto& textures = std::get<AssetContainer<NEW_Asset::Texture>>(m_AssetContainer);
+					for (auto& [key, material] : materials)
+					{
+						bool hasUpdated = false;
+						NEW_Asset::Texture* texture = static_cast<NEW_Asset::Texture*>(&asset);
+						if (material->GetAlbedoPtr()->GetRenderRef().DescriptorIndex == texture->GetRenderRef().DescriptorIndex)
+						{
+							material->SetAlbedo(this->Get<NEW_Asset::Texture>(textures[m_diRenderer->GetRenderAssetManager().GetDefaultTextureIndex()]));
+							hasUpdated = true;
+						}
+
+						if (material->GetNormalMapPtr()->GetRenderRef().DescriptorIndex == texture->GetRenderRef().DescriptorIndex)
+						{
+							material->SetNormalMap(this->Get<NEW_Asset::Texture>(textures[m_diRenderer->GetRenderAssetManager().GetDefaultTextureIndex()]));
+							hasUpdated = true;
+						}
+
+						if (hasUpdated)
+						{
+							m_diRenderer->RegisterOrUpdateAsset(*material.get());
+						}
+					}
+				}
+
 				m_diRenderer->UnregisterAsset(asset);
 
 				for (auto& [sceneID, scenePtr] : m_RegisteredScenes)
@@ -168,11 +134,6 @@ namespace aZero
 
 				return true;
 			}
-
-			// NOTE! The specialization's declaration need to be accessible in each translation unit that uses it since the default version will be ran otherwise
-			// Used for custom template specialization logic inside the AssetManager when an asset is removed
-			template<typename AssetType>
-			void OnErase(AssetType& asset) { }
 
 			Rendering::Renderer* m_diRenderer = nullptr;
 			std::tuple<AssetContainer<AssetTypes>...> m_AssetContainer;

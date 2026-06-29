@@ -1,5 +1,6 @@
 #pragma once
 #include "render_api/D3D12Include.hpp"
+#include <array>
 
 namespace aZero::Asset
 {
@@ -29,4 +30,23 @@ namespace aZero::Asset
 
 		return p;
 	}
+
+	static inline constexpr uint32_t g_VerticesPerMeshlet = 64;
+	static inline constexpr uint32_t g_PrimitivesPerMeshlet = 84;
+
+	struct Meshlet
+	{
+		uint32_t VertexOffset;
+		uint32_t VertexCount;
+		uint32_t PrimitiveCount;
+		std::array<uint32_t, g_PrimitivesPerMeshlet> Primitives;
+	};
+
+	void Meshletize( // Named it myself :))
+		std::vector<DXM::Vector3>& positions,
+		std::vector<aZero::Asset::Vertex>& vertices,
+		std::vector<aZero::Asset::Index>& indices,
+		std::vector<aZero::Asset::Meshlet>& outMeshlets,
+		std::vector<DirectX::BoundingSphere>& outMeshletBounds
+	);
 }

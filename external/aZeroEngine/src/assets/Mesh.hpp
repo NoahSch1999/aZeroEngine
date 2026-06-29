@@ -2,7 +2,7 @@
 #include <vector>
 #include <array>
 #include "Asset.hpp"
-#include "Vertex.hpp"
+#include "MeshPrimitives.hpp"
 
 namespace aZero
 {
@@ -13,17 +13,6 @@ namespace aZero
 
 	namespace Asset
 	{
-		static inline constexpr uint32_t g_VerticesPerMeshlet = 64;
-		static inline constexpr uint32_t g_PrimitivesPerMeshlet = 84;
-
-		struct Meshlet
-		{
-			uint32_t VertexOffset;
-			uint32_t VertexCount;
-			uint32_t PrimitiveCount;
-			std::array<uint32_t, g_PrimitivesPerMeshlet> Primitives;
-		};
-
 		struct MeshletMeshData
 		{
 			std::vector<Meshlet> Meshlets;
