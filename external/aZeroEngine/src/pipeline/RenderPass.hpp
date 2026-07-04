@@ -70,6 +70,7 @@ namespace aZero
 			struct VertexPassDesc : public Desc
 			{
 				ETopologyType TopologyType;
+				std::vector<uint32_t> InputSlotOverride;
 			};
 
 			using MeshletPassDesc = Desc;

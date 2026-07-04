@@ -2,6 +2,31 @@
 #include "Engine.hpp"
 #include "RenderWindow.hpp"
 
+inline std::pair<int, int> spiral(int n)
+{
+	if (n == 0)
+		return { 0, 0 };
+
+	int layer = std::ceil((std::sqrt(n + 1) - 1) / 2);
+	int sideLength = layer * 2;
+	int maxValue = (2 * layer + 1) * (2 * layer + 1) - 1;
+	int offset = maxValue - n;
+
+	if (offset < sideLength)
+		return { layer - offset, -layer };
+
+	offset -= sideLength;
+	if (offset < sideLength)
+		return { -layer, -layer + offset };
+
+	offset -= sideLength;
+	if (offset < sideLength)
+		return { -layer + offset, layer };
+
+	offset -= sideLength;
+	return { layer, layer - offset };
+}
+
 namespace Example {
 	using namespace aZero;
 	inline void Setup(
@@ -15,14 +40,13 @@ namespace Example {
 	)
 	{
 		std::string meshName = "Mesh";
-		aZero::Asset::AssetManager& aManager = engine.GetAssetManager();
+		auto& aman = engine.GetAssetManager_NEW();
 
 		auto res = FBX::LoadFBX(aZero::Asset::GetMeshDirectoryPath() + "goblin.fbx");
 
-		//aManager.LoadMesh(aZero::Asset::GetMeshDirectoryPath() + meshName + ".fbx");
-		aManager.AddMesh(res.value().Meshes[0]);
-		aManager.LoadMaterial(aZero::Asset::GetMaterialDirectoryPath() + "TestMaterial.json");
-		
+		auto meshObj = aman.Create<Asset::Mesh>("mesh", res.value().Meshes[0]);
+
+		auto matObj = aman.Create<Asset::Material>("mat", Asset::MaterialData(aZero::Asset::GetMaterialDirectoryPath() + "TestMaterial.json"));
 
 		JPH::BoxShapeSettings boxShape(JPH::Vec3(1, 1, 1));
 		auto shapeRes = boxShape.Create().Get();
@@ -33,7 +57,7 @@ namespace Example {
 			flecs::entity entMesh = scene.GetEntityWorld().entity().is_a(scene.GetStaticMeshPrefab());
 			entMesh.set<Component::Rigidbody>(boxSettings);
 			entMesh.set_name("Mesh");
-			entMesh.set(Component::Mesh(*aManager.GetMesh(meshName).value(), *aManager.GetMaterial("TestMaterial").value()));
+			entMesh.set(Component::Mesh(*meshObj, *matObj));
 		}
 
 		{
@@ -46,17 +70,18 @@ namespace Example {
 		}
 
 		{
-			for (int i = 0; i < 1; i+=3) {
-				for (int j = 0; j < 1500; j += 3)
-				{
-					flecs::entity ent = scene.GetEntityWorld().entity().is_a(scene.GetStaticMeshPrefab());
-					std::string name = std::string("Mesh") + std::to_string(i) + std::to_string(j);
-					ent.set_name(name.c_str());
-					ent.set(Component::Mesh(*aManager.GetMesh(meshName).value(), *aManager.GetMaterial("TestMaterial").value()));
-					ent.set<Component::Position>(DXM::Vector3(i, 2, j));
-					ent.set<Component::Rotation>(DXM::Vector3(0, 3.14, 0));
-					ent.add<Component::Static>();
-				}
+			for (int j = 0; j < 500; j++)
+			{
+				flecs::entity ent = scene.GetEntityWorld().entity().is_a(scene.GetStaticMeshPrefab());
+				std::string name = std::string("Mesh") + std::to_string(j);
+				ent.set_name(name.c_str());
+				ent.set(Component::Mesh(*meshObj, *matObj));
+				auto [x, z] = spiral(j);
+				ent.set<Component::Position>(DXM::Vector3(x * 3, 2, z * 3));
+				//ent.set<Component::Position>(DXM::Vector3(0, 2, j));
+				ent.set<Component::Rotation>(DXM::Vector3(0, 3.14, 0));
+				ent.add<Component::Static>();
+				std::cout << j << "\n";
 			}
 		}
 
@@ -69,7 +94,6 @@ namespace Example {
 			rigidbodyFloor.SetCreationSettings(floor_settings);
 			floorEnt.set<Component::Rigidbody>(rigidbodyFloor);
 			floorEnt.set_name("Floor");
-
 		}
 
 		keyboardListener = window.GetDeviceManager().ListenKeyboard({

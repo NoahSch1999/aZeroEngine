@@ -1,7 +1,5 @@
 #include "GPU_Structs.hlsli"
 
-ConstantBuffer<IndirectArgumentConstantData> Default_Phong_CONSTANT : register(b0);
-
 struct Output
 {
     float4 color : SV_TARGET0;
@@ -24,7 +22,7 @@ Output main(RasterVertex pin)
     
     const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[1];
     output.color = float4(albedoTexture.Sample(samplerState, pin.UV).xyz, 1);
-    //output.color = float4(fragmentNormal.xyz, 1);
+    output.color = float4(fragmentNormal.xyz, 1);
     
     return output;
 }

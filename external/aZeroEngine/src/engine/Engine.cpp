@@ -2,7 +2,7 @@
 
 namespace aZero
 {
-	Engine::Engine(uint32_t bufferCount)
+	Engine::Engine(std::string projectRootDirectory, uint32_t bufferCount)
 	{
 		HRESULT hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(m_Device.GetAddressOf()));
 		if (FAILED(hr))
@@ -15,11 +15,12 @@ namespace aZero
 		{
 			throw std::runtime_error("Engine() => Failed to create compiler");
 		}
+		m_ProjectRootDirectory = projectRootDirectory;
 
 		m_Renderer = std::make_unique<Rendering::Renderer>(m_Device.Get(), bufferCount, *m_Compiler.Get());
 		m_AudioEngine = std::make_unique<Audio::AudioEngine>();
 		m_PhysicsEngine = std::make_unique<Physics::PhysicsEngine>(m_Device.Get());
-		m_AssetManager = std::make_unique<Asset::AssetManager>(*m_Renderer.get());
+		m_AssetManager_NEW = std::make_unique<Asset::AssetManager<std::string>>(*m_Renderer.get(), m_ProjectRootDirectory + "assets/");
 	}
 
 	Engine::~Engine()

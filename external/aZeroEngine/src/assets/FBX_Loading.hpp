@@ -5,7 +5,7 @@
 #include <stdfloat>
 #include <string_view>
 #include "misc/HelperFunctions.hpp"
-#include "Vertex.hpp"
+#include "MeshPrimitives.hpp"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"

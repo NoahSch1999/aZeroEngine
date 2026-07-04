@@ -1,7 +1,6 @@
 #include "Scene.hpp"
 #include "physics/PhysicsEngine.hpp"
 #include "renderer/WireframeRenderer.hpp"
-#include "assets/AssetManager.hpp"
 #include "renderer/GPU_Structs.hpp"
 
 // todo Test so that submeshes work as expected
@@ -199,83 +198,83 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 	return { SceneRenderDataFrameInfo{.StaticMeshCount = numDynamicMeshEntities + m_NumStaticMeshEntities }, m_RenderData };
 }
 
-void aZero::Scene::Scene::RemoveMeshesWith(Asset::RenderID withID)
-{
-	m_World.defer_begin();
-	m_World.query<Component::Mesh>().each(
-		[withID] (flecs::entity entity, Component::Mesh& mesh) {
-			if (mesh.GetMeshID() == withID)
-			{
-				entity.remove<Component::Mesh>();
-			}
-		}
-	);
-	m_World.defer_end();
-}
+//void aZero::Scene::Scene::RemoveMeshesWith(Asset::RenderID withID)
+//{
+//	m_World.defer_begin();
+//	m_World.query<Component::Mesh>().each(
+//		[withID] (flecs::entity entity, Component::Mesh& mesh) {
+//			if (mesh.GetMeshID() == withID)
+//			{
+//				entity.remove<Component::Mesh>();
+//			}
+//		}
+//	);
+//	m_World.defer_end();
+//}
+//
+//void aZero::Scene::Scene::RemoveMeshesWithMaterial(Asset::RenderID withID)
+//{
+//	m_World.defer_begin();
+//	m_World.query<Component::Mesh>().each(
+//		[withID](flecs::entity entity, Component::Mesh& mesh) {
+//			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
+//			{
+//				if (mesh.m_Submeshes[i].m_MaterialID == withID)
+//				{
+//					entity.remove<Component::Mesh>();
+//				}
+//			}
+//			
+//		}
+//	);
+//	m_World.defer_end();
+//}
 
-void aZero::Scene::Scene::RemoveMeshesWithMaterial(Asset::RenderID withID)
-{
-	m_World.defer_begin();
-	m_World.query<Component::Mesh>().each(
-		[withID](flecs::entity entity, Component::Mesh& mesh) {
-			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
-			{
-				if (mesh.m_Submeshes[i].m_MaterialID == withID)
-				{
-					entity.remove<Component::Mesh>();
-				}
-			}
-			
-		}
-	);
-	m_World.defer_end();
-}
-
-void aZero::Scene::Scene::AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds)
-{
-	if (showMeshBounds)
-	{
-		auto meshQuery = m_World.query<Component::Mesh, Component::Position>();
-		const auto& allMeshes = assetManager.GetAllMeshes();
-		meshQuery.each([&wireframeRenderer, &allMeshes](const Component::Mesh& mesh, const Component::Position& position) {
-
-			// Lmao this is so bad, but whatever... It's just for debugging... :P
-			for (const auto& [name, meshAsset] : allMeshes) 
-			{
-				if (meshAsset.GetRenderID() == mesh.GetMeshID()) 
-				{
-					for (const auto& submesh : meshAsset.GetSubmeshes())
-					{
-						wireframeRenderer.AddShape(Rendering::WireframeShape::Sphere(DXM::Vector3(0, 0, 1), DXM::Vector3::Transform(submesh.Bounds.Center, DXM::Matrix::CreateTranslation(position)), submesh.Bounds.Radius, 10));
-					}
-				}
-			}
-		});
-	}
-
-	if (showColliders)
-	{
-		if (m_PhysicsWorld.get())
-		{
-			m_ApplyPhysicsQuery.each([&wireframeRenderer](Component::Rigidbody& rigidBody, Component::Position& position, Component::Rotation& rotation) {
-				auto lock = rigidBody.m_Body.LockForRead();
-				if (lock.Succeeded())
-				{
-					auto& body = lock.GetBody();
-
-					auto bounds = body.GetWorldSpaceBounds();
-
-					auto* shape = body.GetShape();
-					if (body.GetShape()->GetSubType() == JPH::EShapeSubType::Box)
-					{
-						const JPH::BoxShape* boxShape = static_cast<const JPH::BoxShape*>(body.GetShape());
-						wireframeRenderer.AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 0), Math::Convert(body.GetPosition()), Math::Convert(body.GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
-					}
-				}
-			});
-		}
-	}
-}
+//void aZero::Scene::Scene::AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds)
+//{
+//	if (showMeshBounds)
+//	{
+//		auto meshQuery = m_World.query<Component::Mesh, Component::Position>();
+//		const auto& allMeshes = assetManager.GetAllMeshes();
+//		meshQuery.each([&wireframeRenderer, &allMeshes](const Component::Mesh& mesh, const Component::Position& position) {
+//
+//			// Lmao this is so bad, but whatever... It's just for debugging... :P
+//			for (const auto& [name, meshAsset] : allMeshes) 
+//			{
+//				if (meshAsset.GetRenderID() == mesh.GetMeshID()) 
+//				{
+//					for (const auto& submesh : meshAsset.GetSubmeshes())
+//					{
+//						wireframeRenderer.AddShape(Rendering::WireframeShape::Sphere(DXM::Vector3(0, 0, 1), DXM::Vector3::Transform(submesh.Bounds.Center, DXM::Matrix::CreateTranslation(position)), submesh.Bounds.Radius, 10));
+//					}
+//				}
+//			}
+//		});
+//	}
+//
+//	if (showColliders)
+//	{
+//		if (m_PhysicsWorld.get())
+//		{
+//			m_ApplyPhysicsQuery.each([&wireframeRenderer](Component::Rigidbody& rigidBody, Component::Position& position, Component::Rotation& rotation) {
+//				auto lock = rigidBody.m_Body.LockForRead();
+//				if (lock.Succeeded())
+//				{
+//					auto& body = lock.GetBody();
+//
+//					auto bounds = body.GetWorldSpaceBounds();
+//
+//					auto* shape = body.GetShape();
+//					if (body.GetShape()->GetSubType() == JPH::EShapeSubType::Box)
+//					{
+//						const JPH::BoxShape* boxShape = static_cast<const JPH::BoxShape*>(body.GetShape());
+//						wireframeRenderer.AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 0), Math::Convert(body.GetPosition()), Math::Convert(body.GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
+//					}
+//				}
+//			});
+//		}
+//	}
+//}
 
 void aZero::Scene::Scene::ApplyPhysics()
 {

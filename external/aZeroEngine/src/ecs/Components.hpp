@@ -1,10 +1,8 @@
 #pragma once
 #include "flecs.h"
 #include "render_api/D3D12Include.hpp"
-#include "assets/Mesh.hpp"
-#include "assets/Texture.hpp"
-#include "assets/Material.hpp"
 #include "physics/TriggerBody.hpp"
+#include "assets/Assets.hpp"
 #include <array>
 
 namespace aZero
@@ -90,47 +88,46 @@ namespace aZero
         class Mesh {
         public:
             Mesh() = default;
+
             Mesh(const Asset::Mesh& mesh, const Asset::Material& material) {
                 this->SetMesh(mesh, material);
             }
 
             void SetMesh(const Asset::Mesh& mesh, const Asset::Material& material) {
-                if (mesh.GetRenderID() != Asset::InvalidRenderID && material.GetRenderID() != Asset::InvalidRenderID) {
-                    m_MeshID = mesh.GetRenderID();
+                if (mesh.GetRenderRef().IsValid() && material.GetRenderRef().IsValid()) {
+                    m_MeshID = mesh.GetRenderRef().m_MeshletGlobalOffset; // todo Change so this becomes stead
 
-                    auto& submeshes = mesh.GetSubmeshes();
-                    for (uint32_t i = 0; i < submeshes.size(); i++)
+                    const auto& [count, submeshes] = mesh.GetSubmeshes();
+                    for (uint32_t i = 0; i < count; i++)
                     {
                         Submesh newSubmesh;
                         newSubmesh.MeshletCount = submeshes[i].MeshletCount;
-                        newSubmesh.MeshletGlobalOffset = mesh.m_MeshletGlobalOffset + submeshes[i].MeshletOffset;
-                        newSubmesh.VertexGlobalOffset = mesh.m_VertexGlobalOffset;
+                        newSubmesh.MeshletGlobalOffset = mesh.GetRenderRef().m_MeshletGlobalOffset + submeshes[i].MeshletOffset;
+                        newSubmesh.VertexGlobalOffset = mesh.GetRenderRef().m_VertexGlobalOffset;
                         newSubmesh.m_Bounds = submeshes[i].Bounds;
-                        newSubmesh.m_MaterialID = material.GetRenderID();
+                        newSubmesh.m_MaterialID = material.GetRenderRef().MaterialIndex;
                         m_Submeshes[i] = newSubmesh;
                     }
-                    m_NumSubmeshes = submeshes.size();
+                    m_NumSubmeshes = count;
                 }
             }
 
             void SetMaterial(uint32_t submeshIndex, const Asset::Material& material) {
-                if (material.GetRenderID() != Asset::InvalidRenderID && submeshIndex < m_NumSubmeshes) {
-                    m_Submeshes[submeshIndex].m_MaterialID = material.GetRenderID();
+                if (material.GetRenderRef().IsValid() && submeshIndex < m_NumSubmeshes) {
+                    m_Submeshes[submeshIndex].m_MaterialID = material.GetRenderRef().MaterialIndex;
                 }
             }
-
-            Asset::RenderID GetMeshID() const { return m_MeshID; }
 
             struct Submesh
             {
                 DirectX::BoundingSphere m_Bounds;
                 uint32_t MeshletGlobalOffset, VertexGlobalOffset, MeshletCount;
-                Asset::RenderID m_MaterialID;
+                uint32_t m_MaterialID;
             };
 
             std::array<Submesh, 10> m_Submeshes;
             uint32_t m_NumSubmeshes = 0;
-            Asset::RenderID m_MeshID;
+            uint32_t m_MeshID;
 
         private:
         };

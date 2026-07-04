@@ -45,7 +45,7 @@ namespace aZero
 
 			std::tuple<SceneRenderDataFrameInfo, std::reference_wrapper<SceneRenderData>> GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, aZero::RenderAPI::CommandList& cmdList);
 
-			void AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
+			//void AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds);
 
 			bool HasPhysics() const { return m_PhysicsWorld.get() != nullptr; }
 			void ApplyPhysics();
@@ -54,8 +54,8 @@ namespace aZero
 
 			void MarkStaticMeshesDirty() { m_ShouldRebuildStaticMeshes = true; }
 
-			void RemoveMeshesWith(Asset::RenderID withID);
-			void RemoveMeshesWithMaterial(Asset::RenderID withID);
+			/*void RemoveMeshesWith(Asset::RenderID withID);
+			void RemoveMeshesWithMaterial(Asset::RenderID withID);*/
 
 			const std::unordered_map<uint32_t, flecs::entity_t>& GetBodyID_To_EntityID_Map() const { return m_BodyID_To_EntityID; } // This name...
 

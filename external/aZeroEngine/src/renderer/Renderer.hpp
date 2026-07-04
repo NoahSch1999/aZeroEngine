@@ -2,10 +2,12 @@
 #include "render_api/resource/texture/DepthStencilTarget.hpp"
 #include "render_api/resource/texture/RenderTarget.hpp"
 #include "SamplerManager.hpp"
-#include "ResourceManager.hpp"
 #include "pipeline/RenderPass.hpp"
 #include "GPU_Structs.hpp"
 #include "misc/CallbackExecutor.hpp"
+#include "NEW_RenderAssetManager.hpp"
+#include "render_api/command_recording/CommandQueue.hpp"
+#include "FrameContext.hpp"
 
 namespace aZero
 {
@@ -46,20 +48,11 @@ namespace aZero::Rendering
 
 		// This is specialized to define custom register-behavior on a per-asset level
 		template<typename AssetType>
-		void RegisterAsset(AssetType& asset) { }
+		void RegisterOrUpdateAsset(AssetType& asset);
 
 		// This is specialized to define custom unregister-behavior on a per-asset level
 		template<typename AssetType>
-		void UnregisterAsset(AssetType& asset) { }
-
-		void UpdateRenderState(Asset::Mesh& mesh);
-		void UpdateRenderState(Asset::Material& material);
-		void UpdateRenderState(Asset::Texture& texture);
-
-		// TODO: Impl removal logic
-		void RemoveRenderState(Asset::Mesh& mesh);
-		void RemoveRenderState(Asset::Material& material);
-		void RemoveRenderState(Asset::Texture& texture);
+		void UnregisterAsset(AssetType& asset);
 
 		void ClearRenderTarget(Rendering::RenderTarget& rtv);
 		void ClearDepthStencilTarget(Rendering::DepthStencilTarget& dsv);
@@ -69,6 +62,15 @@ namespace aZero::Rendering
 
 		FrameContext& GetCurrentContext() { return m_FrameContexts.at(m_FrameIndex); }
 		uint32_t GetFramesInFlight() const { return m_FrameContexts.size(); }
+
+		// temp benchmark
+		D3D12_VERTEX_BUFFER_VIEW temp_vbv;
+		RenderAPI::Buffer temp_vBuffer;
+		D3D12_VERTEX_BUFFER_VIEW temp_pbv;
+		RenderAPI::Buffer temp_pBuffer;
+		D3D12_INDEX_BUFFER_VIEW temp_ibv;
+		RenderAPI::Buffer temp_iBuffer;
+		void temp_LoadVB(FBX::FBX_Mesh& mesh);
 
 	private:
 
@@ -110,7 +112,6 @@ namespace aZero::Rendering
 		RenderAPI::CommandQueue m_CopyCommandQueue;
 		RenderAPI::CommandQueue m_ComputeCommandQueue;
 
-		Rendering::ResourceManager m_ResourceManager;
 		SamplerManager m_SamplerManager;
 
 		RenderAPI::DescriptorHeap m_ResourceHeap;
@@ -119,8 +120,21 @@ namespace aZero::Rendering
 		RenderAPI::DescriptorHeap m_DSVHeap;
 
 		std::unique_ptr<Rendering::WireframeRenderer> m_WireframeRenderer;
+		std::unique_ptr<Rendering::RenderAssetManager> m_RenderAssetManager;
 
 		ID3D12DeviceX* m_diDevice;
 		IDxcCompilerX& m_diCompiler;
 	};
+
+	template<typename AssetType>
+	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset(AssetType&)
+	{
+
+	}
+
+	template<typename AssetType>
+	inline void aZero::Rendering::Renderer::UnregisterAsset(AssetType&)
+	{
+
+	}
 }

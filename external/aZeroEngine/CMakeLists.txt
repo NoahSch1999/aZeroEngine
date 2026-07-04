@@ -160,9 +160,6 @@ add_library(${PROJECT_NAME}
     "src/misc/HelperFunctions.cpp"
     "src/misc/STBIHack.cpp"
     "src/renderer/Renderer.cpp"
-    "src/assets/Mesh.cpp" 
-    "src/assets/Material.cpp" 
-    "src/assets/Texture.cpp"
     "src/engine/Engine.cpp" 
     "src/scene/Scene.cpp"
     "src/render_api/resource/ResourceBase.cpp"
@@ -178,7 +175,7 @@ add_library(${PROJECT_NAME}
     "src/ecs/ColliderComponent.cpp" 
     "src/renderer/WireframeRenderer.cpp" 
     "src/pipeline/Shader.cpp" 
-    "src/pipeline/RenderPass.cpp" "src/assets/NEW_Asset.cpp")
+    "src/pipeline/RenderPass.cpp")
 
 target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS})
 

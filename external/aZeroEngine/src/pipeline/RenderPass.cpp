@@ -329,7 +329,7 @@ bool aZero::Pipeline::RenderPass::CreateVertexPipelineState(const VertexPassDesc
 				.SemanticName = inputElementSemanticNames.back().c_str(),
 				.SemanticIndex = SignatureParameterDesc.SemanticIndex,
 				.Format = Pipeline::ReflectionMaskToDXGIFormat(SignatureParameterDesc.Mask),
-				.InputSlot = 0u,
+				.InputSlot = desc.InputSlotOverride.size() > ParamIndex ? desc.InputSlotOverride[ParamIndex] : 0u,
 				.AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT,
 				.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, // No way to get this via dxcompiler :(
 				.InstanceDataStepRate = 0u,

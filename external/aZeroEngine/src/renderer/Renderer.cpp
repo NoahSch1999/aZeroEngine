@@ -3,8 +3,9 @@
 #include "WireframeRenderer.hpp"
 #include "FrameContext.hpp"
 #include "render_api/SwapChain.hpp"
-#include "assets/Asset.hpp"
 #include "pipeline/RenderPass.hpp"
+#include "assets/FBX_Loading.hpp"
+#include "assets/Assets.hpp"
 
 #include "WinPixEventRuntime/pix3.h"
 
@@ -12,6 +13,36 @@ namespace aZero
 {
 	namespace Rendering
 	{
+
+		void Renderer::temp_LoadVB(FBX::FBX_Mesh& mesh)
+		{
+			temp_vBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(Asset::Vertex) * 100000, D3D12_HEAP_TYPE_DEFAULT), &m_ResourceRecycler);
+			temp_vbv.BufferLocation = temp_vBuffer.GetResource()->GetGPUVirtualAddress();
+			temp_vbv.SizeInBytes = mesh.Submeshes[0].Vertices.size() * sizeof(Asset::Vertex);
+			temp_vbv.StrideInBytes = sizeof(Asset::Vertex);
+
+			temp_pBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(DXM::Vector3) * 100000, D3D12_HEAP_TYPE_DEFAULT), &m_ResourceRecycler);
+			temp_pbv.BufferLocation = temp_pBuffer.GetResource()->GetGPUVirtualAddress();
+			temp_pbv.SizeInBytes = mesh.Submeshes[0].Positions.size() * sizeof(DXM::Vector3);
+			temp_pbv.StrideInBytes = sizeof(DXM::Vector3);
+
+			temp_iBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(Asset::Index) * 100000, D3D12_HEAP_TYPE_DEFAULT), &m_ResourceRecycler);
+			temp_ibv.BufferLocation = temp_iBuffer.GetResource()->GetGPUVirtualAddress();
+			temp_ibv.SizeInBytes = sizeof(Asset::Index) * mesh.Submeshes[0].Indices.size();
+			temp_ibv.Format = DXGI_FORMAT_R32_UINT;
+
+			Pipeline::Shader vs;
+			vs.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "DebugLine.vs.hlsl");
+			Pipeline::Shader ps;
+			ps.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "DebugLine.ps.hlsl");
+
+			Pipeline::RenderPass::VertexPassDesc vsDesc;
+			vsDesc.DsvFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+			vsDesc.RtvFormats.push_back(DXGI_FORMAT_R8G8B8A8_UNORM);
+			vsDesc.TopologyType = Pipeline::ETopologyType::LINE;
+			//m_Pass.CompileVertexPass(vsDesc, m_diDevice, vs, ps);
+		}
+
 		Renderer::Renderer(ID3D12DeviceX* device, uint32_t bufferCount, IDxcCompilerX& compiler)
 			:m_diCompiler(compiler), m_diDevice(device)
 		{
@@ -50,10 +81,10 @@ namespace aZero
 			{
 				m_FrameContexts.emplace_back(device, m_ResourceHeap, m_ResourceRecycler, MAX_INSTANCES);
 			}
-
+			 
 			m_SamplerManager = SamplerManager(device, m_SamplerHeap);
 
-			m_ResourceManager = ResourceManager(device, &m_ResourceRecycler, m_ResourceHeap);
+			m_RenderAssetManager = std::make_unique<Rendering::RenderAssetManager>(device, m_ResourceRecycler, m_ResourceHeap);
 
 			m_WireframeRenderer = std::make_unique<Rendering::WireframeRenderer>(*this, device, compiler);
 
@@ -231,12 +262,12 @@ namespace aZero
 
 				cmdList.SetGraphicsConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferAS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBoundBuffer, m_ResourceManager.m_MeshletBoundsBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBoundBuffer, m_RenderAssetManager.get()->m_MeshletBoundsBuffer.GetResource()->GetGPUVirtualAddress());
 
 				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_ResourceManager.m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(positionBuffer, m_ResourceManager.m_PositionBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_ResourceManager.m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(positionBuffer, m_RenderAssetManager.get()->m_PositionBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
 
 				cmdList->RSSetScissorRects(1, &scizzorRect);
 				cmdList->RSSetViewports(1, &viewport);
@@ -288,39 +319,6 @@ namespace aZero
 			RenderAPI::TransitionResources(cmdList, postCopyBarriers);
 
 			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
-		}
-
-		void Renderer::UpdateRenderState(Asset::Mesh& mesh)
-		{
-			FrameContext& context = this->GetCurrentContext();
-			m_ResourceManager.UpdateRenderState(context.GetFrameStagingAllocator(), mesh);
-		}
-
-		void Renderer::UpdateRenderState(Asset::Material& material)
-		{
-			m_ResourceManager.UpdateRenderState(this->GetCurrentContext().GetFrameStagingAllocator(), material);
-		}
-
-		void Renderer::UpdateRenderState(Asset::Texture& texture)
-		{
-			FrameContext& context = this->GetCurrentContext();
-			m_ResourceManager.UpdateRenderState(m_diDevice, context.GetCommandList(), m_ResourceRecycler, m_ResourceHeap, texture);
-			m_DirectCommandQueue.ExecuteCommandList(context.GetCommandList());
-		}
-
-		void Renderer::RemoveRenderState(Asset::Mesh& mesh)
-		{
-			//m_ResourceManager.
-		}
-
-		void Renderer::RemoveRenderState(Asset::Material& material)
-		{
-			//m_ResourceManager.
-		}
-
-		void Renderer::RemoveRenderState(Asset::Texture& texture)
-		{
-			//m_ResourceManager.
 		}
 
 		void  Renderer::ClearRenderTarget(Rendering::RenderTarget& rtv)

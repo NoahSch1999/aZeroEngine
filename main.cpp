@@ -3,7 +3,6 @@
 #include "src/RenderWindow.hpp"
 #include "src/apiExamples.hpp"
 #include "src/EditorGUI.hpp"
-#include "assets/AssetManager.hpp"
 
 #ifdef RUN_TESTS
 #include "tests/Tests.hpp"
@@ -19,26 +18,6 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 
 using namespace aZero;
 
-#include "assets/NEW_Asset.hpp"
-
-template<>
-void Rendering::Renderer::RegisterAsset(std::string& str)
-{
-	auto x = this->GetBufferingCount();
-	std::cout << "string specialization register\n";
-}
-
-template<>
-void Rendering::Renderer::UnregisterAsset(std::string& str)
-{
-	std::cout << "string specialization unregister\n";
-}
-
-template<>
-void Scene::Scene::OnAssetErased(std::string& str)
-{
-	std::cout << "string specialization scene remove\n";
-}
 
 int main(int argc, char* argv[])
 {
@@ -68,10 +47,9 @@ int main(int argc, char* argv[])
 	{
 
 		// API Interfaces
-		aZero::Engine engine(3);
+		aZero::Engine engine(PROJECT_DIRECTORY, 3);
 		Rendering::Renderer& renderer = engine.GetRenderer();
 		Rendering::WireframeRenderer& wireframeRenderer = renderer.GetWireframeRenderer();
-		Asset::AssetManager& assetManager = engine.GetAssetManager();
 		Audio::AudioEngine& audioEngine = engine.GetAudioEngine();
 		Physics::PhysicsEngine& pEngine = engine.GetPhysicsEngine();
 		//
@@ -93,20 +71,11 @@ int main(int argc, char* argv[])
 
 		aZero::ImGui_Wrapper::Init(renderer, window.GetSDLWindow());
 
-		Editor::GUI::EditorGUI editorGUI(window.GetDeviceManager(), renderer.GetWireframeRenderer(), engine.GetAssetManager());
+		Editor::GUI::EditorGUI editorGUI(window.GetDeviceManager(), renderer.GetWireframeRenderer()/*, engine.GetAssetManager()*/);
 
 		Input::KeyboardListener keyboardListener;
 		Scene::Scene scene(engine.GetPhysicsEngine());
 		Example::Setup(engine, scene, { (float)width, (float)height }, rtv, dsv, window, keyboardListener);
-		assetManager.RegisterScene(scene);
-
-		NEW_Asset::AssetManager<std::string, std::string> man(renderer);
-		man.RegisterScene(&scene);
-
-		man.Create<std::string>("hej", std::string("x"));
-
-		man.Erase<std::string>("hej");
-		//man.Clear<std::string>();
 
 		renderer.FlushFrameAllocations();
 

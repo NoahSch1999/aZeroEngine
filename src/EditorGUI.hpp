@@ -11,10 +11,10 @@ namespace aZero::Editor::GUI
 	public:
 		EditorGUI(Input::DeviceManager& deviceManager,
 			// Dependency injections
-			Rendering::WireframeRenderer& wireframeRenderer,
-			Asset::AssetManager& assetManager
+			Rendering::WireframeRenderer& wireframeRenderer
+			/*, Asset::AssetManager& assetManager*/
 		)
-			:m_diWireframeRenderer(&wireframeRenderer), m_diAssetManager(&assetManager)
+			:m_diWireframeRenderer(&wireframeRenderer)/*, m_diAssetManager(&assetManager)*/
 		{
 			m_KeyboardListener = deviceManager.ListenKeyboard(
 				{
@@ -104,7 +104,7 @@ namespace aZero::Editor::GUI
 			}
 
 			if (m_ShowColliders || m_ShowMeshBounds) {
-				scene.AddDebugDrawArguments(*m_diAssetManager, *m_diWireframeRenderer, m_ShowColliders, m_ShowMeshBounds);
+				//scene.AddDebugDrawArguments(*m_diAssetManager, *m_diWireframeRenderer, m_ShowColliders, m_ShowMeshBounds);
 			}
 
 			if (m_ShowGrid)
@@ -161,6 +161,6 @@ namespace aZero::Editor::GUI
 		bool m_Show_demo_window = false;
 		Input::KeyboardListener m_KeyboardListener;
 		Rendering::WireframeRenderer* m_diWireframeRenderer;
-		Asset::AssetManager* m_diAssetManager;
+		//Asset::AssetManager* m_diAssetManager;
 	};
 }
