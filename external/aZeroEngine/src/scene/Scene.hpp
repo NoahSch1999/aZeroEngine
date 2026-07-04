@@ -8,7 +8,6 @@
 
 namespace aZero
 {
-	namespace Asset { class AssetManager; }
 	namespace Physics { class PhysicsEngine; }
 	namespace Rendering { class WireframeRenderer; }
 	namespace RenderAPI { class CommandList; }
