@@ -2,7 +2,8 @@
 #include "flecs.h"
 #include "render_api/D3D12Include.hpp"
 #include "physics/TriggerBody.hpp"
-#include "assets/Assets.hpp"
+#include "assets/Mesh.hpp"
+#include "assets/Material.hpp"
 #include <array>
 
 namespace aZero
@@ -95,7 +96,7 @@ namespace aZero
 
             void SetMesh(const Asset::Mesh& mesh, const Asset::Material& material) {
                 if (mesh.GetRenderRef().IsValid() && material.GetRenderRef().IsValid()) {
-                    m_MeshID = mesh.GetRenderRef().m_MeshletGlobalOffset; // todo Change so this becomes stead
+                    m_MeshID = mesh.GetRenderRef().m_MeshletGlobalOffset; // todo Change so this becomes steady
 
                     const auto& [count, submeshes] = mesh.GetSubmeshes();
                     for (uint32_t i = 0; i < count; i++)
@@ -151,15 +152,30 @@ namespace aZero
             float intensity;
         };
 
+        struct Triggerbody : public Physics::TriggerBody
+        {
+            Triggerbody() = default;
+
+            Triggerbody(const JPH::BodyCreationSettings& settings)
+                :Physics::TriggerBody(settings) 
+            {
+                m_BodySettings.mIsSensor = true;
+            }
+
+            Triggerbody& operator=(const JPH::BodyCreationSettings& settings)
+            {
+                Physics::TriggerBody::operator=(settings);
+                m_BodySettings.mIsSensor = true;
+                return *this;
+            }
+        };
+
         struct Rigidbody : public Physics::TriggerBody
         {
             Rigidbody() = default;
 
             Rigidbody(const JPH::BodyCreationSettings& settings)
-                :Physics::TriggerBody(settings)
-            {
-
-            }
+                :Physics::TriggerBody(settings) { }
 
             Rigidbody& operator=(const JPH::BodyCreationSettings& settings)
             {

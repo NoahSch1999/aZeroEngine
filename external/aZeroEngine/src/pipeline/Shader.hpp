@@ -9,6 +9,7 @@ namespace aZero
 	{
 		inline std::string GetShaderDirectoryPath() { return PROJECT_DIRECTORY + std::string("shaderSource/"); }
 		inline std::string GetShaderDebugDirectoryPath() { return PROJECT_DIRECTORY + std::string("shaderSource/debugOutput/"); }
+
 		inline std::string GetShaderNameFromPath(std::string_view path)
 		{
 			const size_t lastSlash = path.find_last_of('/');

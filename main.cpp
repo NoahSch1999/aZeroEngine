@@ -1,12 +1,4 @@
-#include "Engine.hpp"
-
-#include "src/RenderWindow.hpp"
-#include "src/apiExamples.hpp"
-#include "src/EditorGUI.hpp"
-
-#ifdef RUN_TESTS
-#include "tests/Tests.hpp"
-#endif
+#include "src/Editor.hpp"
 
 #if USE_DEBUG
 #include <dxgidebug.h>
@@ -16,15 +8,14 @@ extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
 
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
 
-using namespace aZero;
-
-
 int main(int argc, char* argv[])
 {
-#if USE_DEBUG
+	aZero::Window::Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD);
+
 	AllocConsole();
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
 
+#if USE_DEBUG
 	// CPU-side validation layer
 	Microsoft::WRL::ComPtr<ID3D12Debug> d3d12Debug;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&d3d12Debug))))
@@ -39,93 +30,11 @@ int main(int argc, char* argv[])
 
 	Microsoft::WRL::ComPtr<IDXGIDebug> idxgiDebug;
 	DXGIGetDebugInterface1(0, IID_PPV_ARGS(&idxgiDebug));
-#endif // DEBUG
-	
-	aZero::Window::Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD);
 
 	try
 	{
-
-		// API Interfaces
-		aZero::Engine engine(PROJECT_DIRECTORY, 3);
-		Rendering::Renderer& renderer = engine.GetRenderer();
-		Rendering::WireframeRenderer& wireframeRenderer = renderer.GetWireframeRenderer();
-		Audio::AudioEngine& audioEngine = engine.GetAudioEngine();
-		Physics::PhysicsEngine& pEngine = engine.GetPhysicsEngine();
-		//
-
-#ifdef RUN_TESTS
-		RunTests(engine);
-#endif
-
-		// Create your own implemented window and swapchain + input system
-		//RenderWindow window(Window::WindowDesc("aZero Engine", { 0,0,1200,800/*2560,1440*/ }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE, {}), renderer);
-		//RenderWindow window(Window::WindowDesc("aZero Engine", { 0,0,2560,1440 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE, {}), renderer);
-		RenderWindow window(Window::WindowDesc("aZero Engine", { 0,0,1920,1080 }, { 1,1,0,1 }, SDL_WINDOW_RESIZABLE, std::string(aZero::Asset::GetTextureDirectoryPath() + std::string("editorIcon.png"))), renderer);
-		//
-
-		// Create render surfaces
-		auto [width, height] = window.GetClientDimensions();
-		auto rtv = renderer.CreateRenderTarget(Rendering::RenderTarget::Desc(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, { 0.3,0.3,0.3,1 }, true));
-		auto dsv = renderer.CreateDepthStencilTarget(Rendering::DepthStencilTarget::Desc(width, height, 1, 0, true, true));
-
-		aZero::ImGui_Wrapper::Init(renderer, window.GetSDLWindow());
-
-		Editor::GUI::EditorGUI editorGUI(window.GetDeviceManager(), renderer.GetWireframeRenderer()/*, engine.GetAssetManager()*/);
-
-		Input::KeyboardListener keyboardListener;
-		Scene::Scene scene(engine.GetPhysicsEngine());
-		Example::Setup(engine, scene, { (float)width, (float)height }, rtv, dsv, window, keyboardListener);
-
-		renderer.FlushFrameAllocations();
-
-		int64_t frame = 0;
-		while (window.IsOpen())
-		{
-			window.Update();
-
-			// Declares start of new frame and loops until the new frame can be rendered
-			while (!renderer.TryBeginFrame())
-			{
-				// Do some stuff while waiting, ex. queue physics calcs on a seperate thread
-			}
-
-			aZero::ImGui_Wrapper::BeginFrame();
-
-			if (frame % 3 == 2)
-			{
-				scene.UpdatePhysics(true);
-			}
-
-			editorGUI.Update(scene);
-
-			Example::ControlCamera(scene, keyboardListener);
-
-			if (keyboardListener.GetDevice()->IsKeyDown(SDL_SCANCODE_K))
-			{
-				window.SetTitle("test");
-			}
-
-			renderer.Render(scene, rtv, dsv);
-
-			flecs::entity camEnt = scene.GetEntityWorld().lookup("Camera");
-			wireframeRenderer.Render(camEnt.get<Component::Camera>(), camEnt.get<Component::Position>(), camEnt.get<Component::Rotation>(), rtv, dsv);
-
-			editorGUI.Render(renderer, rtv);
-			
-			renderer.CopyRenderTargetToSwapChain(window.GetSwapChain(), rtv);
-
-			renderer.EndFrame();
-
-			window.Present();
-			frame++;
-		}
-
-		renderer.FlushRenderCommands();
-
-		ImGui_ImplDX12_Shutdown();
-		ImGui_ImplSDL3_Shutdown();
-		ImGui::DestroyContext();
+		aZero::Editor::Editor editor;
+		editor.Run();
 	}
 	catch (std::invalid_argument& e)
 	{
@@ -133,9 +42,14 @@ int main(int argc, char* argv[])
 		DebugBreak();
 	}
 
-	aZero::Window::Shutdown();
-#if USE_DEBUG
 	idxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, (DXGI_DEBUG_RLO_FLAGS)(DXGI_DEBUG_RLO_IGNORE_INTERNAL | DXGI_DEBUG_RLO_DETAIL));
+#else
+	{
+		aZero::Editor::Editor editor;
+		editor.Run();
+	}
 #endif
+
+	aZero::Window::Shutdown();
 	return 0;
 }

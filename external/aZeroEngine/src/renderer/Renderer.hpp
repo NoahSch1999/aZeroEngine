@@ -5,13 +5,12 @@
 #include "pipeline/RenderPass.hpp"
 #include "GPU_Structs.hpp"
 #include "misc/CallbackExecutor.hpp"
-#include "NEW_RenderAssetManager.hpp"
+#include "RenderAssetManager.hpp"
 #include "render_api/command_recording/CommandQueue.hpp"
 #include "FrameContext.hpp"
 
 namespace aZero
 {
-	namespace Asset { class Mesh; class Material; class Texture; }
 	namespace RenderAPI { class SwapChain; }
 	namespace Pipeline { class RenderPass; class Shader; }
 	namespace Scene { class Scene; }
@@ -127,14 +126,77 @@ namespace aZero::Rendering
 	};
 
 	template<typename AssetType>
-	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset(AssetType&)
-	{
-
-	}
+	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset(AssetType&) { }
 
 	template<typename AssetType>
-	inline void aZero::Rendering::Renderer::UnregisterAsset(AssetType&)
-	{
+	inline void aZero::Rendering::Renderer::UnregisterAsset(AssetType&) { }
 
+	template<>
+	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset<aZero::Asset::Mesh>(aZero::Asset::Mesh& mesh)
+	{
+		// todo Impl update of existing asset
+		if (mesh.GetRenderRef().IsValid())
+		{
+			throw;
+		}
+		FrameContext& context = this->GetCurrentContext();
+		const auto [meshletOffset, vertexOffset] = m_RenderAssetManager->UpdateRenderState(context.GetFrameStagingAllocator(),
+			mesh.GetCachedData().m_VertexData.Meshlets, mesh.GetCachedData().m_VertexData.Vertices,
+			mesh.GetCachedData().m_VertexData.Positions, mesh.GetCachedData().m_VertexData.MeshletBounds);
+		mesh.m_RenderRef.m_MeshletGlobalOffset = meshletOffset;
+		mesh.m_RenderRef.m_VertexGlobalOffset = vertexOffset;
+	}
+
+	template<>
+	inline void aZero::Rendering::Renderer::UnregisterAsset<aZero::Asset::Mesh>(aZero::Asset::Mesh& mesh)
+	{
+		m_RenderAssetManager->RemoveMeshAsset(mesh.GetRenderRef().m_MeshletGlobalOffset);
+	}
+
+	template<>
+	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset<aZero::Asset::Material>(aZero::Asset::Material& material)
+	{
+		FrameContext& context = this->GetCurrentContext();
+
+		if (!material.m_AlbedoRef->GetRenderRef().IsValid() && !material.m_NormalRef->GetRenderRef().IsValid())
+		{
+			throw std::invalid_argument("One or more texture-references aren't valid");
+		}
+
+		// todo Handle if the texture isnt valid
+		uint32_t albedoIndex = material.m_AlbedoRef ? material.m_AlbedoRef->GetRenderRef().DescriptorIndex : 0;
+		uint32_t normalIndex = material.m_NormalRef ? material.m_NormalRef->GetRenderRef().DescriptorIndex : 0;
+
+		// todo Maybe call different overloads based on material properties?
+		material.m_RenderRef.MaterialIndex = m_RenderAssetManager->UpdateRenderState(context.GetFrameStagingAllocator(), material.m_RenderRef.MaterialIndex, albedoIndex, normalIndex);
+	}
+
+	template<>
+	inline void aZero::Rendering::Renderer::UnregisterAsset<aZero::Asset::Material>(aZero::Asset::Material& material)
+	{
+		m_RenderAssetManager->RemoveMaterialAsset(material.GetRenderRef().MaterialIndex);
+	}
+
+	template<>
+	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset<aZero::Asset::Texture>(Asset::Texture& texture)
+	{
+		// todo Impl update of existing asset
+		if (texture.GetRenderRef().IsValid())
+		{
+			throw;
+		}
+		FrameContext& context = this->GetCurrentContext();
+		texture.m_RenderRef.DescriptorIndex = m_RenderAssetManager->UpdateRenderState(m_diDevice, context.GetCommandList(), m_ResourceRecycler, m_ResourceHeap,
+			texture.GetCachedData().TexelData, texture.GetCachedData().Width, texture.GetCachedData().Height, texture.GetCachedData().Format);
+		m_DirectCommandQueue.ExecuteCommandList(context.GetCommandList());
+	}
+
+	template<>
+	inline void aZero::Rendering::Renderer::UnregisterAsset<aZero::Asset::Texture>(aZero::Asset::Texture& texture)
+	{
+		m_RenderAssetManager->RemoveTextureAsset(texture.GetRenderRef().DescriptorIndex);
+
+		// todo Impl recycle that doesnt force flush of descriptors
+		this->FlushRenderCommands();
 	}
 }

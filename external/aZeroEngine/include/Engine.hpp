@@ -25,7 +25,7 @@ namespace aZero
 		Rendering::Renderer& GetRenderer() const { return *m_Renderer.get(); }
 		Audio::AudioEngine& GetAudioEngine() const { return *m_AudioEngine.get(); }
 		Physics::PhysicsEngine& GetPhysicsEngine() const { return *m_PhysicsEngine.get(); }
-		Asset::AssetManager<std::string>& GetAssetManager_NEW() const { return *m_AssetManager_NEW.get(); }
+		Asset::AssetManager<std::string>& GetAssetManager() const { return *m_AssetManager.get(); }
 
 	private:
 		Microsoft::WRL::ComPtr<ID3D12DeviceX> m_Device;
@@ -37,7 +37,7 @@ namespace aZero
 		std::unique_ptr<Rendering::Renderer> m_Renderer;
 		std::unique_ptr<Audio::AudioEngine> m_AudioEngine;
 		std::unique_ptr<Physics::PhysicsEngine> m_PhysicsEngine;
-		std::unique_ptr<Asset::AssetManager<std::string>> m_AssetManager_NEW;
+		std::unique_ptr<Asset::AssetManager<std::string>> m_AssetManager;
 		//
 	};
 }

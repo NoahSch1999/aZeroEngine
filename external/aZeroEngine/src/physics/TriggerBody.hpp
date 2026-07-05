@@ -51,9 +51,11 @@ namespace aZero
 			void SetOnContactRemoved(ContactRemoved_ResolveCallback&& callback) { m_OnContactRemoved = std::move(callback); }
 
 			void SetCreationSettings(const JPH::BodyCreationSettings& settings) { m_BodySettings = settings; }
+
+			JPH::BodyCreationSettings m_BodySettings;
+
 		private:
 			Physics::Body m_Body;
-			JPH::BodyCreationSettings m_BodySettings;
 
 			std::optional<BodyActivated_ResolveCallback> m_OnBodyActivated = std::optional<BodyActivated_ResolveCallback>();
 			std::optional<BodyDeactivated_ResolveCallback> m_OnBodyDeactivated = std::optional<BodyDeactivated_ResolveCallback>();

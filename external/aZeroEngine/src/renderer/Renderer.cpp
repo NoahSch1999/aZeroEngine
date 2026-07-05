@@ -5,7 +5,7 @@
 #include "render_api/SwapChain.hpp"
 #include "pipeline/RenderPass.hpp"
 #include "assets/FBX_Loading.hpp"
-#include "assets/Assets.hpp"
+#include "assets/MeshPrimitives.hpp"
 
 #include "WinPixEventRuntime/pix3.h"
 
@@ -130,7 +130,7 @@ namespace aZero
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 			frameContext.RecordFrameAllocations(frameContext.GetCommandList());
-			m_DirectCommandQueue.ExecuteCommandList(frameContext.GetCommandList(), false);
+			m_DirectCommandQueue.ExecuteCommandList(frameContext.GetCommandList(), true);
 		}
 
 

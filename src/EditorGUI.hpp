@@ -9,38 +9,11 @@ namespace aZero::Editor::GUI
 	class EditorGUI
 	{
 	public:
+		EditorGUI() = default;
 		EditorGUI(Input::DeviceManager& deviceManager,
-			// Dependency injections
 			Rendering::WireframeRenderer& wireframeRenderer
-			/*, Asset::AssetManager& assetManager*/
 		)
-			:m_diWireframeRenderer(&wireframeRenderer)/*, m_diAssetManager(&assetManager)*/
-		{
-			m_KeyboardListener = deviceManager.ListenKeyboard(
-				{
-					[this](const SDL_Event& event, Input::Keyboard& keyboard) {
-						if (event.type == SDL_EVENT_KEY_DOWN)
-						{
-							if (event.key.key == SDLK_ESCAPE)
-							{
-								this->m_ShowEditorGUI = !this->m_ShowEditorGUI;
-							}
-							if (event.key.key == SDLK_C)
-							{
-								this->m_ShowColliders = !this->m_ShowColliders;
-							}
-							if (event.key.key == SDLK_M)
-							{
-								this->m_ShowMeshBounds = !this->m_ShowMeshBounds;
-							}
-						}
-					},
-					[](const SDL_Event& event, Input::Keyboard& keyboard) {
-						
-					}
-				}
-			);
-		}
+			:m_diWireframeRenderer(&wireframeRenderer) { }
 
 		void Update(Scene::Scene& scene)
 		{
@@ -65,7 +38,7 @@ namespace aZero::Editor::GUI
 
 				if (ImGui::Checkbox("Enable physics camera", &m_PhysicsCamera))
 				{
-					flecs::entity ent = scene.GetEntityWorld().lookup("Camera");
+					flecs::entity ent = scene.GetEntityWorld().lookup("EditorCamera");
 					if (m_PhysicsCamera)
 					{
 						JPH::BoxShapeSettings boxShape(JPH::Vec3(1, 1, 1));
@@ -87,7 +60,8 @@ namespace aZero::Editor::GUI
 					}
 				}
 
-				ImGui::Checkbox("Show colliders", &m_ShowColliders);
+				ImGui::Checkbox("Show rigidbody colliders", &m_ShowRigidbodyColliders);
+				ImGui::Checkbox("Show triggerbody colliders", &m_ShowTriggerbodyColliders);
 				ImGui::Checkbox("Show mesh bounds", &m_ShowMeshBounds);
 				ImGui::Checkbox("Show demo window", &m_Show_demo_window);
 				if(m_Show_demo_window)
@@ -103,8 +77,70 @@ namespace aZero::Editor::GUI
 				ImGui::End();
 			}
 
-			if (m_ShowColliders || m_ShowMeshBounds) {
-				//scene.AddDebugDrawArguments(*m_diAssetManager, *m_diWireframeRenderer, m_ShowColliders, m_ShowMeshBounds);
+			if (m_ShowMeshBounds) 
+			{
+				// todo Fix since the performance is horrendous
+				//scene.GetStaticMeshQuery().each(
+				//	[this](flecs::entity entity, const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale) {
+				//		for (const auto& submesh : mesh.m_Submeshes)
+				//		{
+				//			Rendering::WireframeShape::Sphere sphere(DXM::Vector3(0, 0, 1), DXM::Vector3::Transform(submesh.m_Bounds.Center, DXM::Matrix::CreateTranslation(position)), submesh.m_Bounds.Radius, 5); // todo Handle scale
+				//			this->m_diWireframeRenderer->AddShape(sphere);
+				//		}
+				//	}
+				//);
+
+				//scene.GetDynamicMeshQuery().each(
+				//	[this](flecs::entity entity, const Component::Mesh& mesh, const Component::Position& position, const  Component::Rotation& rotation, const Component::Scale& scale) {
+				//		for (const auto& submesh : mesh.m_Submeshes)
+				//		{
+				//			Rendering::WireframeShape::Sphere sphere(DXM::Vector3(0, 0, 1), DXM::Vector3::Transform(submesh.m_Bounds.Center, DXM::Matrix::CreateTranslation(position)), submesh.m_Bounds.Radius, 5); // todo Handle scale
+				//			this->m_diWireframeRenderer->AddShape(sphere);
+				//		}
+				//	}
+				//);
+			}
+
+			if (m_ShowRigidbodyColliders)
+			{
+				if (scene.HasPhysics())
+				{
+					scene.GetRigidbodyQuery().each([this](Component::Rigidbody& rigidBody, Component::Position& position, Component::Rotation& rotation) {
+						auto lock = rigidBody.GetBody().LockForRead();
+						if (lock.Succeeded())
+						{
+							auto& body = lock.GetBody();
+							auto bounds = body.GetWorldSpaceBounds();
+							auto* shape = body.GetShape();
+							if (body.GetShape()->GetSubType() == JPH::EShapeSubType::Box)
+							{
+								const JPH::BoxShape* boxShape = static_cast<const JPH::BoxShape*>(body.GetShape());
+								this->m_diWireframeRenderer->AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 0), Math::Convert(body.GetPosition()), Math::Convert(body.GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
+							}
+						}
+					});
+				}
+			}
+
+			if (m_ShowTriggerbodyColliders)
+			{
+				if (scene.HasPhysics())
+				{
+					scene.GetTriggerbodyQuery().each([this](Component::Triggerbody& triggerbody, Component::Position& position) {
+						auto lock = triggerbody.GetBody().LockForRead();
+						if (lock.Succeeded())
+						{
+							auto& body = lock.GetBody();
+							auto bounds = body.GetWorldSpaceBounds();
+							auto* shape = body.GetShape();
+							if (body.GetShape()->GetSubType() == JPH::EShapeSubType::Box)
+							{
+								const JPH::BoxShape* boxShape = static_cast<const JPH::BoxShape*>(body.GetShape());
+								this->m_diWireframeRenderer->AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 0), Math::Convert(body.GetPosition()), Math::Convert(body.GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
+							}
+						}
+						});
+				}
 			}
 
 			if (m_ShowGrid)
@@ -146,6 +182,7 @@ namespace aZero::Editor::GUI
 			}
 			aZero::ImGui_Wrapper::HandleMultiViewport();
 		}
+		bool m_ShowEditorGUI = true;
 
 	private:
 		uint64_t m_FrameCount = 0;
@@ -153,14 +190,12 @@ namespace aZero::Editor::GUI
 		std::chrono::high_resolution_clock::time_point m_LastTime =
 			std::chrono::high_resolution_clock::now();
 
-		bool m_ShowEditorGUI = true;
-		bool m_ShowColliders = false;
+		bool m_ShowRigidbodyColliders = false;
+		bool m_ShowTriggerbodyColliders = false;
 		bool m_ShowMeshBounds = false;
 		bool m_ShowGrid = true;
 		bool m_PhysicsCamera = false;
 		bool m_Show_demo_window = false;
-		Input::KeyboardListener m_KeyboardListener;
 		Rendering::WireframeRenderer* m_diWireframeRenderer;
-		//Asset::AssetManager* m_diAssetManager;
 	};
 }

@@ -172,7 +172,7 @@ add_library(${PROJECT_NAME}
     "src/render_api/SwapChain.cpp" 
     "src/physics/PhysicsEngine.cpp" 
     "src/physics/PhysicsWorld.cpp" 
-    "src/ecs/ColliderComponent.cpp" 
+     
     "src/renderer/WireframeRenderer.cpp" 
     "src/pipeline/Shader.cpp" 
     "src/pipeline/RenderPass.cpp")

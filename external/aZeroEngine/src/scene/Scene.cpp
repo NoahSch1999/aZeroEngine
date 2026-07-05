@@ -49,8 +49,10 @@ aZero::Scene::Scene::~Scene()
 
 	if (m_PhysicsWorld.get())
 	{
-		m_Physics_OnSet_Observer.destruct();
-		m_Physics_OnRemove_Observer.destruct();
+		m_Rigidbody_OnSet_Observer.destruct();
+		m_Rigidbody_OnRemove_Observer.destruct();
+		m_Triggerbody_OnSet_Observer.destruct();
+		m_Triggerbody_OnRemove_Observer.destruct();
 		m_World.release(); // Need to be destroyed before the physics world since there's observers that use the physics world (unless they are disabled beforehand)
 		m_PhysicsWorld.reset();
 	}
@@ -69,10 +71,11 @@ void aZero::Scene::Scene::Init()
 	m_World.component<Component::SpotLight>();
 	m_World.component<Component::DirectionalLight>();
 	m_World.component<Component::Rigidbody>();
+	m_World.component<Component::Triggerbody>();
 	m_World.component<Component::Static>();
 
 	m_Static_Mesh_Query = m_World.query_builder<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale>().with<Component::Static>().build();
-	m_Dynamic_Mesh_Query = m_World.query_builder<Component::Mesh, Component::Position, Component::Rotation, Component::Scale>().without<Component::Static>().cached().build();
+	m_Dynamic_Mesh_Query = m_World.query_builder<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale>().without<Component::Static>().cached().build();
 	m_CameraQuery = m_World.query_builder<Component::Camera, Component::Position, Component::Rotation>().cached().build();
 
 	m_StaticMeshPrefab = m_World.prefab("StaticMeshPrefab").set(Component::Mesh()).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0)).set(Component::Scale(1, 1, 1));
@@ -83,20 +86,32 @@ void aZero::Scene::Scene::Init()
 		m_RigidbodyStaticMeshPrefab = m_World.prefab("RigidbodyStaticMeshPrefab").set(Component::Rigidbody()).set(Component::Mesh()).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0)).set(Component::Scale(1, 1, 1));
 
 		m_ApplyPhysicsQuery = m_World.query_builder<Component::Rigidbody, Component::Position, Component::Rotation>().without<Component::Static>().cached().build();
+		m_TriggerbodyQuery = m_World.query_builder<Component::Triggerbody, Component::Position>().cached().build();
 
-		m_Physics_OnSet_Observer = m_World.observer<Component::Rigidbody>().event(flecs::OnSet).each(
+		m_Rigidbody_OnSet_Observer = m_World.observer<Component::Rigidbody>().event(flecs::OnSet).each(
 			[this](flecs::entity entity, Component::Rigidbody& rb) {
-				this->RegisterToPhysics(entity, rb);
+				this->RegisterToPhysics(entity, rb.GetBody(), rb.m_BodySettings);
 			}
 		);
 
-		m_Physics_OnRemove_Observer = m_World.observer<Component::Rigidbody>().event(flecs::OnRemove).each(
+		m_Rigidbody_OnRemove_Observer = m_World.observer<Component::Rigidbody>().event(flecs::OnRemove).each(
 			[this](flecs::entity entity, Component::Rigidbody& rb) {
-				this->UnregisterFromPhysics(entity, rb);
+				this->UnregisterFromPhysics(entity, rb.GetBody());
+			}
+		);
+
+		m_Triggerbody_OnSet_Observer = m_World.observer<Component::Triggerbody>().event(flecs::OnSet).each(
+			[this](flecs::entity entity, Component::Triggerbody& tb) {
+				this->RegisterToPhysics(entity, tb.GetBody(), tb.m_BodySettings);
+			}
+		);
+
+		m_Triggerbody_OnRemove_Observer = m_World.observer<Component::Triggerbody>().event(flecs::OnRemove).each(
+			[this](flecs::entity entity, Component::Triggerbody& tb) {
+				this->UnregisterFromPhysics(entity, tb.GetBody());
 			}
 		);
 	}
-	
 }
 
 void aZero::Scene::Scene::RebuildStaticMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList)
@@ -184,7 +199,7 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 	uint32_t numDynamicMeshEntities = 0; // TODO: Set to number of static entities since we dont wanna overwrite the cached ones
 	m_Dynamic_Mesh_Query.each([pObjCull, pInstance, &numDynamicMeshEntities](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
 		{
-			WriteRenderFormat(pObjCull, pInstance, mesh, position, rotation, scale, numDynamicMeshEntities);
+ 			WriteRenderFormat(pObjCull, pInstance, mesh, position, rotation, scale, numDynamicMeshEntities);
 		});
 
 	cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(),
@@ -197,84 +212,6 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 
 	return { SceneRenderDataFrameInfo{.StaticMeshCount = numDynamicMeshEntities + m_NumStaticMeshEntities }, m_RenderData };
 }
-
-//void aZero::Scene::Scene::RemoveMeshesWith(Asset::RenderID withID)
-//{
-//	m_World.defer_begin();
-//	m_World.query<Component::Mesh>().each(
-//		[withID] (flecs::entity entity, Component::Mesh& mesh) {
-//			if (mesh.GetMeshID() == withID)
-//			{
-//				entity.remove<Component::Mesh>();
-//			}
-//		}
-//	);
-//	m_World.defer_end();
-//}
-//
-//void aZero::Scene::Scene::RemoveMeshesWithMaterial(Asset::RenderID withID)
-//{
-//	m_World.defer_begin();
-//	m_World.query<Component::Mesh>().each(
-//		[withID](flecs::entity entity, Component::Mesh& mesh) {
-//			for (uint32_t i = 0; i < mesh.m_NumSubmeshes; i++)
-//			{
-//				if (mesh.m_Submeshes[i].m_MaterialID == withID)
-//				{
-//					entity.remove<Component::Mesh>();
-//				}
-//			}
-//			
-//		}
-//	);
-//	m_World.defer_end();
-//}
-
-//void aZero::Scene::Scene::AddDebugDrawArguments(Asset::AssetManager& assetManager, Rendering::WireframeRenderer& wireframeRenderer, bool showColliders, bool showMeshBounds)
-//{
-//	if (showMeshBounds)
-//	{
-//		auto meshQuery = m_World.query<Component::Mesh, Component::Position>();
-//		const auto& allMeshes = assetManager.GetAllMeshes();
-//		meshQuery.each([&wireframeRenderer, &allMeshes](const Component::Mesh& mesh, const Component::Position& position) {
-//
-//			// Lmao this is so bad, but whatever... It's just for debugging... :P
-//			for (const auto& [name, meshAsset] : allMeshes) 
-//			{
-//				if (meshAsset.GetRenderID() == mesh.GetMeshID()) 
-//				{
-//					for (const auto& submesh : meshAsset.GetSubmeshes())
-//					{
-//						wireframeRenderer.AddShape(Rendering::WireframeShape::Sphere(DXM::Vector3(0, 0, 1), DXM::Vector3::Transform(submesh.Bounds.Center, DXM::Matrix::CreateTranslation(position)), submesh.Bounds.Radius, 10));
-//					}
-//				}
-//			}
-//		});
-//	}
-//
-//	if (showColliders)
-//	{
-//		if (m_PhysicsWorld.get())
-//		{
-//			m_ApplyPhysicsQuery.each([&wireframeRenderer](Component::Rigidbody& rigidBody, Component::Position& position, Component::Rotation& rotation) {
-//				auto lock = rigidBody.m_Body.LockForRead();
-//				if (lock.Succeeded())
-//				{
-//					auto& body = lock.GetBody();
-//
-//					auto bounds = body.GetWorldSpaceBounds();
-//
-//					auto* shape = body.GetShape();
-//					if (body.GetShape()->GetSubType() == JPH::EShapeSubType::Box)
-//					{
-//						const JPH::BoxShape* boxShape = static_cast<const JPH::BoxShape*>(body.GetShape());
-//						wireframeRenderer.AddShape(Rendering::WireframeShape::OBB(DXM::Vector3(0, 1, 0), Math::Convert(body.GetPosition()), Math::Convert(body.GetRotation()), Math::Convert(boxShape->GetHalfExtent())));
-//					}
-//				}
-//			});
-//		}
-//	}
-//}
 
 void aZero::Scene::Scene::ApplyPhysics()
 {
@@ -313,24 +250,24 @@ void aZero::Scene::Scene::OptimizePhysics()
 	}
 }
 
-void aZero::Scene::Scene::RegisterToPhysics(flecs::entity entity, Component::Rigidbody& rigidbody)
+void aZero::Scene::Scene::RegisterToPhysics(flecs::entity entity, Physics::Body& body, JPH::BodyCreationSettings& bodySettings)
 {
-	if (m_BodyID_To_EntityID.count(rigidbody.m_Body.GetBodyID().GetIndexAndSequenceNumber()))
+	if (m_BodyID_To_EntityID.count(body.GetBodyID().GetIndexAndSequenceNumber()))
 	{
-		this->UnregisterFromPhysics(entity, rigidbody);
+		this->UnregisterFromPhysics(entity, body);
 	}
 
-	rigidbody.m_BodySettings.mUserData = static_cast<uint64_t>(entity.id());
-	rigidbody.m_Body = m_PhysicsWorld->CreateBody(rigidbody.m_BodySettings, true);
-	m_BodyID_To_EntityID[rigidbody.m_Body.GetBodyID().GetIndexAndSequenceNumber()] = entity.id();
+	bodySettings.mUserData = static_cast<uint64_t>(entity.id());
+	body = m_PhysicsWorld->CreateBody(bodySettings, true);
+	m_BodyID_To_EntityID[body.GetBodyID().GetIndexAndSequenceNumber()] = entity.id();
 }
 
-void aZero::Scene::Scene::UnregisterFromPhysics(flecs::entity entity, Component::Rigidbody& rigidbody)
+void aZero::Scene::Scene::UnregisterFromPhysics(flecs::entity entity, Physics::Body& body)
 {
-	if (m_BodyID_To_EntityID.count(rigidbody.m_Body.GetBodyID().GetIndexAndSequenceNumber()))
+	if (m_BodyID_To_EntityID.count(body.GetBodyID().GetIndexAndSequenceNumber()))
 	{
-		m_BodyID_To_EntityID.erase(rigidbody.m_Body.GetBodyID().GetIndexAndSequenceNumber());
-		m_PhysicsWorld->DestroyBody(rigidbody.m_Body);
+		m_BodyID_To_EntityID.erase(body.GetBodyID().GetIndexAndSequenceNumber());
+		m_PhysicsWorld->DestroyBody(body);
 	}
 }
 
