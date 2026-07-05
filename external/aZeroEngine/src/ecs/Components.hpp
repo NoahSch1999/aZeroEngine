@@ -88,6 +88,8 @@ namespace aZero
 
         class Mesh {
         public:
+            static constexpr uint32_t s_MaxNumberOfSubmeshes = 10;
+
             Mesh() = default;
 
             Mesh(const Asset::Mesh& mesh, const Asset::Material& material) {
@@ -126,7 +128,7 @@ namespace aZero
                 uint32_t m_MaterialID;
             };
 
-            std::array<Submesh, 10> m_Submeshes;
+            std::array<Submesh, s_MaxNumberOfSubmeshes> m_Submeshes;
             uint32_t m_NumSubmeshes = 0;
             uint32_t m_MeshID;
 

@@ -46,6 +46,7 @@ aZero::Scene::Scene::~Scene()
 	m_Static_Mesh_Query = {};
 	m_CameraQuery = {};
 	m_ApplyPhysicsQuery = {};
+	m_TriggerbodyQuery = {};
 
 	if (m_PhysicsWorld.get())
 	{
@@ -118,14 +119,14 @@ void aZero::Scene::Scene::RebuildStaticMeshes(aZero::LinearAllocator<>& frameDat
 {
 	// todo Reset stuff, ex. tree, for the new cached data
 	// todo Rehash mesh in tree etc
-	m_NumStaticMeshEntities = m_Static_Mesh_Query.count();
+
 	m_Static_Mesh_Query.run([this, &frameDataAllocator, &frameDataBuffer, &cmdList] (flecs::iter& it) {
 		using namespace Rendering;
 		size_t objectCullDataOffset = frameDataAllocator.GetOffset();
-		GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(this->m_NumStaticMeshEntities * sizeof(GPU_Struct::ObjectCullData)));
+		GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(m_Static_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes * sizeof(GPU_Struct::ObjectCullData)));
 
 		size_t instanceDataOffset = frameDataAllocator.GetOffset();
-		GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(this->m_NumStaticMeshEntities * sizeof(GPU_Struct::InstanceData)));
+		GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(m_Static_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes * sizeof(GPU_Struct::InstanceData)));
 
 		uint32_t totalNumEntities = 0;
 
@@ -142,8 +143,10 @@ void aZero::Scene::Scene::RebuildStaticMeshes(aZero::LinearAllocator<>& frameDat
 			}
 		}
 
-		cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(), 0, frameDataBuffer.GetResource(), objectCullDataOffset, this->m_NumStaticMeshEntities * sizeof(GPU_Struct::ObjectCullData));
-		cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(), 0, frameDataBuffer.GetResource(), instanceDataOffset, this->m_NumStaticMeshEntities * sizeof(GPU_Struct::InstanceData));
+		m_NumStaticMeshEntities = totalNumEntities;
+
+		cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(), 0, frameDataBuffer.GetResource(), objectCullDataOffset, totalNumEntities * sizeof(GPU_Struct::ObjectCullData));
+		cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(), 0, frameDataBuffer.GetResource(), instanceDataOffset, totalNumEntities * sizeof(GPU_Struct::InstanceData));
 	});
 }
 
@@ -188,7 +191,7 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 		m_ShouldRebuildStaticMeshes = false;
 	}
 
-	uint32_t entityUpdateCount = m_Dynamic_Mesh_Query.count();
+	uint32_t entityUpdateCount = m_Dynamic_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes;
 
 	size_t objectCullDataOffset = frameDataAllocator.GetOffset();
 	GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::ObjectCullData)));
@@ -196,7 +199,7 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 	size_t instanceDataOffset = frameDataAllocator.GetOffset();
 	GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::InstanceData)));
 
-	uint32_t numDynamicMeshEntities = 0; // TODO: Set to number of static entities since we dont wanna overwrite the cached ones
+	uint32_t numDynamicMeshEntities = 0;
 	m_Dynamic_Mesh_Query.each([pObjCull, pInstance, &numDynamicMeshEntities](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
 		{
  			WriteRenderFormat(pObjCull, pInstance, mesh, position, rotation, scale, numDynamicMeshEntities);
@@ -204,11 +207,11 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 
 	cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(),
 		m_NumStaticMeshEntities * sizeof(GPU_Struct::ObjectCullData), // Copy from the end of the cached mesh entities
-		frameDataBuffer.GetResource(), objectCullDataOffset, entityUpdateCount * sizeof(GPU_Struct::ObjectCullData));
+		frameDataBuffer.GetResource(), objectCullDataOffset, numDynamicMeshEntities * sizeof(GPU_Struct::ObjectCullData));
 
 	cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(),
 		m_NumStaticMeshEntities * sizeof(GPU_Struct::InstanceData), // Copy from the end of the cached mesh entities
-		frameDataBuffer.GetResource(), instanceDataOffset, entityUpdateCount * sizeof(GPU_Struct::InstanceData));
+		frameDataBuffer.GetResource(), instanceDataOffset, numDynamicMeshEntities * sizeof(GPU_Struct::InstanceData));
 
 	return { SceneRenderDataFrameInfo{.StaticMeshCount = numDynamicMeshEntities + m_NumStaticMeshEntities }, m_RenderData };
 }

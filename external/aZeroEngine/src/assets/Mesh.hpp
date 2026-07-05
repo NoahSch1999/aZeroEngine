@@ -28,6 +28,7 @@ namespace aZero::Asset
 		MeshData() = default;
 		MeshData(const FBX::FBX_Mesh& mesh)
 		{
+			uint32_t vertexOffset = 0;
 			for (const FBX::FBX_Submesh& submesh : mesh.Submeshes)
 			{
 				std::vector<Asset::Vertex> vertices(submesh.Vertices);
@@ -35,13 +36,14 @@ namespace aZero::Asset
 				std::vector<Asset::Index> indices(submesh.Indices);
 				std::vector<Asset::Meshlet> meshlets;
 				std::vector<DirectX::BoundingSphere> meshletBounds;
-				Asset::Meshletize(positions, vertices, indices, meshlets, meshletBounds);
+				Asset::Meshletize(positions, vertices, indices, meshlets, meshletBounds, vertexOffset);
 
 				SubmeshData newSubmesh;
 				newSubmesh.Name = submesh.Name;
 				newSubmesh.Bounds = submesh.Bounds;
 				newSubmesh.MeshletOffset = m_VertexData.Meshlets.size();
 				newSubmesh.MeshletCount = meshlets.size();
+				vertexOffset += positions.size();
 
 				m_VertexData.Positions.insert(m_VertexData.Positions.end(), positions.begin(), positions.end());
 				m_VertexData.Vertices.insert(m_VertexData.Vertices.end(), vertices.begin(), vertices.end());

@@ -220,7 +220,7 @@ namespace aZero::Editor
 			auto& assetManager = m_Engine->GetAssetManager();
 			assetManager.RegisterScene(m_CurrentScene.get());
 
-			auto loadedFBX = FBX::LoadFBX(assetManager.GetAssetDirectory<Asset::Mesh>() + "goblin.fbx");
+			auto loadedFBX = FBX::LoadFBX(assetManager.GetAssetDirectory<Asset::Mesh>() + "multimat.fbx");
 			if (!loadedFBX.has_value()) { throw; }
 
 			auto meshObj = assetManager.Create<Asset::Mesh>("mesh", loadedFBX.value().Meshes[0]);

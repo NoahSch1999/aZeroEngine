@@ -49,7 +49,8 @@ namespace aZero::Asset
 		std::vector<aZero::Asset::Vertex>& vertices,
 		std::vector<aZero::Asset::Index>& indices,
 		std::vector<aZero::Asset::Meshlet>& outMeshlets,
-		std::vector<DirectX::BoundingSphere>& outMeshletBounds
+		std::vector<DirectX::BoundingSphere>& outMeshletBounds,
+		uint32_t vertexBaseOffset
 	)
 	{
 		const size_t max_vertices = aZero::Asset::g_VerticesPerMeshlet;
@@ -107,7 +108,6 @@ namespace aZero::Asset
 
 			newMeshlet.PrimitiveCount = meshlet.triangle_count;
 			newMeshlet.VertexCount = meshlet.vertex_count;
-			newMeshlet.VertexOffset = meshlet.vertex_offset;
 
 			for (uint32_t h = 0; h < meshlet.vertex_count; h++)
 			{
@@ -121,6 +121,7 @@ namespace aZero::Asset
 				newMeshlet.Primitives[j] = aZero::Helper::Pack8To32(primitives[primOffset], primitives[primOffset + 1], primitives[primOffset + 2], 0);
 			}
 
+			newMeshlet.VertexOffset = meshlet.vertex_offset + vertexBaseOffset;
 			outMeshlets.emplace_back(newMeshlet);
 		}
 
