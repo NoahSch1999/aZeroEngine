@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
 #include "Body.hpp"
-#include "Jolt/Physics/Collision/CollideShape.h"
+#include <Jolt/Physics/Collision/CollideShape.h>
 
 namespace aZero
 {

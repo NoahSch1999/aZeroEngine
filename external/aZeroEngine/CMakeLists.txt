@@ -122,14 +122,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(aZeroAudio)
 #
 
-# SIMDJSON
+# FastGltf
 FetchContent_Declare(
-    simdjson
-    GIT_REPOSITORY https://github.com/simdjson/simdjson.git
-    GIT_TAG        "master"
-    GIT_SHALLOW TRUE
+    fastgltf
+    GIT_REPOSITORY https://github.com/spnda/fastgltf.git
+    GIT_TAG        "main"
 )
-FetchContent_MakeAvailable(simdjson)
+FetchContent_MakeAvailable(fastgltf)
 #
 
 # aZero Sparse Set
@@ -171,8 +170,7 @@ add_library(${PROJECT_NAME}
     "src/render_api/descriptor/DescriptorHeap.cpp"
     "src/render_api/SwapChain.cpp" 
     "src/physics/PhysicsEngine.cpp" 
-    "src/physics/PhysicsWorld.cpp" 
-     
+    "src/physics/PhysicsWorld.cpp"
     "src/renderer/WireframeRenderer.cpp" 
     "src/pipeline/Shader.cpp" 
     "src/pipeline/RenderPass.cpp")
@@ -214,12 +212,12 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC DirectXTK12
     PUBLIC DXCompiler
     PUBLIC assimp
-    PUBLIC simdjson
     PUBLIC aZeroAudio
     PUBLIC meshoptimizer
     PUBLIC Jolt
     PUBLIC WinPixEventRuntime
     PUBLIC flecs::flecs_static
+    PUBLIC fastgltf
     #PUBLIC DXGIDebug.dll
 )
 #

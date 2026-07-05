@@ -1,8 +1,8 @@
 #pragma once
 #include <bitset>
 #include "misc/HelperFunctions.hpp"
-
-#include "LinearAllocator.hpp"
+#include <filesystem>
+#include <LinearAllocator.hpp>
 #include "renderer/GPU_Structs.hpp"
 #include "render_api/resource/buffer/Buffer.hpp"
 
@@ -36,6 +36,8 @@ namespace aZero
 			Scene();
 			Scene(Physics::PhysicsEngine& physicsEngine);
 			~Scene();
+
+			bool Load(const std::filesystem::path& path);
 
 			flecs::world& GetEntityWorld() { return m_World; }
 			SceneID GetSceneID() const { return m_SceneID; }

@@ -1,10 +1,10 @@
 #pragma once
 #include <Windows.h>
-#include "directx/d3dx12.h"
+#include <directx/d3dx12.h>
 #include <wrl.h>
 #include <dxgi1_5.h>
 #include <d3dcompiler.h>
-#include "dxcapi.h"
+#include <dxcapi.h>
 #include "d3d12shader.h"
 #include <SimpleMath.h>
 #include <stdexcept>

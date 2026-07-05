@@ -1,6 +1,6 @@
 #pragma once
 #include "render_api/D3D12Include.hpp"
-#include "meshoptimizer.h"
+#include <meshoptimizer.h>
 #include <array>
 #include <vector>
 

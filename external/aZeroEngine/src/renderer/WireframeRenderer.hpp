@@ -1,7 +1,7 @@
 #pragma once
 #include "misc/Maths.hpp"
 #include "WireframeShapes.hpp"
-#include "WinPixEventRuntime/pix3.h"
+#include <WinPixEventRuntime/pix3.h>
 #include "pipeline/RenderPass.hpp"
 #include "ecs/Components.hpp"
 #include "render_api/resource/buffer/Buffer.hpp"

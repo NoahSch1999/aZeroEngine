@@ -216,6 +216,7 @@ namespace aZero::Editor
 		void SetupSceneTest()
 		{
 			m_CurrentScene = std::make_unique<Scene::Scene>(m_Engine->GetPhysicsEngine());
+			m_CurrentScene->Load(m_Engine->GetProjectRootDirectory() + "main_sponza/NewSponza_Main_glTF_003.gltf");
 
 			auto& assetManager = m_Engine->GetAssetManager();
 			assetManager.RegisterScene(m_CurrentScene.get());

@@ -3,6 +3,10 @@
 #include "renderer/WireframeRenderer.hpp"
 #include "renderer/GPU_Structs.hpp"
 
+#include <fastgltf/core.hpp>
+#include <fastgltf/types.hpp>
+#include <fastgltf/tools.hpp>
+
 // todo Test so that submeshes work as expected
 void WriteRenderFormat(aZero::Rendering::GPU_Struct::ObjectCullData* pObjCull, aZero::Rendering::GPU_Struct::InstanceData* pInstance,
 	const aZero::Component::Mesh& mesh, const aZero::Component::Position& position, const aZero::Component::Rotation& rotation, const aZero::Component::Scale& scale, uint32_t& count)
@@ -25,6 +29,32 @@ void WriteRenderFormat(aZero::Rendering::GPU_Struct::ObjectCullData* pObjCull, a
 
 		count++;
 	}
+}
+
+bool aZero::Scene::Scene::Load(const std::filesystem::path& path)
+{
+	static constexpr auto supportedExtensions =
+		fastgltf::Extensions::KHR_mesh_quantization |
+		fastgltf::Extensions::KHR_texture_transform |
+		fastgltf::Extensions::KHR_materials_variants;
+
+	fastgltf::Parser parser(supportedExtensions);
+
+	constexpr auto gltfOptions =
+		fastgltf::Options::DontRequireValidAssetMember |
+		fastgltf::Options::AllowDouble |
+		fastgltf::Options::LoadExternalBuffers |
+		fastgltf::Options::LoadExternalImages |
+		fastgltf::Options::GenerateMeshIndices;
+
+	auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
+	if (!bool(gltfFile)) {
+		std::cerr << "Failed to open glTF file: " << fastgltf::getErrorMessage(gltfFile.error()) << '\n';
+		return false;
+	}
+
+	auto asset = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
+	return true;
 }
 
 aZero::Scene::Scene::Scene()
