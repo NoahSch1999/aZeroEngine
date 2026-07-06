@@ -226,7 +226,7 @@ namespace aZero
 				m_MeshCullPass.Begin(cmdList);
 
 				aZero::Rendering::GPU_Struct::MeshCullConstantsData meshletCullConstantsData;
-				meshletCullConstantsData.MeshInstanceCount = renderDataFrameInfo.StaticMeshCount;
+				meshletCullConstantsData.MeshInstanceCount = renderDataFrameInfo.MeshCount;
 				cmdList.SetComputeRoot32BitConstantsSafe(meshCullConstants, &meshletCullConstantsData, 0);
 				cmdList.SetComputeRootUnorderedAccessViewSafe(indirectArgCounter, m_IndirectArgumentCounter.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetComputeRootUnorderedAccessViewSafe(indirectArgBuffer, m_IndirectArguments.GetResource()->GetGPUVirtualAddress());
@@ -234,7 +234,7 @@ namespace aZero
 				cmdList.SetComputeRootShaderResourceViewSafe(objectCullDataBuffer, renderData.get().ObjectCullDataBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetComputeRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
 
-				cmdList->Dispatch(std::ceil(renderDataFrameInfo.StaticMeshCount / 32.f), 1, 1);
+				cmdList->Dispatch(std::ceil(renderDataFrameInfo.MeshCount / 32.f), 1, 1);
 			}
 
 			{

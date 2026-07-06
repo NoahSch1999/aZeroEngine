@@ -71,6 +71,7 @@ struct IndirectArgumentConstantData
 struct ObjectCullData
 {
     BoundingSphere Bounds;
+    uint InstanceDataIndex;
     uint GlobalMeshletOffset;
     uint GlobalVertexOffset;
     uint MeshletCount;

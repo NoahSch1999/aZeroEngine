@@ -2,59 +2,33 @@
 #include "physics/PhysicsEngine.hpp"
 #include "renderer/WireframeRenderer.hpp"
 #include "renderer/GPU_Structs.hpp"
-
-#include <fastgltf/core.hpp>
-#include <fastgltf/types.hpp>
-#include <fastgltf/tools.hpp>
+#include "misc/HelperFunctions.hpp"
 
 // todo Test so that submeshes work as expected
 void WriteRenderFormat(aZero::Rendering::GPU_Struct::ObjectCullData* pObjCull, aZero::Rendering::GPU_Struct::InstanceData* pInstance,
-	const aZero::Component::Mesh& mesh, const aZero::Component::Position& position, const aZero::Component::Rotation& rotation, const aZero::Component::Scale& scale, uint32_t& count)
+	const aZero::Component::Mesh& mesh, const aZero::Component::Position& position, const aZero::Component::Rotation& rotation, const aZero::Component::Scale& scale, uint32_t& perObjectIndex, uint32_t& instanceDataIndex, uint32_t baseOffsetInstanceIndex)
 {
 	using namespace aZero::Rendering;
+	GPU_Struct::InstanceData instanceData;
+	instanceData.Transform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
+	*(pInstance + instanceDataIndex) = instanceData;
+
 	for (uint32_t j = 0; j < mesh.m_NumSubmeshes; j++)
 	{
-		GPU_Struct::InstanceData instanceData;
-		instanceData.Transform = DXM::Matrix::CreateScale(scale) * DXM::Matrix::CreateFromYawPitchRoll(rotation) * DXM::Matrix::CreateTranslation(position);
-
 		GPU_Struct::ObjectCullData objectCullData;
 		mesh.m_Submeshes[j].m_Bounds.Transform(objectCullData.Bounds, instanceData.Transform);
 		objectCullData.GlobalMeshletOffset = mesh.m_Submeshes[j].MeshletGlobalOffset;
 		objectCullData.GlobalVertexOffset = mesh.m_Submeshes[j].VertexGlobalOffset;
 		objectCullData.MaterialIndex = mesh.m_Submeshes[j].m_MaterialID;
 		objectCullData.MeshletCount = mesh.m_Submeshes[j].MeshletCount;
+		objectCullData.InstanceDataIndex = instanceDataIndex + baseOffsetInstanceIndex;
 
-		*(pObjCull + count) = objectCullData;
-		*(pInstance + count) = instanceData;
+		*(pObjCull + perObjectIndex) = objectCullData;
 
-		count++;
-	}
-}
-
-bool aZero::Scene::Scene::Load(const std::filesystem::path& path)
-{
-	static constexpr auto supportedExtensions =
-		fastgltf::Extensions::KHR_mesh_quantization |
-		fastgltf::Extensions::KHR_texture_transform |
-		fastgltf::Extensions::KHR_materials_variants;
-
-	fastgltf::Parser parser(supportedExtensions);
-
-	constexpr auto gltfOptions =
-		fastgltf::Options::DontRequireValidAssetMember |
-		fastgltf::Options::AllowDouble |
-		fastgltf::Options::LoadExternalBuffers |
-		fastgltf::Options::LoadExternalImages |
-		fastgltf::Options::GenerateMeshIndices;
-
-	auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
-	if (!bool(gltfFile)) {
-		std::cerr << "Failed to open glTF file: " << fastgltf::getErrorMessage(gltfFile.error()) << '\n';
-		return false;
+		perObjectIndex++;
 	}
 
-	auto asset = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
-	return true;
+	instanceDataIndex++;
 }
 
 aZero::Scene::Scene::Scene()
@@ -158,7 +132,8 @@ void aZero::Scene::Scene::RebuildStaticMeshes(aZero::LinearAllocator<>& frameDat
 		size_t instanceDataOffset = frameDataAllocator.GetOffset();
 		GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(m_Static_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes * sizeof(GPU_Struct::InstanceData)));
 
-		uint32_t totalNumEntities = 0;
+		uint32_t numUniqueMeshes = 0;
+		uint32_t numUniqueInstanceData = 0;
 
 		while (it.next())
 		{
@@ -169,15 +144,45 @@ void aZero::Scene::Scene::RebuildStaticMeshes(aZero::LinearAllocator<>& frameDat
 
 			for (auto i : it)
 			{
-				WriteRenderFormat(pObjCull, pInstance, mesh[i], position[i], rotation[i], scale[i], totalNumEntities);
+				WriteRenderFormat(pObjCull, pInstance, mesh[i], position[i], rotation[i], scale[i], numUniqueMeshes, numUniqueInstanceData, 0);
 			}
 		}
 
-		m_NumStaticMeshEntities = totalNumEntities;
+		m_NumUniqueStaticMeshes = numUniqueMeshes;
+		m_NumUniqueStaticInstanceData = numUniqueInstanceData;
 
-		cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(), 0, frameDataBuffer.GetResource(), objectCullDataOffset, totalNumEntities * sizeof(GPU_Struct::ObjectCullData));
-		cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(), 0, frameDataBuffer.GetResource(), instanceDataOffset, totalNumEntities * sizeof(GPU_Struct::InstanceData));
+		cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(), 0, frameDataBuffer.GetResource(), objectCullDataOffset, m_NumUniqueStaticMeshes * sizeof(GPU_Struct::ObjectCullData));
+		cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(), 0, frameDataBuffer.GetResource(), instanceDataOffset, m_NumUniqueStaticInstanceData * sizeof(GPU_Struct::InstanceData));
 	});
+}
+
+uint32_t aZero::Scene::Scene::UploadDynamicMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList)
+{
+	using namespace Rendering;
+	uint32_t entityUpdateCount = m_Dynamic_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes;
+
+	size_t objectCullDataOffset = frameDataAllocator.GetOffset();
+	GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::ObjectCullData)));
+
+	size_t instanceDataOffset = frameDataAllocator.GetOffset();
+	GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::InstanceData)));
+
+	uint32_t numUniqueMeshes = 0;
+	uint32_t numUniqueInstanceData = 0;
+	m_Dynamic_Mesh_Query.each([pObjCull, pInstance, &numUniqueMeshes, &numUniqueInstanceData, this](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
+		{
+			WriteRenderFormat(pObjCull, pInstance, mesh, position, rotation, scale, numUniqueMeshes, numUniqueInstanceData, m_NumUniqueStaticInstanceData);
+		});
+
+	cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(),
+		m_NumUniqueStaticMeshes * sizeof(GPU_Struct::ObjectCullData), // Copy from the end of the cached mesh entities
+		frameDataBuffer.GetResource(), objectCullDataOffset, numUniqueMeshes * sizeof(GPU_Struct::ObjectCullData));
+
+	cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(),
+		m_NumUniqueStaticInstanceData * sizeof(GPU_Struct::InstanceData), // Copy from the end of the cached mesh entities
+		frameDataBuffer.GetResource(), instanceDataOffset, numUniqueInstanceData * sizeof(GPU_Struct::InstanceData));
+
+	return m_NumUniqueStaticMeshes + numUniqueMeshes;
 }
 
 std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZero::Scene::Scene::GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList)
@@ -221,29 +226,7 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 		m_ShouldRebuildStaticMeshes = false;
 	}
 
-	uint32_t entityUpdateCount = m_Dynamic_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes;
-
-	size_t objectCullDataOffset = frameDataAllocator.GetOffset();
-	GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::ObjectCullData)));
-
-	size_t instanceDataOffset = frameDataAllocator.GetOffset();
-	GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::InstanceData)));
-
-	uint32_t numDynamicMeshEntities = 0;
-	m_Dynamic_Mesh_Query.each([pObjCull, pInstance, &numDynamicMeshEntities](const Component::Mesh& mesh, const Component::Position& position, const Component::Rotation& rotation, const Component::Scale& scale)
-		{
- 			WriteRenderFormat(pObjCull, pInstance, mesh, position, rotation, scale, numDynamicMeshEntities);
-		});
-
-	cmdList->CopyBufferRegion(m_RenderData.ObjectCullDataBuffer.GetResource(),
-		m_NumStaticMeshEntities * sizeof(GPU_Struct::ObjectCullData), // Copy from the end of the cached mesh entities
-		frameDataBuffer.GetResource(), objectCullDataOffset, numDynamicMeshEntities * sizeof(GPU_Struct::ObjectCullData));
-
-	cmdList->CopyBufferRegion(m_RenderData.InstanceBuffer.GetResource(),
-		m_NumStaticMeshEntities * sizeof(GPU_Struct::InstanceData), // Copy from the end of the cached mesh entities
-		frameDataBuffer.GetResource(), instanceDataOffset, numDynamicMeshEntities * sizeof(GPU_Struct::InstanceData));
-
-	return { SceneRenderDataFrameInfo{.StaticMeshCount = numDynamicMeshEntities + m_NumStaticMeshEntities }, m_RenderData };
+	return { SceneRenderDataFrameInfo{.MeshCount = this->UploadDynamicMeshes(frameDataAllocator, frameDataBuffer, cmdList) }, m_RenderData };
 }
 
 void aZero::Scene::Scene::ApplyPhysics()

@@ -20,15 +20,25 @@ namespace aZero::Asset
 		return (uint16_t)(v * 65535.0f + 0.5f);
 	}
 
-	inline Vertex PackVertex(const DXM::Vector2& encNormal, const DXM::Vector2& uv)
+	inline std::array<uint16_t, 2> PackNormal(const DXM::Vector2& normal)
 	{
-		Vertex p{};
+		return { FloatToUNorm16(normal.x * 0.5f + 0.5f), FloatToUNorm16(normal.y * 0.5f + 0.5f) };
+	}
 
-		p.Normal[0] = FloatToUNorm16(encNormal.x * 0.5f + 0.5f);
-		p.Normal[1] = FloatToUNorm16(encNormal.y * 0.5f + 0.5f);
+	inline std::array<uint16_t, 2> PackUV(const DXM::Vector2& uv)
+	{
+		return { FloatToUNorm16(uv.x), FloatToUNorm16(uv.y) };
+	}
 
-		p.UV[0] = FloatToUNorm16(uv.x);
-		p.UV[1] = FloatToUNorm16(uv.y);
+	inline Vertex PackVertex(const DXM::Vector2& normal, const DXM::Vector2& uv)
+	{
+		Vertex p{ };
+
+		auto n = PackNormal(normal);
+		auto uvOut = PackUV(uv);
+
+		std::copy(n.begin(), n.end(), p.Normal);
+		std::copy(uvOut.begin(), uvOut.end(), p.UV);
 
 		return p;
 	}

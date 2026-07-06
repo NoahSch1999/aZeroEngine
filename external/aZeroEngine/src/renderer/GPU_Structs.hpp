@@ -23,7 +23,7 @@ namespace aZero::Rendering::GPU_Struct
 
     struct IndirectArgumentConstantData
     {
-        DXM::Matrix InstanceIndex;
+        DXM::Matrix WorldMatrix;
         uint32_t GlobalMeshletOffset;
         uint32_t GlobalVertexOffset;
         uint32_t MaterialIndex;
@@ -36,6 +36,7 @@ namespace aZero::Rendering::GPU_Struct
     struct ObjectCullData
     {
         DirectX::BoundingSphere Bounds;
+        uint32_t InstanceDataIndex;
         uint32_t GlobalMeshletOffset;
         uint32_t GlobalVertexOffset;
         uint32_t MeshletCount;

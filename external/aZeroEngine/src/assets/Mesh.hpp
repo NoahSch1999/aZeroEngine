@@ -21,6 +21,7 @@ namespace aZero::Asset
 
 	struct MeshData
 	{
+		std::string Name;
 		std::string FilePath;
 		std::vector<SubmeshData> m_Submeshes;
 		MeshletMeshData m_VertexData;

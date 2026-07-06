@@ -21,7 +21,7 @@ void main(uint3 dtid : SV_DispatchThreadID)
         {
             uint meshInstanceIndex;
             InterlockedAdd(IndirectArgumentCounterBuffer[0].Count, 1, meshInstanceIndex);
-            IndirectArgumentsBuffer[meshInstanceIndex].Data.Instance = InstanceDataBufferMS[dtid.x].Transform;
+            IndirectArgumentsBuffer[meshInstanceIndex].Data.Instance = InstanceDataBufferMS[objectCullData.InstanceDataIndex].Transform;
             IndirectArgumentsBuffer[meshInstanceIndex].Data.GlobalMeshletOffset = objectCullData.GlobalMeshletOffset;
             IndirectArgumentsBuffer[meshInstanceIndex].Data.GlobalVertexOffset = objectCullData.GlobalVertexOffset;
             IndirectArgumentsBuffer[meshInstanceIndex].Data.MaterialIndex = objectCullData.MaterialIndex;

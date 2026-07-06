@@ -216,15 +216,19 @@ namespace aZero::Editor
 		void SetupSceneTest()
 		{
 			m_CurrentScene = std::make_unique<Scene::Scene>(m_Engine->GetPhysicsEngine());
-			m_CurrentScene->Load(m_Engine->GetProjectRootDirectory() + "main_sponza/NewSponza_Main_glTF_003.gltf");
+
+			auto loadedGltf = m_CurrentScene->LoadGltf(
+				m_Engine->GetAssetManager().GetAssetDirectory<Asset::Mesh>() + "goblin.gltf"/*"sponza/main_sponza/NewSponza_Main_glTF_003.gltf"*/,
+				m_Engine->GetAssetManager()
+			);
+			if (!loadedGltf) {
+				throw std::runtime_error("No default scene loaded.");
+			}
 
 			auto& assetManager = m_Engine->GetAssetManager();
 			assetManager.RegisterScene(m_CurrentScene.get());
 
-			auto loadedFBX = FBX::LoadFBX(assetManager.GetAssetDirectory<Asset::Mesh>() + "multimat.fbx");
-			if (!loadedFBX.has_value()) { throw; }
-
-			auto meshObj = assetManager.Create<Asset::Mesh>("mesh", loadedFBX.value().Meshes[0]);
+			auto meshObj = assetManager.Get<Asset::Mesh>("Mesh");
 			auto matObj = assetManager.Create<Asset::Material>("mat", Asset::MaterialData(assetManager.GetAssetDirectory<Asset::Material>() + "TestMaterial.json"));
 
 			JPH::BoxShapeSettings boxShape(JPH::Vec3(1, 1, 1));

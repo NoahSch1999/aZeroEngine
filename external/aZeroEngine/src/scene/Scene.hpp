@@ -12,11 +12,20 @@ namespace aZero
 	namespace Rendering { class WireframeRenderer; }
 	namespace RenderAPI { class CommandList; }
 
+	namespace Asset
+	{
+		template<typename T, typename... Ts>
+		class AssetManagerT;
+
+		template<typename T>
+		using AssetManager = aZero::Asset::AssetManagerT<T, aZero::Asset::Mesh, aZero::Asset::Material, aZero::Asset::Texture>;
+	}
+
 	namespace Scene
 	{
 		struct SceneRenderDataFrameInfo
 		{
-			uint32_t StaticMeshCount;
+			uint32_t MeshCount;
 		};
 
 		struct SceneRenderData
@@ -37,7 +46,7 @@ namespace aZero
 			Scene(Physics::PhysicsEngine& physicsEngine);
 			~Scene();
 
-			bool Load(const std::filesystem::path& path);
+			bool LoadGltf(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager);
 
 			flecs::world& GetEntityWorld() { return m_World; }
 			SceneID GetSceneID() const { return m_SceneID; }
@@ -67,6 +76,7 @@ namespace aZero
 			void Init();
 
 			void RebuildStaticMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList);
+			uint32_t UploadDynamicMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList);
 
 			void ResolveCollisionEvents();
 			void RegisterToPhysics(flecs::entity entity, Physics::Body& body, JPH::BodyCreationSettings& bodySettings);
@@ -96,7 +106,8 @@ namespace aZero
 			static inline std::atomic<SceneID> m_IncrementingID = 0;
 
 			SceneRenderData m_RenderData;
-			uint32_t m_NumStaticMeshEntities = 0;
+			uint32_t m_NumUniqueStaticMeshes = 0;
+			uint32_t m_NumUniqueStaticInstanceData = 0;
 			bool m_ShouldRebuildStaticMeshes = true;
 		};
 

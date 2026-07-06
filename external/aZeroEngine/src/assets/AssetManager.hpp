@@ -1,5 +1,8 @@
 #pragma once
 #include "scene/Scene.hpp"
+#include <fastgltf/core.hpp>
+#include <fastgltf/types.hpp>
+#include <fastgltf/tools.hpp>
 
 namespace aZero::Asset
 {
@@ -177,4 +180,127 @@ namespace aZero::Asset
 		std::string m_ProjectRootDirectory;
 		std::unordered_map<Scene::SceneID, Scene::Scene*> m_RegisteredScenes;
 	};
+}
+
+inline bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager)
+{
+	static constexpr auto supportedExtensions =
+		fastgltf::Extensions::KHR_mesh_quantization |
+		fastgltf::Extensions::KHR_texture_transform |
+		fastgltf::Extensions::KHR_materials_variants;
+
+	fastgltf::Parser parser(supportedExtensions);
+
+	constexpr auto gltfOptions =
+		fastgltf::Options::DontRequireValidAssetMember |
+		fastgltf::Options::AllowDouble |
+		fastgltf::Options::LoadExternalBuffers |
+		fastgltf::Options::LoadExternalImages |
+		fastgltf::Options::GenerateMeshIndices;
+
+	auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
+	if (!bool(gltfFile)) {
+		std::cerr << "Failed to open glTF file: " << fastgltf::getErrorMessage(gltfFile.error()) << '\n';
+		return false;
+	}
+
+	auto loadedAsset = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
+	fastgltf::Asset* asset = loadedAsset.get_if();
+	if (!asset) {
+		std::cerr << "Failed to load glTF file: " << fastgltf::getErrorMessage(loadedAsset.error()) << '\n';
+		return false;
+	}
+
+	std::vector<Asset::MeshData> meshes(asset->meshes.size());
+	for (int c = 0; c < asset->meshes.size(); c++)
+	{
+		const fastgltf::Mesh& mesh = asset->meshes[c];
+		Asset::MeshData& meshData = meshes[c];
+		meshData.FilePath = path.string();
+		meshData.Name = mesh.name.c_str();
+		meshData.m_Submeshes.resize(mesh.primitives.size());
+
+		uint32_t vertexOffset = 0;
+		for (int i = 0; i < mesh.primitives.size(); i++)
+		{
+			const auto& primitive = mesh.primitives[i];
+			size_t materialIndex = primitive.materialIndex.has_value() ? primitive.materialIndex.value() : 0 /*todo Set default material index*/;
+
+			auto& positionAccessor = asset->accessors[primitive.findAttribute("POSITION")->accessorIndex];
+			/*if (!positionAccessor.bufferViewIndex.has_value())
+				continue;*/
+
+			std::vector<DXM::Vector3> positions(positionAccessor.count);
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, positionAccessor, [&positions](fastgltf::math::fvec3 pos, std::size_t idx) {
+				auto position = fastgltf::math::fvec3(pos.x(), pos.y(), pos.z());
+				positions[idx] = { position.x(), position.y(), position.z() };
+				});
+
+			auto& normalAccessor = asset->accessors[primitive.findAttribute("NORMAL")->accessorIndex];
+			/*if (!normalAccessor.bufferViewIndex.has_value())
+				continue;*/
+
+			std::vector<Asset::Vertex> vertexData(normalAccessor.count);
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, normalAccessor, [&vertexData](fastgltf::math::fvec3 n, std::size_t idx) {
+				const auto normal = Asset::PackNormal(Helper::EncodeNormalOctahedral({ n.x(), n.y(), n.z() }));
+				std::copy(normal.begin(), normal.end(), vertexData[idx].Normal);
+				});
+
+			if (const auto* texcoord = primitive.findAttribute("TEXCOORD_0"); texcoord != primitive.attributes.end()) {
+				// Tex coord
+				auto& texCoordAccessor = asset->accessors[texcoord->accessorIndex];
+				/*if (!texCoordAccessor.bufferViewIndex.has_value())
+					continue;*/
+
+				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(*asset, texCoordAccessor, [&vertexData](fastgltf::math::fvec2 uv, std::size_t idx) {
+					const auto& u = Asset::PackUV({ uv.x(), uv.y() });
+					std::copy(u.begin(), u.end(), vertexData[idx].UV);
+					});
+				int xc = 2;
+			}
+
+			auto& indexAccessor = asset->accessors[primitive.indicesAccessor.value()];
+			/*if (!indexAccessor.bufferViewIndex.has_value())
+				return false;*/
+
+
+			std::vector<uint32_t> indices(indexAccessor.count);
+			if (indexAccessor.componentType == fastgltf::ComponentType::UnsignedByte || indexAccessor.componentType == fastgltf::ComponentType::UnsignedShort)
+			{
+				// Only 32bit indices are supported. With mesh shaders its not gonna matter anyways since the indices will be remapped to 8bits.
+				std::vector<uint16_t> tempIndices(indexAccessor.count);
+				fastgltf::copyFromAccessor<uint16_t>(*asset, indexAccessor, tempIndices.data());
+				for (int j = 0; j < tempIndices.size(); j++) {
+					indices[j] = tempIndices[j];
+				}
+			}
+			else
+			{
+				fastgltf::copyFromAccessor<uint32_t>(*asset, indexAccessor, indices.data());
+			}
+
+			std::vector<Asset::Meshlet> meshlets;
+			std::vector<DirectX::BoundingSphere> meshletBounds;
+			Asset::Meshletize(positions, vertexData, indices, meshlets, meshletBounds, vertexOffset);
+
+			Asset::SubmeshData newSubmesh;
+			newSubmesh.Bounds = Helper::ComputeBoundingSphere(positions);
+			newSubmesh.MeshletOffset = meshData.m_VertexData.Meshlets.size();
+			newSubmesh.MeshletCount = meshlets.size();
+			vertexOffset += positions.size();
+			meshData.m_Submeshes[i] = newSubmesh;
+
+			meshData.m_VertexData.Positions.insert(meshData.m_VertexData.Positions.end(), positions.begin(), positions.end());
+			meshData.m_VertexData.Vertices.insert(meshData.m_VertexData.Vertices.end(), vertexData.begin(), vertexData.end());
+			meshData.m_VertexData.Meshlets.insert(meshData.m_VertexData.Meshlets.end(), meshlets.begin(), meshlets.end());
+			meshData.m_VertexData.MeshletBounds.insert(meshData.m_VertexData.MeshletBounds.end(), meshletBounds.begin(), meshletBounds.end());
+		}
+	}
+
+	for (const auto& mesh : meshes)
+	{
+		assetManager.Create<Asset::Mesh>(mesh.Name, mesh);
+	}
+
+	return true;
 }
