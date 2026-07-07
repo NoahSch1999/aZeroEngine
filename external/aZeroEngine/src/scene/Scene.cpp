@@ -67,6 +67,9 @@ void aZero::Scene::Scene::Init()
 {
 	m_SceneID = m_IncrementingID.fetch_add(1, std::memory_order_relaxed);
 
+	// Enable remote flecs explorer
+	//m_World.set<flecs::Rest>({});
+
 	m_World.component<Component::Position>();
 	m_World.component<Component::Rotation>();
 	m_World.component<Component::Scale>();
@@ -126,11 +129,11 @@ void aZero::Scene::Scene::RebuildStaticMeshes(aZero::LinearAllocator<>& frameDat
 
 	m_Static_Mesh_Query.run([this, &frameDataAllocator, &frameDataBuffer, &cmdList] (flecs::iter& it) {
 		using namespace Rendering;
-		size_t objectCullDataOffset = frameDataAllocator.GetOffset();
 		GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(m_Static_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes * sizeof(GPU_Struct::ObjectCullData)));
+		size_t objectCullDataOffset = frameDataAllocator.GetOffset() - m_Static_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes * sizeof(GPU_Struct::ObjectCullData);
 
-		size_t instanceDataOffset = frameDataAllocator.GetOffset();
 		GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(m_Static_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes * sizeof(GPU_Struct::InstanceData)));
+		size_t instanceDataOffset = frameDataAllocator.GetOffset() - m_Static_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes * sizeof(GPU_Struct::InstanceData);
 
 		uint32_t numUniqueMeshes = 0;
 		uint32_t numUniqueInstanceData = 0;
@@ -161,11 +164,11 @@ uint32_t aZero::Scene::Scene::UploadDynamicMeshes(aZero::LinearAllocator<>& fram
 	using namespace Rendering;
 	uint32_t entityUpdateCount = m_Dynamic_Mesh_Query.count() * Component::Mesh::s_MaxNumberOfSubmeshes;
 
-	size_t objectCullDataOffset = frameDataAllocator.GetOffset();
 	GPU_Struct::ObjectCullData* pObjCull = reinterpret_cast<GPU_Struct::ObjectCullData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::ObjectCullData)));
+	size_t objectCullDataOffset = frameDataAllocator.GetOffset() - entityUpdateCount * sizeof(GPU_Struct::ObjectCullData);
 
-	size_t instanceDataOffset = frameDataAllocator.GetOffset();
 	GPU_Struct::InstanceData* pInstance = reinterpret_cast<GPU_Struct::InstanceData*>(frameDataAllocator.Allocate(entityUpdateCount * sizeof(GPU_Struct::InstanceData)));
+	size_t instanceDataOffset = frameDataAllocator.GetOffset() - entityUpdateCount * sizeof(GPU_Struct::InstanceData);
 
 	uint32_t numUniqueMeshes = 0;
 	uint32_t numUniqueInstanceData = 0;

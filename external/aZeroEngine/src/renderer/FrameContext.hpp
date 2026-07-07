@@ -20,7 +20,7 @@ namespace aZero
 			FrameContext(ID3D12DeviceX* device, RenderAPI::DescriptorHeap& resourceHeap, RenderAPI::ResourceRecycler& recycler, uint32_t maxInstances)
 			{
 				// TODO: Support dynamic resizing, or atleast easy resizing
-				uint64_t frameBufferSize = static_cast<uint64_t>(1024 * 1024);
+				uint64_t frameBufferSize = static_cast<uint64_t>(1ULL * 1024 * 1024 * 1024);
 				m_FrameStagingAllocator = FrameStagingAllocator(device, frameBufferSize, recycler);
 				m_FrameUploadBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(frameBufferSize, D3D12_HEAP_TYPE_UPLOAD), &recycler);
 				m_FrameUploadAllocator = aZero::LinearAllocator<>(static_cast<std::byte*>(m_FrameUploadBuffer.GetCPUAccessibleMemory()), frameBufferSize);

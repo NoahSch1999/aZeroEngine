@@ -71,6 +71,7 @@ namespace aZero::Editor
 			this->SetupSceneTest();
 
 			m_Engine->GetRenderer().FlushFrameAllocations();
+			m_Engine->GetRenderer().FlushRenderCommands();
 		}
 
 		~Editor()
@@ -97,7 +98,7 @@ namespace aZero::Editor
 		void Update()
 		{
 			m_MainWindow->Update();
-
+			//m_CurrentScene->GetEntityWorld().progress();
 			while (!m_Engine->GetRenderer().TryBeginFrame())
 			{
 				// Do some stuff while waiting, ex. queue physics calcs on a seperate thread
@@ -217,8 +218,16 @@ namespace aZero::Editor
 		{
 			m_CurrentScene = std::make_unique<Scene::Scene>(m_Engine->GetPhysicsEngine());
 
+			flecs::entity entCam = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetCameraPrefab());
+			entCam.set_name("EditorCamera");
+			auto [xWin, yWin] = m_MainWindow->GetClientDimensions();
+			entCam.set<Component::Position>({ 0,0,-2 });
+			entCam.set<Component::Rotation>({ 0,0,0 });
+			entCam.set<Component::Camera>({ 3.14 / 2.f, 0.001f, 1000.f, true, { 0,0 }, { (float)xWin, (float)yWin } });
+
 			auto loadedGltf = m_CurrentScene->LoadGltf(
-				m_Engine->GetAssetManager().GetAssetDirectory<Asset::Mesh>() + "goblin.gltf"/*"sponza/main_sponza/NewSponza_Main_glTF_003.gltf"*/,
+				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
+				m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
 				m_Engine->GetAssetManager()
 			);
 			if (!loadedGltf) {
@@ -228,55 +237,55 @@ namespace aZero::Editor
 			auto& assetManager = m_Engine->GetAssetManager();
 			assetManager.RegisterScene(m_CurrentScene.get());
 
-			auto meshObj = assetManager.Get<Asset::Mesh>("Mesh");
-			auto matObj = assetManager.Create<Asset::Material>("mat", Asset::MaterialData(assetManager.GetAssetDirectory<Asset::Material>() + "TestMaterial.json"));
+			//auto meshObj = assetManager.Get<Asset::Mesh>("Mesh");
+			//auto matObj = assetManager.Create<Asset::Material>("mat", Asset::MaterialData(assetManager.GetAssetDirectory<Asset::Material>() + "TestMaterial.json"));
 
-			JPH::BoxShapeSettings boxShape(JPH::Vec3(1, 1, 1));
-			auto shapeRes = boxShape.Create().Get();
-			JPH::BodyCreationSettings boxSettings(shapeRes, JPH::RVec3(0.0, 100.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, aZero::Physics::Layers::DYNAMIC);
-			boxSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
-			boxSettings.mMassPropertiesOverride.mMass = 1.0f;
-			{
-				flecs::entity entMesh = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetStaticMeshPrefab());
-				entMesh.set<Component::Rigidbody>(boxSettings);
-				entMesh.set_name("Mesh");
-				entMesh.set(Component::Mesh(*meshObj, *matObj));
-			}
+			//JPH::BoxShapeSettings boxShape(JPH::Vec3(1, 1, 1));
+			//auto shapeRes = boxShape.Create().Get();
+			//JPH::BodyCreationSettings boxSettings(shapeRes, JPH::RVec3(0.0, 100.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, aZero::Physics::Layers::DYNAMIC);
+			//boxSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
+			//boxSettings.mMassPropertiesOverride.mMass = 1.0f;
+			//{
+			//	flecs::entity entMesh = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetStaticMeshPrefab());
+			//	entMesh.set<Component::Rigidbody>(boxSettings);
+			//	entMesh.set_name("Mesh");
+			//	entMesh.set(Component::Mesh(*meshObj, *matObj));
+			//}
 
-			{
-				flecs::entity entCam = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetCameraPrefab());
-				entCam.set_name("EditorCamera");
-				auto [xWin, yWin] = m_MainWindow->GetClientDimensions();
-				entCam.set<Component::Position>({ 0,0,-2 });
-				entCam.set<Component::Rotation>({ 0,0,0 });
-				entCam.set<Component::Camera>({ 3.14 / 2.f, 0.001f, 1000.f, true, { 0,0 }, { (float)xWin, (float)yWin } });
-			}
+			//{
+			//	flecs::entity entCam = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetCameraPrefab());
+			//	entCam.set_name("EditorCamera");
+			//	auto [xWin, yWin] = m_MainWindow->GetClientDimensions();
+			//	entCam.set<Component::Position>({ 0,0,-2 });
+			//	entCam.set<Component::Rotation>({ 0,0,0 });
+			//	entCam.set<Component::Camera>({ 3.14 / 2.f, 0.001f, 1000.f, true, { 0,0 }, { (float)xWin, (float)yWin } });
+			//}
 
-			{
-				for (int j = 0; j < 500; j++)
-				{
-					flecs::entity ent = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetStaticMeshPrefab());
-					std::string name = std::string("Mesh") + std::to_string(j);
-					ent.set_name(name.c_str());
-					ent.set(Component::Mesh(*meshObj, *matObj));
-					auto [x, z] = spiral(j);
-					ent.set<Component::Position>(DXM::Vector3(x * 3, 2, z * 3));
-					//ent.set<Component::Position>(DXM::Vector3(0, 2, j));
-					ent.set<Component::Rotation>(DXM::Vector3(0, 3.14, 0));
-					ent.add<Component::Static>();
-				}
-			}
+			//{
+			//	for (int j = 0; j < 500; j++)
+			//	{
+			//		flecs::entity ent = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetStaticMeshPrefab());
+			//		std::string name = std::string("Mesh") + std::to_string(j);
+			//		ent.set_name(name.c_str());
+			//		ent.set(Component::Mesh(*meshObj, *matObj));
+			//		auto [x, z] = spiral(j);
+			//		ent.set<Component::Position>(DXM::Vector3(x * 3, 2, z * 3));
+			//		//ent.set<Component::Position>(DXM::Vector3(0, 2, j));
+			//		ent.set<Component::Rotation>(DXM::Vector3(0, 3.14, 0));
+			//		ent.add<Component::Static>();
+			//	}
+			//}
 
-			{
-				flecs::entity floorEnt = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetStaticMeshPrefab());
-				floorEnt.remove<Component::Mesh>();
-				JPH::BoxShapeSettings floor_shape_settings(JPH::Vec3(100.0f, 1.0f, 100.0f));
-				JPH::BodyCreationSettings floor_settings(floor_shape_settings.Create().Get(), JPH::RVec3(0.0, -1.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Static, aZero::Physics::Layers::STATIC);
-				Component::Rigidbody rigidbodyFloor;
-				rigidbodyFloor.SetCreationSettings(floor_settings);
-				floorEnt.set<Component::Rigidbody>(rigidbodyFloor);
-				floorEnt.set_name("Floor");
-			}
+			//{
+			//	flecs::entity floorEnt = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetStaticMeshPrefab());
+			//	floorEnt.remove<Component::Mesh>();
+			//	JPH::BoxShapeSettings floor_shape_settings(JPH::Vec3(100.0f, 1.0f, 100.0f));
+			//	JPH::BodyCreationSettings floor_settings(floor_shape_settings.Create().Get(), JPH::RVec3(0.0, -1.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Static, aZero::Physics::Layers::STATIC);
+			//	Component::Rigidbody rigidbodyFloor;
+			//	rigidbodyFloor.SetCreationSettings(floor_settings);
+			//	floorEnt.set<Component::Rigidbody>(rigidbodyFloor);
+			//	floorEnt.set_name("Floor");
+			//}
 		}
 
 		std::unique_ptr<Engine> m_Engine;

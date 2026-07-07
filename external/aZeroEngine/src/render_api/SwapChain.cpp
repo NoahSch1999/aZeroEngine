@@ -17,7 +17,7 @@ aZero::RenderAPI::SwapChain::SwapChain(HWND wndHandle, RenderAPI::CommandQueue& 
 #endif
 			if (FAILED(dxqiRes))
 			{
-				throw std::invalid_argument("Failed to create DXGIFactory");
+				throw std::runtime_error("Failed to create DXGIFactory");
 			}
 	}
 
@@ -49,7 +49,7 @@ aZero::RenderAPI::SwapChain::SwapChain(HWND wndHandle, RenderAPI::CommandQueue& 
 		&swapChainDesc, &fullscreenDesc, nullptr, (IDXGISwapChain1**)m_SwapChain.GetAddressOf());
 	if (FAILED(swapChainRes))
 	{
-		throw std::invalid_argument("Failed to create swapchain");
+		throw std::runtime_error("Failed to create swapchain");
 	}
 
 	this->ReleaseBuffers();

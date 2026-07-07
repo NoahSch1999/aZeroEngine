@@ -30,7 +30,7 @@ aZero::Physics::Body aZero::Physics::PhysicsWorld::CreateBody(const JPH::BodyCre
 
 	if (!body)
 	{
-		throw; // TODO: Handle if theres no more space for any more bodies
+		throw std::runtime_error("Cannot create new Jolt body"); // TODO: Handle if theres no more space for any more bodies
 	}
 
 	return Body(body->GetID(), *m_BodyInterface, m_System.GetBodyLockInterface());

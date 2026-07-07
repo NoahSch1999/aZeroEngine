@@ -5,6 +5,9 @@
 #include <LinearAllocator.hpp>
 #include "renderer/GPU_Structs.hpp"
 #include "render_api/resource/buffer/Buffer.hpp"
+#include <fastgltf/core.hpp>
+#include <fastgltf/types.hpp>
+#include <fastgltf/tools.hpp>
 
 namespace aZero
 {
@@ -81,6 +84,10 @@ namespace aZero
 			void ResolveCollisionEvents();
 			void RegisterToPhysics(flecs::entity entity, Physics::Body& body, JPH::BodyCreationSettings& bodySettings);
 			void UnregisterFromPhysics(flecs::entity entity, Physics::Body& body);
+
+			std::unordered_map<uint32_t, std::string> LoadGltf_Meshes(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset);
+			std::unordered_map<uint32_t, std::string> LoadGltf_Materials(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset, const std::unordered_map<uint32_t, std::string>& textureIndexToName);
+			std::unordered_map<uint32_t, std::string> LoadGltf_Textures(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset);
 
 			flecs::world m_World;
 			flecs::observer m_Rigidbody_OnSet_Observer;

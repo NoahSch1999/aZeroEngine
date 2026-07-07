@@ -82,13 +82,13 @@ namespace aZero
 
 				m_MeshBufferMap[meshAlloc.MeshletGlobalAllocation.Offset] = meshAlloc;
 
-				return { meshAlloc.MeshletGlobalAllocation.Offset, meshAlloc.VertexGlobalAllocation.Offset };
+				return { meshAlloc.MeshletGlobalAllocation.Offset / sizeof(meshletData[0]), meshAlloc.VertexGlobalAllocation.Offset / sizeof(vertexData[0]) };
 			}
 
 			uint32_t UpdateRenderState(FrameStagingAllocator& frameAllocator, uint32_t materialIndex, uint32_t albedoIndex, uint32_t normalMapIndex)
 			{
 				uint32_t index = materialIndex;
-				if (index == std::numeric_limits<decltype(materialIndex)>::max())
+				if (index == std::numeric_limits<decltype(materialIndex)>::max()) // Create a new entry for the material data if it doesn't have one
 				{
 					index = m_MaterialDataBuffer.Allocate();
 				}
@@ -96,7 +96,7 @@ namespace aZero
 				MaterialData data;
 				data.AlbedoDescriptorIndex = albedoIndex;
 				data.NormalDescriptorIndex = normalMapIndex;
-				frameAllocator.AddAllocation(&data, &m_MaterialDataBuffer.GetBuffer(), index, sizeof(data));
+				frameAllocator.AddAllocation(&data, &m_MaterialDataBuffer.GetBuffer(), index * sizeof(data), sizeof(data));
 
 				return index;
 			}

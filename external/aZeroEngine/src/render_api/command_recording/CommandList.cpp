@@ -7,14 +7,14 @@ aZero::RenderAPI::CommandList::CommandList(ID3D12DeviceX* device, D3D12_COMMAND_
 	const HRESULT commandAllocRes = device->CreateCommandAllocator(type, IID_PPV_ARGS(m_Allocator.GetAddressOf()));
 	if (FAILED(commandAllocRes))
 	{
-		throw std::invalid_argument("Failed to create command allocator");
+		throw std::runtime_error("Failed to create command allocator");
 	}
 
 
 	const HRESULT commandListRes = device->CreateCommandList(0, type, m_Allocator.Get(), nullptr, IID_PPV_ARGS(m_CommandList.GetAddressOf()));
 	if (FAILED(commandListRes))
 	{
-		throw std::invalid_argument("Failed to create command list");
+		throw std::runtime_error("Failed to create command list");
 	}
 
 	m_Type = type;

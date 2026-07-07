@@ -29,7 +29,7 @@ aZero::RenderAPI::DescriptorHeap::DescriptorHeap(ID3D12DeviceX* device, Callback
 	const HRESULT res = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(m_Heap.GetAddressOf()));
 	if (FAILED(res))
 	{
-		throw std::invalid_argument("DescriptorHeap::Init() => Failed to create heap");
+		throw std::runtime_error("DescriptorHeap::Init() => Failed to create heap");
 	}
 
 	m_CpuHeapStart = m_Heap->GetCPUDescriptorHandleForHeapStart();
@@ -63,7 +63,7 @@ aZero::RenderAPI::Descriptor aZero::RenderAPI::DescriptorHeap::CreateDescriptor(
 	const DescriptorIndex descriptorIndex = m_Freelist.New();
 	if (descriptorIndex >= m_Heap->GetDesc().NumDescriptors)
 	{
-		throw std::invalid_argument("DescriptorHeap::GetDescriptor() => Out of descriptors");
+		throw std::runtime_error("DescriptorHeap::GetDescriptor() => Out of descriptors");
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = { 0 };
@@ -87,7 +87,7 @@ std::vector<aZero::RenderAPI::Descriptor> aZero::RenderAPI::DescriptorHeap::Crea
 		const DescriptorIndex descriptorIndex = m_Freelist.NewNext();
 		if (descriptorIndex >= m_Heap->GetDesc().NumDescriptors)
 		{
-			throw std::invalid_argument("DescriptorHeap::GetDescriptor() => Out of descriptors");
+			throw std::runtime_error("DescriptorHeap::GetDescriptor() => Out of descriptors");
 		}
 
 		D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = { 0 };

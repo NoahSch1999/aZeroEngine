@@ -1,8 +1,5 @@
 #pragma once
 #include "scene/Scene.hpp"
-#include <fastgltf/core.hpp>
-#include <fastgltf/types.hpp>
-#include <fastgltf/tools.hpp>
 
 namespace aZero::Asset
 {
@@ -12,7 +9,32 @@ namespace aZero::Asset
 	public:
 		AssetManagerT() = default;
 		AssetManagerT(Rendering::Renderer& diRenderer, std::string_view projectRootDirectory)
-			:m_diRenderer(&diRenderer), m_ProjectRootDirectory(projectRootDirectory) { }
+			:m_diRenderer(&diRenderer), m_ProjectRootDirectory(projectRootDirectory) {
+			
+			Asset::TextureData fallbackTextureData;
+			fallbackTextureData.Name = "Fallback";
+			fallbackTextureData.TexelData = { 1,0,1,1 };
+			fallbackTextureData.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+			fallbackTextureData.Height = 1;
+			fallbackTextureData.Width = 1;
+			fallbackTextureData.NumChannels = 4;
+			Asset::Texture* fallbackTexture = this->Create<Asset::Texture>("Fallback", std::move(fallbackTextureData));
+
+			Asset::TextureData fallbackNormalMapData;
+			fallbackNormalMapData.Name = "FallbackNormalMap";
+			fallbackNormalMapData.TexelData = { 0,0,0,1 };
+			fallbackNormalMapData.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			fallbackNormalMapData.Height = 1;
+			fallbackNormalMapData.Width = 1;
+			fallbackNormalMapData.NumChannels = 4;
+			Asset::Texture* fallbackNormalMap = this->Create<Asset::Texture>("FallbackNormalMap", std::move(fallbackNormalMapData));
+
+			Asset::MaterialData fallbackMaterialData;
+			fallbackMaterialData.Name = "Fallback";
+			fallbackMaterialData.Info.AlbedoTexture = fallbackTexture;
+			fallbackMaterialData.Info.NormalTexture = fallbackNormalMap;
+			this->Create<Asset::Material>("Fallback", std::move(fallbackMaterialData));
+		}
 
 		template<typename AssetType>
 		using AssetContainer = std::unordered_map<Key, std::unique_ptr<AssetType>>;
@@ -33,7 +55,7 @@ namespace aZero::Asset
 			}
 			else
 			{
-				throw;
+				throw std::invalid_argument("Invalid asset type.");
 			}
 		}
 
@@ -48,34 +70,36 @@ namespace aZero::Asset
 
 			AssetType* asset = container.emplace(key, std::make_unique<AssetType>(std::forward<CtorArgs>(args)...)).first->second.get();
 
-			if constexpr (std::is_same<AssetType, Asset::Material>::value) // Ugly, but needed for this case
-			{
-				Asset::Material* material = static_cast<Asset::Material*>(asset);
+			// todo Implement the case where the texture references for a material aren't valid
+			
+			//if constexpr (std::is_same<AssetType, Asset::Material>::value) // Ugly, but needed for this case
+			//{
+			//	Asset::Material* material = static_cast<Asset::Material*>(asset);
 
-				const std::string& albedoName = material->GetCachedData().AlbedoTexture;
-				if (!albedoName.empty()) {
-					Asset::Texture* albedo = this->Get<Asset::Texture>(albedoName);
-					if (!albedo) {
-						Asset::TextureData texData;
-						texData.Load(this->GetAssetDirectory<Asset::Texture>() + albedoName, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
-						this->Create<Asset::Texture>(albedoName, std::move(texData));
-						albedo = this->Get<Asset::Texture>(albedoName);
-					}
-					material->SetAlbedo(*albedo);
-				}
+			//	const std::string& albedoName = material->GetCachedData().AlbedoTexture;
+			//	if (!albedoName.empty()) {
+			//		Asset::Texture* albedo = this->Get<Asset::Texture>(albedoName);
+			//		if (!albedo) {
+			//			Asset::TextureData texData;
+			//			texData.Load(this->GetAssetDirectory<Asset::Texture>() + albedoName, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+			//			this->Create<Asset::Texture>(albedoName, std::move(texData));
+			//			albedo = this->Get<Asset::Texture>(albedoName);
+			//		}
+			//		material->SetAlbedo(*albedo);
+			//	}
 
-				const std::string& normalMapName = material->GetCachedData().NormalMap;
-				if (!normalMapName.empty()) {
-					Asset::Texture* normalMap = this->Get<Asset::Texture>(normalMapName);
-					if (!normalMap) {
-						Asset::TextureData texData;
-						texData.Load(this->GetAssetDirectory<Asset::Texture>() + normalMapName, DXGI_FORMAT_R8G8B8A8_UNORM);
-						this->Create<Asset::Texture>(normalMapName, std::move(texData));
-						normalMap = this->Get<Asset::Texture>(normalMapName);
-					}
-					material->SetNormalMap(*normalMap);
-				}
-			}
+			//	const std::string& normalMapName = material->GetCachedData().NormalMap;
+			//	if (!normalMapName.empty()) {
+			//		Asset::Texture* normalMap = this->Get<Asset::Texture>(normalMapName);
+			//		if (!normalMap) {
+			//			Asset::TextureData texData;
+			//			texData.Load(this->GetAssetDirectory<Asset::Texture>() + normalMapName, DXGI_FORMAT_R8G8B8A8_UNORM);
+			//			this->Create<Asset::Texture>(normalMapName, std::move(texData));
+			//			normalMap = this->Get<Asset::Texture>(normalMapName);
+			//		}
+			//		material->SetNormalMap(*normalMap);
+			//	}
+			//}
 
 			m_diRenderer->RegisterOrUpdateAsset(*asset);
 
@@ -182,46 +206,20 @@ namespace aZero::Asset
 	};
 }
 
-inline bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager)
+inline std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Meshes(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset)
 {
-	static constexpr auto supportedExtensions =
-		fastgltf::Extensions::KHR_mesh_quantization |
-		fastgltf::Extensions::KHR_texture_transform |
-		fastgltf::Extensions::KHR_materials_variants;
-
-	fastgltf::Parser parser(supportedExtensions);
-
-	constexpr auto gltfOptions =
-		fastgltf::Options::DontRequireValidAssetMember |
-		fastgltf::Options::AllowDouble |
-		fastgltf::Options::LoadExternalBuffers |
-		fastgltf::Options::LoadExternalImages |
-		fastgltf::Options::GenerateMeshIndices;
-
-	auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
-	if (!bool(gltfFile)) {
-		std::cerr << "Failed to open glTF file: " << fastgltf::getErrorMessage(gltfFile.error()) << '\n';
-		return false;
-	}
-
-	auto loadedAsset = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
-	fastgltf::Asset* asset = loadedAsset.get_if();
-	if (!asset) {
-		std::cerr << "Failed to load glTF file: " << fastgltf::getErrorMessage(loadedAsset.error()) << '\n';
-		return false;
-	}
-
-	std::vector<Asset::MeshData> meshes(asset->meshes.size());
+	std::unordered_map<uint32_t, std::string> meshIndexToName;
 	for (int c = 0; c < asset->meshes.size(); c++)
 	{
 		const fastgltf::Mesh& mesh = asset->meshes[c];
-		Asset::MeshData& meshData = meshes[c];
+		const uint32_t numPrimitives = std::clamp((uint32_t)mesh.primitives.size(), 0u, Component::Mesh::s_MaxNumberOfSubmeshes); // Currently only supports atmost 10 submeshes
+		Asset::MeshData meshData;
 		meshData.FilePath = path.string();
 		meshData.Name = mesh.name.c_str();
-		meshData.m_Submeshes.resize(mesh.primitives.size());
+		meshData.m_Submeshes.resize(numPrimitives);
 
 		uint32_t vertexOffset = 0;
-		for (int i = 0; i < mesh.primitives.size(); i++)
+		for (int i = 0; i < numPrimitives; i++)
 		{
 			const auto& primitive = mesh.primitives[i];
 			size_t materialIndex = primitive.materialIndex.has_value() ? primitive.materialIndex.value() : 0 /*todo Set default material index*/;
@@ -295,12 +293,203 @@ inline bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Ass
 			meshData.m_VertexData.Meshlets.insert(meshData.m_VertexData.Meshlets.end(), meshlets.begin(), meshlets.end());
 			meshData.m_VertexData.MeshletBounds.insert(meshData.m_VertexData.MeshletBounds.end(), meshletBounds.begin(), meshletBounds.end());
 		}
+
+		meshIndexToName[c] = meshData.Name;
+		Asset::Mesh* m = assetManager.Create<Asset::Mesh>(meshIndexToName[c], std::move(meshData));
+		m->ClearCachedData();
 	}
 
-	for (const auto& mesh : meshes)
+	return meshIndexToName;
+}
+
+inline std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Materials(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset, const std::unordered_map<uint32_t, std::string>& textureIndexToName)
+{
+	std::unordered_map<uint32_t, std::string> materialIndexToName;
+	for (int i = 0; i < asset->materials.size(); i++)
 	{
-		assetManager.Create<Asset::Mesh>(mesh.Name, mesh);
+		const fastgltf::Material& material = asset->materials[i];
+		materialIndexToName[i] = material.name;
+		Asset::MaterialData materialData;
+		materialData.Name = material.name;
+
+		if (material.pbrData.baseColorTexture.has_value()) {
+			// todo Lookup texture in asset manager and set ptr
+			Asset::Texture* texture = assetManager.Get<Asset::Texture>(textureIndexToName.at(material.pbrData.baseColorTexture.value().textureIndex));
+			materialData.Info.AlbedoTexture = texture;
+		}
+		
+		if (!materialData.Info.AlbedoTexture) {
+			Asset::Texture* texture = assetManager.Get<Asset::Texture>("Fallback");
+			std::cout << "Fallback albedo texture used for material: " << materialData.Name << "\n";
+			materialData.Info.AlbedoTexture = texture;
+		}
+
+		if (material.normalTexture.has_value()) {
+			// todo Lookup texture in asset manager and set ptr
+			Asset::Texture* texture = assetManager.Get<Asset::Texture>(textureIndexToName.at(material.normalTexture.value().textureIndex));
+			materialData.Info.NormalTexture = texture;
+		}
+
+		if (!materialData.Info.NormalTexture) {
+			Asset::Texture* texture = assetManager.Get<Asset::Texture>("FallbackNormalMap");
+			std::cout << "Fallback normal map used for material: " << materialData.Name << "\n";
+			materialData.Info.NormalTexture = texture;
+		}
+
+		if (material.pbrData.metallicRoughnessTexture.has_value()) {
+			uint32_t textureIndex = material.pbrData.metallicRoughnessTexture.value().textureIndex;
+			// todo Lookup texture in asset manager and set ptr
+			materialData.Info.MetallicRoughnessTexture = nullptr;
+		}
+		
+		materialData.Info.RoughnessFactor = material.pbrData.roughnessFactor;
+		materialData.Info.MetallicFactor = material.pbrData.metallicFactor;
+
+		materialIndexToName[i] = materialData.Name;
+		Asset::Material* mat = assetManager.Create<Asset::Material>(materialIndexToName[i], std::move(materialData));
+		mat->ClearCachedData();
 	}
+
+	return materialIndexToName;
+}
+
+inline std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Textures(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset)
+{
+	std::unordered_map<uint32_t, std::string> textureIndexToName;
+
+	for (int i = 0; i < asset->textures.size(); i++)
+	{
+		const fastgltf::Texture& texture = asset->textures[i];
+		Asset::TextureData textureData;
+		if (texture.imageIndex.has_value()) {
+			const fastgltf::Image& image = asset->images[texture.imageIndex.value()];
+
+			std::visit(fastgltf::visitor{
+				[](const auto& arg) {},
+				[&](const fastgltf::sources::URI& filePath) {
+					const std::string path(filePath.uri.path().begin(), filePath.uri.path().end());
+
+					// todo Figure out how to handle formatting
+					textureData.Load(path, DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+				},
+				[&](const fastgltf::sources::Array& vector) {
+					textureData.LoadFromMemory(image.name.c_str(), DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, vector.bytes.data(), vector.bytes.size(), 0);
+				},
+				[&](const fastgltf::sources::BufferView& view) {
+					auto& bufferView = asset->bufferViews[view.bufferViewIndex];
+					auto& buffer = asset->buffers[bufferView.bufferIndex];
+					std::visit(fastgltf::visitor{
+						[](const auto& arg) {},
+						[&](const fastgltf::sources::Array& vector) {
+							textureData.LoadFromMemory(image.name.c_str(), DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, vector.bytes.data(), bufferView.byteLength, bufferView.byteOffset);
+						}
+					}, buffer.data);
+				}
+				}, image.data);
+
+			if (textureData.TexelData.size()) {
+				textureIndexToName[i] = textureData.Name;
+				Asset::Texture* tex = assetManager.Create<Asset::Texture>(textureIndexToName[i], std::move(textureData));
+				tex->ClearCachedData();
+			}
+		}
+		else {
+			throw std::runtime_error("Texture had no connected image.");
+		}
+	}
+
+	return textureIndexToName;
+}
+
+inline bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager)
+{
+	static constexpr auto supportedExtensions =
+		fastgltf::Extensions::KHR_mesh_quantization  |
+		fastgltf::Extensions::KHR_texture_transform  |
+		fastgltf::Extensions::KHR_materials_variants |
+		fastgltf::Extensions::KHR_lights_punctual
+		;
+
+	fastgltf::Parser parser(supportedExtensions);
+
+	constexpr auto gltfOptions =
+		fastgltf::Options::DontRequireValidAssetMember |
+		fastgltf::Options::AllowDouble |
+		fastgltf::Options::LoadExternalBuffers |
+		fastgltf::Options::LoadExternalImages |
+		fastgltf::Options::GenerateMeshIndices |
+		fastgltf::Options::DecomposeNodeMatrices
+		;
+
+	auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
+	if (!bool(gltfFile)) {
+		std::cerr << "Failed to open glTF file: " << fastgltf::getErrorMessage(gltfFile.error()) << '\n';
+		return false;
+	}
+
+	auto loadedAsset = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
+	fastgltf::Asset* asset = loadedAsset.get_if();
+	if (!asset) {
+		std::cerr << "Failed to load glTF file: " << fastgltf::getErrorMessage(loadedAsset.error()) << '\n';
+		return false;
+	}
+
+	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	// LOAD TEXTURES
+	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	std::unordered_map<uint32_t, std::string> textureIndexToName = this->LoadGltf_Textures(path, assetManager, asset);
+
+	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	// LOAD MESHES
+	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	std::unordered_map<uint32_t, std::string> meshIndexToName = this->LoadGltf_Meshes(path, assetManager, asset);
+
+	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	// LOAD MATERIALS
+	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	std::unordered_map<uint32_t, std::string> materialIndexToName = this->LoadGltf_Materials(path, assetManager, asset, textureIndexToName);
+
+	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	// LOAD NODES
+	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	fastgltf::iterateSceneNodes(*asset, 0, fastgltf::math::fmat4x4(),
+		[&](const fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
+
+			flecs::entity entity = m_World.entity(node.name.c_str());
+			std::visit(fastgltf::visitor{
+				[](const auto& arg) { },
+				[&](const fastgltf::TRS& tf) {
+					Component::Position position(tf.translation.x(), tf.translation.y(), tf.translation.z());
+					Component::Rotation rotation(DXM::Quaternion(tf.rotation.x(), tf.rotation.y(), tf.rotation.z(), tf.rotation.w()).ToEuler());
+					Component::Scale scale(tf.scale.x(), tf.scale.y(), tf.scale.z());
+					entity.set<Component::Position>(position);
+					entity.set<Component::Rotation>(rotation);
+					entity.set<Component::Scale>(scale);
+				},
+				[&](const fastgltf::math::fmat4x4& tf) {
+
+				}
+			}, node.transform);
+
+			if (node.meshIndex.has_value()) {
+				Asset::Mesh* mesh = assetManager.Get<Asset::Mesh>(meshIndexToName[node.meshIndex.value()]);
+				if (mesh) {
+					Asset::Material* material = assetManager.Get<Asset::Material>(materialIndexToName[asset->meshes[node.meshIndex.value()].primitives[0].materialIndex.value()]);
+					Component::Mesh meshComponent(*mesh, *material);
+					for (int32_t i = 0; i < meshComponent.m_NumSubmeshes; i++)
+					{
+						meshComponent.SetMaterial(i, *assetManager.Get<Asset::Material>(materialIndexToName[asset->meshes[node.meshIndex.value()].primitives[i].materialIndex.value()]));
+					}
+					entity.set<Component::Mesh>(meshComponent);
+				}
+			}
+			if (node.cameraIndex.has_value()) {
+
+			}
+			if (node.lightIndex.has_value()) {
+
+			}
+		});
 
 	return true;
 }

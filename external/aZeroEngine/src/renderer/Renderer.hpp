@@ -134,10 +134,10 @@ namespace aZero::Rendering
 	template<>
 	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset<aZero::Asset::Mesh>(aZero::Asset::Mesh& mesh)
 	{
-		// todo Impl update of existing asset
 		if (mesh.GetRenderRef().IsValid())
 		{
-			throw;
+			// todo Impl update of existing asset
+			return;
 		}
 		FrameContext& context = this->GetCurrentContext();
 		const auto [meshletOffset, vertexOffset] = m_RenderAssetManager->UpdateRenderState(context.GetFrameStagingAllocator(),
@@ -158,14 +158,15 @@ namespace aZero::Rendering
 	{
 		FrameContext& context = this->GetCurrentContext();
 
-		if (!material.m_AlbedoRef->GetRenderRef().IsValid() && !material.m_NormalRef->GetRenderRef().IsValid())
+		if (!material.m_Info.AlbedoTexture->GetRenderRef().IsValid())
 		{
-			throw std::invalid_argument("One or more texture-references aren't valid");
+			// todo Impl handling of textures non-valid textures
+			throw std::invalid_argument("No bound valid albedo texture");
 		}
 
 		// todo Handle if the texture isnt valid
-		uint32_t albedoIndex = material.m_AlbedoRef ? material.m_AlbedoRef->GetRenderRef().DescriptorIndex : 0;
-		uint32_t normalIndex = material.m_NormalRef ? material.m_NormalRef->GetRenderRef().DescriptorIndex : 0;
+		uint32_t albedoIndex = material.m_Info.AlbedoTexture ? material.m_Info.AlbedoTexture->GetRenderRef().DescriptorIndex : 0xffffffff;
+		uint32_t normalIndex = material.m_Info.NormalTexture ? material.m_Info.NormalTexture->GetRenderRef().DescriptorIndex : 0xffffffff;
 
 		// todo Maybe call different overloads based on material properties?
 		material.m_RenderRef.MaterialIndex = m_RenderAssetManager->UpdateRenderState(context.GetFrameStagingAllocator(), material.m_RenderRef.MaterialIndex, albedoIndex, normalIndex);
@@ -180,10 +181,10 @@ namespace aZero::Rendering
 	template<>
 	inline void aZero::Rendering::Renderer::RegisterOrUpdateAsset<aZero::Asset::Texture>(Asset::Texture& texture)
 	{
-		// todo Impl update of existing asset
 		if (texture.GetRenderRef().IsValid())
 		{
-			throw;
+			// todo Impl update of existing asset
+			return;
 		}
 		FrameContext& context = this->GetCurrentContext();
 		texture.m_RenderRef.DescriptorIndex = m_RenderAssetManager->UpdateRenderState(m_diDevice, context.GetCommandList(), m_ResourceRecycler, m_ResourceHeap,

@@ -33,7 +33,7 @@ aZero::RenderAPI::ResourceBase::ResourceBase(ID3D12DeviceX* device, aZero::Rende
 
 	if (FAILED(res))
 	{
-		throw std::invalid_argument("Resource::Init() => Failed to create commited resource");
+		throw std::runtime_error("Resource::Init() => Failed to create commited resource");
 	}
 
 	m_diResourceRecycler = diResourceRecycler;

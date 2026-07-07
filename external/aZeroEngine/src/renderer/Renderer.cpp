@@ -151,7 +151,7 @@ namespace aZero
 			m_IndirectArgumentCounter = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::IndirectArgumentCounter) * 1, D3D12_HEAP_TYPE_DEFAULT, true));
 			m_IndirectArguments = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::IndirectArguments) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true));
 
-			std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs;
+			std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs{};
 			iaArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
 			iaArgs[0].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetRootIndex();
 			iaArgs[0].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetNumConstants();
@@ -257,6 +257,8 @@ namespace aZero
 				auto positionBuffer = m_MeshletDrawPass.GetBufferBinding("PositionBuffer");
 				auto vertexBuffer = m_MeshletDrawPass.GetBufferBinding("VertexBuffer");
 
+				auto materialBuffer = m_MeshletDrawPass.GetBufferBinding("MaterialBuffer");
+
 				m_MeshletDrawPass.Begin(cmdList);
 				cmdList.OMSetRenderTargets({ renderTarget.GetDescriptor() }, depthStencilTarget.GetDescriptor());
 
@@ -268,6 +270,7 @@ namespace aZero
 				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(positionBuffer, m_RenderAssetManager.get()->m_PositionBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(materialBuffer, m_RenderAssetManager.get()->m_MaterialDataBuffer.GetBuffer().GetResource()->GetGPUVirtualAddress());
 
 				cmdList->RSSetScissorRects(1, &scizzorRect);
 				cmdList->RSSetViewports(1, &viewport);

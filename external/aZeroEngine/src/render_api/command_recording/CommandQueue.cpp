@@ -11,13 +11,13 @@ aZero::RenderAPI::CommandQueue::CommandQueue(ID3D12DeviceX* device, D3D12_COMMAN
 	const HRESULT commandQueueRes = device->CreateCommandQueue(&desc, IID_PPV_ARGS(m_Queue.GetAddressOf()));
 	if (FAILED(commandQueueRes))
 	{
-		throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue");
+		throw std::runtime_error("CommandQueue::Init() => Failed to create command queue");
 	}
 
 	const HRESULT fenceRes = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_Fence.GetAddressOf()));
 	if (FAILED(fenceRes))
 	{
-		throw std::invalid_argument("CommandQueue::Init() => Failed to create command queue fence");
+		throw std::runtime_error("CommandQueue::Init() => Failed to create command queue fence");
 	}
 }
 

@@ -56,14 +56,14 @@ namespace aZero
 				const UINT64 DstResourceSize = DstResource->GetResource()->GetDesc().Width;
 				if (DstResourceSize < (DstOffset + NumBytes))
 				{
-					throw std::invalid_argument("LinearFrameAllocator::AddAllocation() => OOR write to DstResource");
+					throw std::bad_alloc(); // TODO: Handle
 				}
 
 				const uint32_t OffsetAfterAlloc = m_CurrentAllocOffset + NumBytes;
 				const uint32_t MemorySizeBytes = static_cast<uint32_t>(m_StagingBuffer.GetResource()->GetDesc().Width);
 				if (OffsetAfterAlloc > MemorySizeBytes)
 				{
-					throw; // TODO: Handle
+					throw std::bad_alloc(); // TODO: Handle
 				}
 
 				const uint32_t SrcAllocOffset = this->GetNextAllocOffset(NumBytes);

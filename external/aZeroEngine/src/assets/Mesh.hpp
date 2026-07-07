@@ -74,6 +74,8 @@ namespace aZero::Asset
 			:RenderAssetBase(std::move(data))
 		{
 			const auto& cachedData = this->GetCachedData();
+			m_Name = cachedData.Name;
+			m_FilePath = cachedData.FilePath;
 			for (const auto& mesh : cachedData.m_Submeshes)
 			{
 				m_Submeshes[m_NumSubmeshes] = mesh;
@@ -85,6 +87,8 @@ namespace aZero::Asset
 			:RenderAssetBase(data)
 		{
 			const auto& cachedData = this->GetCachedData();
+			m_Name = cachedData.Name;
+			m_FilePath = cachedData.FilePath;
 			for (const auto& mesh : cachedData.m_Submeshes)
 			{
 				m_Submeshes[m_NumSubmeshes] = mesh;

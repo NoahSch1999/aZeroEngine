@@ -43,7 +43,7 @@ void aZero::Pipeline::RenderPass::Begin(RenderAPI::CommandList& cmdList)
 			}
 			else
 			{
-				throw std::runtime_error("Invalid topology type.");
+				throw std::invalid_argument("Invalid topology type.");
 			}
 		}
 	}
@@ -53,7 +53,7 @@ void aZero::Pipeline::RenderPass::Begin(RenderAPI::CommandList& cmdList)
 	}
 	else
 	{
-		throw std::runtime_error("Invalid pass type.");
+		throw std::invalid_argument("Invalid pass type.");
 	}
 }
 

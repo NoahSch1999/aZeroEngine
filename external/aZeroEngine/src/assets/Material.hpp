@@ -15,16 +15,25 @@ namespace aZero::Asset
 		}
 	};
 
+	struct MaterialInfo
+	{
+		Asset::Texture* AlbedoTexture = nullptr;
+		Asset::Texture* NormalTexture = nullptr;
+		Asset::Texture* MetallicRoughnessTexture = nullptr;
+		float RoughnessFactor;
+		float MetallicFactor;
+	};
+
 	struct MaterialData
 	{
 		std::string FilePath;
-		std::string AlbedoTexture;
-		std::string NormalMap;
+		std::string Name;
+		MaterialInfo Info;
 
 		MaterialData() = default;
-		MaterialData(const std::string& filePath) { this->Load(filePath); }
+		//MaterialData(const std::string& filePath) { this->Load(filePath); }
 
-		bool Load(const std::string& filePath)
+		/*bool Load(const std::string& filePath)
 		{
 			const std::string suffix = Helper::GetPathSuffix(filePath);
 			if (suffix == "json")
@@ -50,7 +59,7 @@ namespace aZero::Asset
 
 			}
 			return false;
-		}
+		}*/
 	};
 
 	class Material : public RenderAssetBase<MaterialRenderRef, Asset::MaterialData>
@@ -59,18 +68,29 @@ namespace aZero::Asset
 	public:
 		Material() = default;
 		Material(const Asset::MaterialData& data)
-			:RenderAssetBase(data) {}
+			:RenderAssetBase(data) {
+			const auto& cachedData = this->GetCachedData();
+			m_Info = cachedData.Info;
+			m_Name = cachedData.Name;
+			m_FilePath = cachedData.FilePath;
+		}
 		Material(Asset::MaterialData&& data)
-			:RenderAssetBase(std::move(data)) {}
+			:RenderAssetBase(std::move(data)) {
+			const auto& cachedData = this->GetCachedData();
+			m_Info = cachedData.Info;
+			m_Name = cachedData.Name;
+			m_FilePath = cachedData.FilePath;
+		}
 
-		void SetAlbedo(Asset::Texture& albedo) { m_AlbedoRef = &albedo; }
-		void SetNormalMap(Asset::Texture& normalMap) { m_NormalRef = &normalMap; }
+		void SetAlbedo(Asset::Texture& texture) { m_Info.AlbedoTexture = &texture; }
+		void SetNormalMap(Asset::Texture& texture) { m_Info.NormalTexture = &texture; }
+		void SetMetallicRoughnessTexture(Asset::Texture& texture) { m_Info.MetallicRoughnessTexture = &texture; }
 
-		Asset::Texture* GetAlbedoPtr() const { return m_AlbedoRef; }
-		Asset::Texture* GetNormalMapPtr() const { return m_NormalRef; }
+		Asset::Texture* GetAlbedoPtr() const { return m_Info.AlbedoTexture; }
+		Asset::Texture* GetNormalMapPtr() const { return m_Info.NormalTexture; }
+		Asset::Texture* GetMetallicRoughnessTexturePtr() const { return m_Info.MetallicRoughnessTexture; }
 
 	private:
-		Asset::Texture* m_AlbedoRef = nullptr;
-		Asset::Texture* m_NormalRef = nullptr;
+		MaterialInfo m_Info;
 	};
 }
