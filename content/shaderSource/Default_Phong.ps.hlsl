@@ -32,7 +32,7 @@ Output main(RasterVertex pin)
         fragmentNormal = normalize(fragmentNormal * 2.f - 1.f);
         fragmentNormal = normalize(mul(fragmentNormal, TBN));
     }
-    
+
     if (material.AlbedoTexture == 0xffffffff)
     {
         output.color = float4(1, 0, 1, 1);
@@ -40,6 +40,7 @@ Output main(RasterVertex pin)
     }
     
     const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[material.AlbedoTexture];
+    //output.color = float4(pin.UV, 0, 1);
     output.color = float4(albedoTexture.Sample(samplerState, pin.UV).xyz, 1);
     //output.color = float4(fragmentNormal.xyz, 1);
     

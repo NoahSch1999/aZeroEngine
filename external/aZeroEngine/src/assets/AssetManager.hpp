@@ -222,39 +222,55 @@ inline std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_M
 		for (int i = 0; i < numPrimitives; i++)
 		{
 			const auto& primitive = mesh.primitives[i];
-			size_t materialIndex = primitive.materialIndex.has_value() ? primitive.materialIndex.value() : 0 /*todo Set default material index*/;
+			size_t baseColorTexcoordIndex = 0;
+
+			if (primitive.materialIndex.has_value())
+			{
+				const fastgltf::Material& material = asset->materials[primitive.materialIndex.value()];
+				if (material.pbrData.baseColorTexture->transform && material.pbrData.baseColorTexture->transform->texCoordIndex.has_value()) {
+					baseColorTexcoordIndex = material.pbrData.baseColorTexture->transform->texCoordIndex.value();
+				}
+				else {
+					baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
+				}
+			}
+
+			// todo Remove once it's not needed anymore
+			if (baseColorTexcoordIndex != 0) {
+				const fastgltf::Material& material = asset->materials[primitive.materialIndex.value()];
+				std::cout << "Mesh '" << mesh.name << "' with material '" << material.name << "' had texcoord: " << baseColorTexcoordIndex << "\n";
+			}
 
 			auto& positionAccessor = asset->accessors[primitive.findAttribute("POSITION")->accessorIndex];
 			/*if (!positionAccessor.bufferViewIndex.has_value())
 				continue;*/
 
-			std::vector<DXM::Vector3> positions(positionAccessor.count);
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, positionAccessor, [&positions](fastgltf::math::fvec3 pos, std::size_t idx) {
+			std::vector<Asset::Vertex> vertexData(positionAccessor.count);
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, positionAccessor, [&vertexData](fastgltf::math::fvec3 pos, std::size_t idx) {
 				auto position = fastgltf::math::fvec3(pos.x(), pos.y(), pos.z());
-				positions[idx] = { position.x(), position.y(), position.z() };
+				vertexData[idx].Position = { position.x(), position.y(), position.z() };
 				});
 
 			auto& normalAccessor = asset->accessors[primitive.findAttribute("NORMAL")->accessorIndex];
 			/*if (!normalAccessor.bufferViewIndex.has_value())
 				continue;*/
 
-			std::vector<Asset::Vertex> vertexData(normalAccessor.count);
 			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, normalAccessor, [&vertexData](fastgltf::math::fvec3 n, std::size_t idx) {
 				const auto normal = Asset::PackNormal(Helper::EncodeNormalOctahedral({ n.x(), n.y(), n.z() }));
 				std::copy(normal.begin(), normal.end(), vertexData[idx].Normal);
 				});
 
-			if (const auto* texcoord = primitive.findAttribute("TEXCOORD_0"); texcoord != primitive.attributes.end()) {
+			const std::string texcoordAttribute = std::string("TEXCOORD_") + std::to_string(baseColorTexcoordIndex);
+			if (const auto* texcoord = primitive.findAttribute(texcoordAttribute); texcoord != primitive.attributes.end()) {
 				// Tex coord
 				auto& texCoordAccessor = asset->accessors[texcoord->accessorIndex];
 				/*if (!texCoordAccessor.bufferViewIndex.has_value())
 					continue;*/
 
-				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(*asset, texCoordAccessor, [&vertexData](fastgltf::math::fvec2 uv, std::size_t idx) {
+				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(*asset, texCoordAccessor, [&](fastgltf::math::fvec2 uv, std::size_t idx) {
 					const auto& u = Asset::PackUV({ uv.x(), uv.y() });
 					std::copy(u.begin(), u.end(), vertexData[idx].UV);
 					});
-				int xc = 2;
 			}
 
 			auto& indexAccessor = asset->accessors[primitive.indicesAccessor.value()];
@@ -279,16 +295,15 @@ inline std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_M
 
 			std::vector<Asset::Meshlet> meshlets;
 			std::vector<DirectX::BoundingSphere> meshletBounds;
-			Asset::Meshletize(positions, vertexData, indices, meshlets, meshletBounds, vertexOffset);
+			Asset::Meshletize(vertexData, indices, meshlets, meshletBounds, vertexOffset);
 
 			Asset::SubmeshData newSubmesh;
-			newSubmesh.Bounds = Helper::ComputeBoundingSphere(positions);
+			newSubmesh.Bounds = Asset::ComputeBoundingSphere(vertexData);
 			newSubmesh.MeshletOffset = meshData.m_VertexData.Meshlets.size();
 			newSubmesh.MeshletCount = meshlets.size();
-			vertexOffset += positions.size();
+			vertexOffset += vertexData.size();
 			meshData.m_Submeshes[i] = newSubmesh;
 
-			meshData.m_VertexData.Positions.insert(meshData.m_VertexData.Positions.end(), positions.begin(), positions.end());
 			meshData.m_VertexData.Vertices.insert(meshData.m_VertexData.Vertices.end(), vertexData.begin(), vertexData.end());
 			meshData.m_VertexData.Meshlets.insert(meshData.m_VertexData.Meshlets.end(), meshlets.begin(), meshlets.end());
 			meshData.m_VertexData.MeshletBounds.insert(meshData.m_VertexData.MeshletBounds.end(), meshletBounds.begin(), meshletBounds.end());

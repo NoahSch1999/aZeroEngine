@@ -71,6 +71,8 @@ namespace aZero::Rendering
 		RenderAPI::Buffer temp_iBuffer;
 		void temp_LoadVB(FBX::FBX_Mesh& mesh);
 
+		void CompilePipeline();
+
 	private:
 
 		// TODO: Remove and figure out a smooth way to replace it
@@ -141,8 +143,7 @@ namespace aZero::Rendering
 		}
 		FrameContext& context = this->GetCurrentContext();
 		const auto [meshletOffset, vertexOffset] = m_RenderAssetManager->UpdateRenderState(context.GetFrameStagingAllocator(),
-			mesh.GetCachedData().m_VertexData.Meshlets, mesh.GetCachedData().m_VertexData.Vertices,
-			mesh.GetCachedData().m_VertexData.Positions, mesh.GetCachedData().m_VertexData.MeshletBounds);
+			mesh.GetCachedData().m_VertexData.Meshlets, mesh.GetCachedData().m_VertexData.Vertices, mesh.GetCachedData().m_VertexData.MeshletBounds);
 		mesh.m_RenderRef.m_MeshletGlobalOffset = meshletOffset;
 		mesh.m_RenderRef.m_VertexGlobalOffset = vertexOffset;
 	}

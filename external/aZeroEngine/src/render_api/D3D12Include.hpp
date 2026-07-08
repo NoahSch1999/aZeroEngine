@@ -7,6 +7,7 @@
 #include <dxcapi.h>
 #include "d3d12shader.h"
 #include <SimpleMath.h>
+#include <DirectXPackedVector.h>
 #include <stdexcept>
 #include "misc/EngineDebugMacros.hpp"
 

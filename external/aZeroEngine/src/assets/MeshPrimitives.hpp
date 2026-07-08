@@ -10,6 +10,7 @@ namespace aZero::Asset
 
 	struct Vertex
 	{
+		DXM::Vector3 Position;
 		uint16_t UV[2];
 		uint16_t Normal[2];
 	};
@@ -27,7 +28,7 @@ namespace aZero::Asset
 
 	inline std::array<uint16_t, 2> PackUV(const DXM::Vector2& uv)
 	{
-		return { FloatToUNorm16(uv.x), FloatToUNorm16(uv.y) };
+		return { DirectX::PackedVector::XMConvertFloatToHalf(uv.x), DirectX::PackedVector::XMConvertFloatToHalf(uv.y) };
 	}
 
 	inline Vertex PackVertex(const DXM::Vector2& normal, const DXM::Vector2& uv)
@@ -43,6 +44,57 @@ namespace aZero::Asset
 		return p;
 	}
 
+	inline DirectX::BoundingSphere ComputeBoundingSphere(const std::vector<Asset::Vertex>& points)
+	{
+		DXM::Vector3 p0 = points[0].Position;
+
+		int i1 = 0;
+		float maxDist = 0.0f;
+
+		for (int i = 0; i < points.size(); i++)
+		{
+			float d = (points[i].Position - p0).LengthSquared();
+			if (d > maxDist)
+			{
+				maxDist = d;
+				i1 = i;
+			}
+		}
+
+		int i2 = i1;
+		maxDist = 0.0f;
+
+		for (int i = 0; i < points.size(); i++)
+		{
+			float d = (points[i].Position - points[i1].Position).LengthSquared();
+			if (d > maxDist)
+			{
+				maxDist = d;
+				i2 = i;
+			}
+		}
+
+		DXM::Vector3 center = (points[i1].Position + points[i2].Position) * 0.5f;
+		float radius = (points[i2].Position - center).Length();
+
+		for (const auto& p : points)
+		{
+			DXM::Vector3 d = p.Position - center;
+			float dist = d.Length();
+
+			if (dist > radius)
+			{
+				float newRadius = (radius + dist) * 0.5f;
+				float k = (newRadius - radius) / dist;
+
+				center += d * k;
+				radius = newRadius;
+			}
+		}
+
+		return { DXM::Vector3(center.x, center.y, center.z), radius };
+	}
+
 	static inline constexpr uint32_t g_VerticesPerMeshlet = 64;
 	static inline constexpr uint32_t g_PrimitivesPerMeshlet = 84;
 
@@ -55,7 +107,6 @@ namespace aZero::Asset
 	};
 
 	inline void Meshletize( // Named it myself :))
-		std::vector<DXM::Vector3>& positions,
 		std::vector<aZero::Asset::Vertex>& vertices,
 		std::vector<aZero::Asset::Index>& indices,
 		std::vector<aZero::Asset::Meshlet>& outMeshlets,
@@ -69,8 +120,8 @@ namespace aZero::Asset
 		const size_t max_meshlets = meshopt_buildMeshletsBound(
 			indices.size(), max_vertices, max_triangles);
 
-		meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), positions.size());
-		meshopt_optimizeOverdraw(indices.data(), indices.data(), indices.size(), &positions[0].x, positions.size(), sizeof(positions[0]), 1.05f);
+		meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
+		meshopt_optimizeOverdraw(indices.data(), indices.data(), indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(vertices[0]), 1.05f);
 
 		std::vector<unsigned int> remap(vertices.size());
 
@@ -78,15 +129,14 @@ namespace aZero::Asset
 			remap.data(),
 			indices.data(),
 			indices.size(),
-			positions.size()
+			vertices.size()
 		);
 
-		meshopt_remapVertexBuffer(positions.data(), positions.data(), positions.size(), sizeof(positions[0]), remap.data());
 		meshopt_remapVertexBuffer(vertices.data(), vertices.data(), vertices.size(), sizeof(vertices[0]), remap.data());
 
 		meshopt_remapIndexBuffer(indices.data(), indices.data(), indices.size(), remap.data());
 
-		meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), positions.size());
+		meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
 
 		std::vector<meshopt_Meshlet> tempMeshlets;
 		std::vector<aZero::Asset::Index> local_indices;
@@ -95,7 +145,7 @@ namespace aZero::Asset
 		local_indices.resize(max_meshlets * max_vertices);
 		primitives.resize(max_meshlets * max_triangles * 3);
 		size_t meshlet_count = meshopt_buildMeshlets(tempMeshlets.data(), local_indices.data(), primitives.data(), indices.data(),
-			indices.size(), &positions[0].x, positions.size(), sizeof(positions[0]), max_vertices, max_triangles, 0.f);
+			indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(vertices[0]), max_vertices, max_triangles, 0.f);
 
 		const meshopt_Meshlet& last = tempMeshlets[meshlet_count - 1];
 
@@ -105,7 +155,6 @@ namespace aZero::Asset
 
 		outMeshlets.reserve(meshlet_count);
 
-		std::vector<DXM::Vector3> outPositions;
 		std::vector<aZero::Asset::Vertex> outVertices;
 		for (uint32_t i = 0; i < meshlet_count; i++)
 		{
@@ -113,7 +162,7 @@ namespace aZero::Asset
 			aZero::Asset::Meshlet newMeshlet;
 
 			meshopt_Bounds bounds = meshopt_computeMeshletBounds(&local_indices[meshlet.vertex_offset], &primitives[meshlet.triangle_offset],
-				meshlet.triangle_count, &positions[0].x, positions.size(), sizeof(positions[0]));
+				meshlet.triangle_count, &vertices[0].Position.x, vertices.size(), sizeof(vertices[0]));
 			outMeshletBounds.emplace_back(DXM::Vector3(bounds.center[0], bounds.center[1], bounds.center[2]), bounds.radius);
 
 			newMeshlet.PrimitiveCount = meshlet.triangle_count;
@@ -121,7 +170,6 @@ namespace aZero::Asset
 
 			for (uint32_t h = 0; h < meshlet.vertex_count; h++)
 			{
-				outPositions.push_back(positions[local_indices[meshlet.vertex_offset + h]]);
 				outVertices.push_back(vertices[local_indices[meshlet.vertex_offset + h]]);
 			}
 
@@ -135,7 +183,6 @@ namespace aZero::Asset
 			outMeshlets.emplace_back(newMeshlet);
 		}
 
-		positions = outPositions;
 		vertices = outVertices;
 	}
 }

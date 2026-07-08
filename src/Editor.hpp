@@ -57,6 +57,11 @@ namespace aZero::Editor
 					{
 						this->m_Gui.m_ShowEditorGUI = !this->m_Gui.m_ShowEditorGUI;
 					}
+					if (event.key.key == SDLK_C)
+					{
+						m_Engine->GetRenderer().FlushRenderCommands();
+						m_Engine->GetRenderer().CompilePipeline();
+					}
 				}
 			},
 			[](const SDL_Event& event, Input::Keyboard& keyboard) {}
@@ -226,8 +231,9 @@ namespace aZero::Editor
 			entCam.set<Component::Camera>({ 3.14 / 2.f, 0.001f, 1000.f, true, { 0,0 }, { (float)xWin, (float)yWin } });
 
 			auto loadedGltf = m_CurrentScene->LoadGltf(
-				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
-				m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
+				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.glb",
+				m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
+				//m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
 				m_Engine->GetAssetManager()
 			);
 			if (!loadedGltf) {

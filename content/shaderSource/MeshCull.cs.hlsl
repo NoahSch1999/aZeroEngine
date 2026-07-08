@@ -26,9 +26,59 @@ void main(uint3 dtid : SV_DispatchThreadID)
             IndirectArgumentsBuffer[meshInstanceIndex].Data.GlobalVertexOffset = objectCullData.GlobalVertexOffset;
             IndirectArgumentsBuffer[meshInstanceIndex].Data.MaterialIndex = objectCullData.MaterialIndex;
             IndirectArgumentsBuffer[meshInstanceIndex].Data.MeshletCount = objectCullData.MeshletCount;
-            IndirectArgumentsBuffer[meshInstanceIndex].GroupX = ceil(objectCullData.MeshletCount / (float)TREADS_PER_WAVE);
+            IndirectArgumentsBuffer[meshInstanceIndex].GroupX = ceil(objectCullData.MeshletCount / (float) TREADS_PER_WAVE);
             IndirectArgumentsBuffer[meshInstanceIndex].GroupY = 1;
             IndirectArgumentsBuffer[meshInstanceIndex].GroupZ = 1;
         }
     }
 }
+
+
+//#include "GPU_Structs.hlsli"
+
+//ConstantBuffer<MeshCullConstantsData> MeshCull_CONSTANT : register(b0);
+
+//ConstantBuffer<CameraData> CameraDataBuffer : register(b1);
+
+//StructuredBuffer<ObjectCullData> ObjectCullDataBuffer : register(t0);
+
+//RWStructuredBuffer<IndirectArgumentCounter> IndirectArgumentCounterBuffer : register(u0);
+//RWStructuredBuffer<IndirectArguments> IndirectArgumentsBuffer : register(u1);
+
+//StructuredBuffer<InstanceData> InstanceDataBufferMS : register(t3);
+//[numthreads(TREADS_PER_WAVE, 1, 1)]
+//void main(uint3 dtid : SV_DispatchThreadID)
+//{
+//    bool isVisible = false;
+//    ObjectCullData objectCullData;
+//    if (dtid.x < MeshCull_CONSTANT.MeshInstanceCount)
+//    {
+//        objectCullData = ObjectCullDataBuffer[dtid.x];
+//        isVisible = CameraDataBuffer.Frustum.Intersects(objectCullData.Bounds, CameraDataBuffer.ViewMatrix);
+//    }
+    
+//    uint localIndex = WavePrefixCountBits(isVisible);
+//    uint visibleCount = WaveActiveCountBits(isVisible);
+    
+//    uint baseIndex = 0;
+//    if (WaveIsFirstLane() && visibleCount > 0)
+//    {
+//        InterlockedAdd(IndirectArgumentCounterBuffer[0].Count, visibleCount, baseIndex);
+//    }
+    
+//    baseIndex = WaveReadLaneFirst(baseIndex);
+    
+//    if (isVisible)
+//    {
+//        uint meshInstanceIndex = baseIndex + localIndex;
+//        IndirectArgumentsBuffer[meshInstanceIndex].Data.Instance = InstanceDataBufferMS[objectCullData.InstanceDataIndex].Transform;
+//        IndirectArgumentsBuffer[meshInstanceIndex].Data.GlobalMeshletOffset = objectCullData.GlobalMeshletOffset;
+//        IndirectArgumentsBuffer[meshInstanceIndex].Data.GlobalVertexOffset = objectCullData.GlobalVertexOffset;
+//        IndirectArgumentsBuffer[meshInstanceIndex].Data.MaterialIndex = objectCullData.MaterialIndex;
+//        IndirectArgumentsBuffer[meshInstanceIndex].Data.MeshletCount = objectCullData.MeshletCount;
+//        IndirectArgumentsBuffer[meshInstanceIndex].GroupX = (objectCullData.MeshletCount + TREADS_PER_WAVE - 1) / TREADS_PER_WAVE;
+//        IndirectArgumentsBuffer[meshInstanceIndex].GroupY = 1;
+//        IndirectArgumentsBuffer[meshInstanceIndex].GroupZ = 1;
+//    }
+//}
+

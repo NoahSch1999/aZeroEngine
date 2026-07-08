@@ -8,7 +8,6 @@ namespace aZero::Asset
 	{
 		std::vector<aZero::Asset::Meshlet> Meshlets;
 		std::vector<DirectX::BoundingSphere> MeshletBounds;
-		std::vector<DXM::Vector3> Positions;
 		std::vector<aZero::Asset::Vertex> Vertices;
 	};
 
@@ -33,20 +32,18 @@ namespace aZero::Asset
 			for (const FBX::FBX_Submesh& submesh : mesh.Submeshes)
 			{
 				std::vector<Asset::Vertex> vertices(submesh.Vertices);
-				std::vector<DXM::Vector3> positions(submesh.Positions);
 				std::vector<Asset::Index> indices(submesh.Indices);
 				std::vector<Asset::Meshlet> meshlets;
 				std::vector<DirectX::BoundingSphere> meshletBounds;
-				Asset::Meshletize(positions, vertices, indices, meshlets, meshletBounds, vertexOffset);
+				Asset::Meshletize(vertices, indices, meshlets, meshletBounds, vertexOffset);
 
 				SubmeshData newSubmesh;
 				newSubmesh.Name = submesh.Name;
 				newSubmesh.Bounds = submesh.Bounds;
 				newSubmesh.MeshletOffset = m_VertexData.Meshlets.size();
 				newSubmesh.MeshletCount = meshlets.size();
-				vertexOffset += positions.size();
+				vertexOffset += vertices.size();
 
-				m_VertexData.Positions.insert(m_VertexData.Positions.end(), positions.begin(), positions.end());
 				m_VertexData.Vertices.insert(m_VertexData.Vertices.end(), vertices.begin(), vertices.end());
 				m_VertexData.Meshlets.insert(m_VertexData.Meshlets.end(), meshlets.begin(), meshlets.end());
 				m_VertexData.MeshletBounds.insert(m_VertexData.MeshletBounds.end(), meshletBounds.begin(), meshletBounds.end());

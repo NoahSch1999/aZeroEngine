@@ -62,9 +62,7 @@ namespace aZero
 			}
 
 			// todo Use a seperate frameAllocator than the framecontext's when we are loading a lot of meshes at the same time
-			std::pair<uint32_t, uint32_t> UpdateRenderState(FrameStagingAllocator& frameAllocator,
-				const std::vector<Asset::Meshlet>& meshletData, const std::vector<Asset::Vertex>& vertexData,
-				const std::vector<DXM::Vector3>& positionData, const std::vector<DirectX::BoundingSphere>& meshletBoundsData)
+			std::pair<uint32_t, uint32_t> UpdateRenderState(FrameStagingAllocator& frameAllocator, const std::vector<Asset::Meshlet>& meshletData, const std::vector<Asset::Vertex>& vertexData, const std::vector<DirectX::BoundingSphere>& meshletBoundsData)
 			{
 				MeshAllocation meshAlloc{
 					.MeshletGlobalAllocation = m_MeshletFreelist.Allocate(meshletData.size() * sizeof(meshletData[0])),
@@ -76,9 +74,6 @@ namespace aZero
 					sizeof(meshletBoundsData[0]) * (meshAlloc.MeshletGlobalAllocation.Size / sizeof(meshletData[0])));
 
 				frameAllocator.AddAllocation(vertexData.data(), &m_VertexBuffer, meshAlloc.VertexGlobalAllocation.Offset, meshAlloc.VertexGlobalAllocation.Size);
-				frameAllocator.AddAllocation(positionData.data(),
-					&m_PositionBuffer, sizeof(positionData[0]) * (meshAlloc.VertexGlobalAllocation.Offset / sizeof(vertexData[0])),
-					sizeof(positionData[0]) * (meshAlloc.VertexGlobalAllocation.Size / sizeof(vertexData[0])));
 
 				m_MeshBufferMap[meshAlloc.MeshletGlobalAllocation.Offset] = meshAlloc;
 

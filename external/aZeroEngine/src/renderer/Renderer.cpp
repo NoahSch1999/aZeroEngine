@@ -13,6 +13,39 @@ namespace aZero
 {
 	namespace Rendering
 	{
+		void Renderer::CompilePipeline()
+		{
+			Pipeline::RenderPass meshCullPass;
+			Pipeline::Shader meshCullCS;
+
+			Pipeline::RenderPass meshletDrawPass;
+			Pipeline::Shader meshletDrawAS;
+			Pipeline::Shader meshletDrawMS;
+			Pipeline::Shader meshletDrawPS;
+
+			meshCullCS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "MeshCull.cs.hlsl");
+			meshCullPass.CompileComputePass(m_diDevice, meshCullCS);
+
+			meshletDrawAS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "MeshletDraw.as.hlsl");
+			meshletDrawMS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "MeshletDraw.ms.hlsl");
+			meshletDrawPS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "Default_Phong.ps.hlsl");
+
+			Pipeline::RenderPass::Desc passDesc;
+			passDesc.RtvFormats.push_back(DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+			passDesc.DsvFormat = DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT;
+			const bool res = meshletDrawPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDrawMS, meshletDrawPS);
+
+			if (!res) {
+				return;
+			}
+
+			m_MeshCullCS = std::move(meshCullCS);
+			m_MeshCullPass = std::move(meshCullPass);
+			m_MeshletDrawAS = std::move(meshletDrawAS);
+			m_MeshletDrawMS = std::move(meshletDrawMS);
+			m_MeshletDrawPS = std::move(meshletDrawPS);
+			m_MeshletDrawPass = std::move(meshletDrawPass);
+		}
 
 		void Renderer::temp_LoadVB(FBX::FBX_Mesh& mesh)
 		{
@@ -23,7 +56,6 @@ namespace aZero
 
 			temp_pBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(DXM::Vector3) * 100000, D3D12_HEAP_TYPE_DEFAULT), &m_ResourceRecycler);
 			temp_pbv.BufferLocation = temp_pBuffer.GetResource()->GetGPUVirtualAddress();
-			temp_pbv.SizeInBytes = mesh.Submeshes[0].Positions.size() * sizeof(DXM::Vector3);
 			temp_pbv.StrideInBytes = sizeof(DXM::Vector3);
 
 			temp_iBuffer = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(Asset::Index) * 100000, D3D12_HEAP_TYPE_DEFAULT), &m_ResourceRecycler);
@@ -133,20 +165,9 @@ namespace aZero
 			m_DirectCommandQueue.ExecuteCommandList(frameContext.GetCommandList(), true);
 		}
 
-
 		void Renderer::InitGPUDrivenRenderPipeline()
 		{
-			m_MeshCullCS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "MeshCull.cs.hlsl");
-			m_MeshCullPass.CompileComputePass(m_diDevice, m_MeshCullCS);
-
-			m_MeshletDrawAS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "MeshletDraw.as.hlsl");
-			m_MeshletDrawMS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "MeshletDraw.ms.hlsl");
-			m_MeshletDrawPS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "Default_Phong.ps.hlsl");
-
-			Pipeline::RenderPass::Desc passDesc;
-			passDesc.RtvFormats.push_back(DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
-			passDesc.DsvFormat = DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT;
-			m_MeshletDrawPass.CompileMeshletPass(passDesc, m_diDevice, m_MeshletDrawAS, m_MeshletDrawMS, m_MeshletDrawPS);
+			this->CompilePipeline();
 
 			m_IndirectArgumentCounter = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::IndirectArgumentCounter) * 1, D3D12_HEAP_TYPE_DEFAULT, true));
 			m_IndirectArguments = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::IndirectArguments) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true));
@@ -254,7 +275,6 @@ namespace aZero
 
 				auto instanceDataBufferMS = m_MeshletDrawPass.GetBufferBinding("InstanceDataBufferMS");
 				auto meshletBuffer = m_MeshletDrawPass.GetBufferBinding("MeshletBuffer");
-				auto positionBuffer = m_MeshletDrawPass.GetBufferBinding("PositionBuffer");
 				auto vertexBuffer = m_MeshletDrawPass.GetBufferBinding("VertexBuffer");
 
 				auto materialBuffer = m_MeshletDrawPass.GetBufferBinding("MaterialBuffer");
@@ -268,7 +288,6 @@ namespace aZero
 
 				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(positionBuffer, m_RenderAssetManager.get()->m_PositionBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(materialBuffer, m_RenderAssetManager.get()->m_MaterialDataBuffer.GetBuffer().GetResource()->GetGPUVirtualAddress());
 

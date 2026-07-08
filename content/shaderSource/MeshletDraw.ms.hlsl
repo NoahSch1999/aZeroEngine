@@ -5,8 +5,7 @@ ConstantBuffer<IndirectArgumentConstantData> Input_CONSTANT : register(b0);
 ConstantBuffer<CameraData> CameraDataBuffer : register(b1);
 
 StructuredBuffer<Meshlet> MeshletBuffer : register(t0);
-StructuredBuffer<float3> PositionBuffer : register(t1);
-StructuredBuffer<MeshVertex> VertexBuffer : register(t2);
+StructuredBuffer<MeshVertex> VertexBuffer : register(t1);
 
 [NumThreads(g_PrimitivesPerMeshlet + 4, 1, 1)]
 [OutputTopology("triangle")]
@@ -31,24 +30,16 @@ void main(
                 tris[localThreadIndex] = Unpack32To8(MeshletBuffer[payload.MeshletIndex[meshletIndex]].Primitives[localThreadIndex]);
             }
         }
-        
     
         if (localThreadIndex < vertexCount)
         {
-            const uint vertexOffset = MeshletBuffer[payload.MeshletIndex[meshletIndex]].VertexOffset;
-            { 
-                float3 position = PositionBuffer[Input_CONSTANT.GlobalVertexOffset + vertexOffset + localThreadIndex];
-                float4 positionWorld = mul(Input_CONSTANT.Instance, float4(position, 1.f));
-                verts[localThreadIndex].WorldPosition = positionWorld.xyz;
-                positionWorld = mul(CameraDataBuffer.ViewProjectionMatrix, positionWorld);
-                verts[localThreadIndex].Position = positionWorld;
-            }
-            
-            {
-                MeshVertex vertex = VertexBuffer[Input_CONSTANT.GlobalVertexOffset + vertexOffset + localThreadIndex];
-                verts[localThreadIndex].Normal = normalize(mul(Input_CONSTANT.Instance, float4(DecodeNormalOctahedral(UnpackOct16(Unpack32To16(vertex.Normal))), 0.f))).xyz;
-                verts[localThreadIndex].UV = UnpackUV16(Unpack32To16(vertex.UV));
-            }
+            MeshVertex vertex = VertexBuffer[Input_CONSTANT.GlobalVertexOffset + MeshletBuffer[payload.MeshletIndex[meshletIndex]].VertexOffset + localThreadIndex];
+            float4 positionWorld = mul(Input_CONSTANT.Instance, float4(vertex.Position, 1.f));
+            verts[localThreadIndex].WorldPosition = positionWorld.xyz;
+            positionWorld = mul(CameraDataBuffer.ViewProjectionMatrix, positionWorld);
+            verts[localThreadIndex].Position = positionWorld;
+            verts[localThreadIndex].Normal = normalize(mul(Input_CONSTANT.Instance, float4(DecodeNormalOctahedral(UnpackOct16(Unpack32To16(vertex.Normal))), 0.f))).xyz;
+            verts[localThreadIndex].UV = Unpack32ToHalfFloats(vertex.UV);
         }
     }
 }
