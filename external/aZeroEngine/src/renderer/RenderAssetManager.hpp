@@ -48,7 +48,6 @@ namespace aZero
 				uint64_t MAX_VERTICES = 10000000;
 				m_MeshletBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(Asset::Meshlet), D3D12_HEAP_TYPE_DEFAULT, false), &recycler);
 				m_MeshletBoundsBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_MESHLETS * sizeof(DirectX::BoundingSphere), D3D12_HEAP_TYPE_DEFAULT, false), &recycler);
-				m_PositionBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(DXM::Vector3), D3D12_HEAP_TYPE_DEFAULT, false), &recycler);
 				m_VertexBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(MAX_VERTICES * sizeof(Asset::Vertex), D3D12_HEAP_TYPE_DEFAULT, false), &recycler);
 
 				m_MeshletFreelist = aZero::FreelistAllocator(MAX_MESHLETS * sizeof(Asset::Meshlet));
@@ -165,7 +164,6 @@ namespace aZero
 			RenderAPI::Buffer m_MeshletBoundsBuffer;
 			aZero::FreelistAllocator m_MeshletFreelist;
 
-			RenderAPI::Buffer m_PositionBuffer;
 			RenderAPI::Buffer m_VertexBuffer;
 			aZero::FreelistAllocator m_VertexFreelist;
 

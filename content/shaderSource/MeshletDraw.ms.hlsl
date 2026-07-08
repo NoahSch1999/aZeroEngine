@@ -7,7 +7,7 @@ ConstantBuffer<CameraData> CameraDataBuffer : register(b1);
 StructuredBuffer<Meshlet> MeshletBuffer : register(t0);
 StructuredBuffer<MeshVertex> VertexBuffer : register(t1);
 
-[NumThreads(g_PrimitivesPerMeshlet + 4, 1, 1)]
+[NumThreads(g_PrimitivesPerMeshlet, 1, 1)]
 [OutputTopology("triangle")]
 void main(
     uint localThreadIndex : SV_GroupIndex,

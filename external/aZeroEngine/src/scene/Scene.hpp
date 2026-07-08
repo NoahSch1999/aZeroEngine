@@ -1,10 +1,7 @@
 #pragma once
 #include <bitset>
-#include "misc/HelperFunctions.hpp"
 #include <filesystem>
-#include <LinearAllocator.hpp>
-#include "renderer/GPU_Structs.hpp"
-#include "render_api/resource/buffer/Buffer.hpp"
+#include "renderer/Renderer.hpp"
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>

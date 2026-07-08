@@ -193,6 +193,7 @@ namespace aZero
             bool isActive = true;
             DXM::Vector2 topleft;
             DXM::Vector2 dimensions;
+            float aspectRatio;
 
             struct BoundingFrustum
             {
@@ -231,6 +232,12 @@ namespace aZero
                 isActive(isActive), topleft(topleft), dimensions(dimensions)
             {
                
+            }
+
+            Camera(float fov, float nearPlane, float farPlane, float aspectRation, bool isActive)
+                :fov(fov), nearPlane(nearPlane), farPlane(farPlane), isActive(isActive), aspectRatio(aspectRatio)
+            {
+
             }
 
             D3D12_VIEWPORT GetViewport() const

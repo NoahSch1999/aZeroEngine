@@ -60,6 +60,18 @@ namespace aZero::Editor::GUI
 					}
 				}
 
+				m_EnableFlecsExplorer = scene.GetEntityWorld().has<flecs::Rest>();
+				if (ImGui::Checkbox("Enable flecs explorer", &m_EnableFlecsExplorer)) {
+					if (m_EnableFlecsExplorer) {
+						// on
+						scene.GetEntityWorld().set<flecs::Rest>({});
+					}
+					else {
+						// off
+						scene.GetEntityWorld().remove<flecs::Rest>();
+					}
+				}
+
 				ImGui::Checkbox("Show rigidbody colliders", &m_ShowRigidbodyColliders);
 				ImGui::Checkbox("Show triggerbody colliders", &m_ShowTriggerbodyColliders);
 				ImGui::Checkbox("Show mesh bounds", &m_ShowMeshBounds);
@@ -190,6 +202,7 @@ namespace aZero::Editor::GUI
 		std::chrono::high_resolution_clock::time_point m_LastTime =
 			std::chrono::high_resolution_clock::now();
 
+		bool m_EnableFlecsExplorer = false;
 		bool m_ShowRigidbodyColliders = false;
 		bool m_ShowTriggerbodyColliders = false;
 		bool m_ShowMeshBounds = false;
