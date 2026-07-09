@@ -39,7 +39,7 @@ namespace aZero
 			const bool res1 = meshletDrawDepthPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDepthMS, {});
 
 			passDesc.RtvFormats.push_back(DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
-			passDesc.ComparisonFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_EQUAL;
+			//passDesc.ComparisonFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_EQUAL;
 			const bool res2 = meshletDrawPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDrawMS, meshletDrawPS);
 
 			if (!res1 || !res2) {
@@ -291,7 +291,7 @@ namespace aZero
 				cmdList->ResourceBarrier(2, barriers.data());
 			}
 
-			{
+			/*{
 				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet depth pass");
 				auto cameraBuffer = m_MeshletDepthPass.GetBufferBinding("CameraDataBuffer");
 				auto instanceDataBufferAS = m_MeshletDepthPass.GetBufferBinding("InstanceDataBufferAS");
@@ -316,7 +316,7 @@ namespace aZero
 				cmdList->RSSetViewports(1, &viewport);
 
 				cmdList->ExecuteIndirect(m_MeshletDepthPassSignature.Get(), MAX_INSTANCES, m_IndirectArguments.GetResource(), 0, m_IndirectArgumentCounter.GetResource(), 0);
-			}
+			}*/
 
 			{
 				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet draw pass");

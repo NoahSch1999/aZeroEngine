@@ -10,7 +10,7 @@ namespace aZero::Asset
 
 	struct Vertex
 	{
-		DXM::Vector4 Position;
+		DXM::Vector3 Position;
 		uint16_t UV[2];
 		uint16_t Normal[2];
 	};
