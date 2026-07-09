@@ -28,7 +28,7 @@ Output main(RasterVertex pin)
         CalcTangentAndBitangent(normal, tangent, bitangent);
         float3x3 TBN = float3x3(tangent, bitangent, normal);
         const Texture2D<float4> normalMap = ResourceDescriptorHeap[material.NormalMap];
-        float3 fragmentNormal = normalMap.Sample(samplerState, pin.UV).xyz;
+        fragmentNormal = normalMap.Sample(samplerState, pin.UV).xyz;
         fragmentNormal = normalize(fragmentNormal * 2.f - 1.f);
         fragmentNormal = normalize(mul(fragmentNormal, TBN));
     }
@@ -40,7 +40,7 @@ Output main(RasterVertex pin)
     }
     
     const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[material.AlbedoTexture];
-    output.color = float4(albedoTexture.Sample(samplerState, pin.UV).xyz, 1);
+    output.color = float4(albedoTexture.Sample(samplerState, pin.UV).xyz * fragmentNormal, 1);
     //output.color = float4(fragmentNormal.xyz, 1);
     
     return output;

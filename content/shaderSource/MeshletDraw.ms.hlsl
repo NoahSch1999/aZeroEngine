@@ -47,7 +47,7 @@ void main(
             {
                 MeshVertex vertex = VertexBuffer[Input_CONSTANT.GlobalVertexOffset + vertexOffset + localThreadIndex];
                 verts[localThreadIndex].Normal = normalize(mul(Input_CONSTANT.Instance, float4(DecodeNormalOctahedral(UnpackOct16(Unpack32To16(vertex.Normal))), 0.f))).xyz;
-                verts[localThreadIndex].UV = UnpackUV16(Unpack32To16(vertex.UV));
+                verts[localThreadIndex].UV = Unpack32ToHalfFloats(vertex.UV);
             }
         }
     }

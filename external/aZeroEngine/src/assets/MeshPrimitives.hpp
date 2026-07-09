@@ -27,7 +27,7 @@ namespace aZero::Asset
 
 	inline std::array<uint16_t, 2> PackUV(const DXM::Vector2& uv)
 	{
-		return { FloatToUNorm16(uv.x), FloatToUNorm16(uv.y) };
+		return { DirectX::PackedVector::XMConvertFloatToHalf(uv.x), DirectX::PackedVector::XMConvertFloatToHalf(uv.y) };
 	}
 
 	inline Vertex PackVertex(const DXM::Vector2& normal, const DXM::Vector2& uv)
