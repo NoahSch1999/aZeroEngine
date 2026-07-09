@@ -65,6 +65,7 @@ namespace aZero
 			{
 				std::vector<DXGI_FORMAT> RtvFormats;
 				DXGI_FORMAT DsvFormat;
+				std::optional<D3D12_COMPARISON_FUNC> ComparisonFunc;
 			};
 
 			struct VertexPassDesc : public Desc

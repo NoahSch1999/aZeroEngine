@@ -96,6 +96,8 @@ namespace aZero
                 this->SetMesh(mesh, material);
             }
 
+            // todo Implement a way to init with multiple materials
+
             void SetMesh(const Asset::Mesh& mesh, const Asset::Material& material) {
                 if (mesh.GetRenderRef().IsValid() && material.GetRenderRef().IsValid()) {
                     m_MeshID = mesh.GetRenderRef().m_MeshletGlobalOffset; // todo Change so this becomes steady

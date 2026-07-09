@@ -26,6 +26,9 @@ namespace aZero::Asset
 		MeshletMeshData m_VertexData;
 
 		MeshData() = default;
+
+		// todo Implement init using gltf
+
 		MeshData(const FBX::FBX_Mesh& mesh)
 		{
 			uint32_t vertexOffset = 0;

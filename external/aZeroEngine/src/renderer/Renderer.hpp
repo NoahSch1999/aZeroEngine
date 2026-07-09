@@ -93,6 +93,9 @@ namespace aZero::Rendering
 		Pipeline::RenderPass m_MeshCullPass;
 		Pipeline::Shader m_MeshCullCS;
 
+		Pipeline::RenderPass m_MeshletDepthPass;
+		Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDepthPassSignature;
+
 		Pipeline::RenderPass m_MeshletDrawPass;
 		Pipeline::Shader m_MeshletDrawAS;
 		Pipeline::Shader m_MeshletDrawMS;

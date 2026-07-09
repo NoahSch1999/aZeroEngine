@@ -437,7 +437,7 @@ bool aZero::Pipeline::RenderPass::CreateMeshletPipelineState(const MeshletPassDe
 	};
 
 	D3D12_DEPTH_STENCIL_DESC depthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	depthStencilDesc.DepthFunc = desc.ComparisonFunc.has_value() ? desc.ComparisonFunc.value() : D3D12_COMPARISON_FUNC_LESS_EQUAL; // Default to LESS_EQUAL
 	depthStencilDesc.DepthEnable = false;
 
 	if (pixelShader.has_value())
@@ -449,12 +449,6 @@ bool aZero::Pipeline::RenderPass::CreateMeshletPipelineState(const MeshletPassDe
 		if (shaderDesc.OutputParameters != desc.RtvFormats.size())
 		{
 			return false;
-		}
-
-		if (desc.DsvFormat != DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
-		{
-			stream.DepthStencilFormat = desc.DsvFormat;
-			depthStencilDesc.DepthEnable = true;
 		}
 
 		stream.PS = {
@@ -470,6 +464,12 @@ bool aZero::Pipeline::RenderPass::CreateMeshletPipelineState(const MeshletPassDe
 			rtvs.RTFormats[i] = desc.RtvFormats[i];
 		}
 		stream.RenderTargets = rtvs;
+	}
+
+	if (desc.DsvFormat != DXGI_FORMAT::DXGI_FORMAT_UNKNOWN)
+	{
+		stream.DepthStencilFormat = desc.DsvFormat;
+		depthStencilDesc.DepthEnable = true;
 	}
 
 	CD3DX12_DEPTH_STENCIL_DESC finalDsvDesc(depthStencilDesc);

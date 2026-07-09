@@ -19,6 +19,7 @@ namespace aZero
 			Pipeline::Shader meshCullCS;
 
 			Pipeline::RenderPass meshletDrawPass;
+			Pipeline::RenderPass meshletDrawDepthPass;
 			Pipeline::Shader meshletDrawAS;
 			Pipeline::Shader meshletDrawMS;
 			Pipeline::Shader meshletDrawPS;
@@ -30,15 +31,22 @@ namespace aZero
 			meshletDrawMS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "MeshletDraw.ms.hlsl");
 			meshletDrawPS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "Default_Phong.ps.hlsl");
 
-			Pipeline::RenderPass::Desc passDesc;
-			passDesc.RtvFormats.push_back(DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
-			passDesc.DsvFormat = DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT;
-			const bool res = meshletDrawPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDrawMS, meshletDrawPS);
+			Pipeline::Shader meshletDepthMS;
+			meshletDepthMS.Compile(m_diCompiler, Pipeline::GetShaderDirectoryPath() + "MeshletDepth.ms.hlsl");
 
-			if (!res) {
+			Pipeline::RenderPass::Desc passDesc;
+			passDesc.DsvFormat = DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT;
+			const bool res1 = meshletDrawDepthPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDepthMS, {});
+
+			passDesc.RtvFormats.push_back(DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+			passDesc.ComparisonFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_EQUAL;
+			const bool res2 = meshletDrawPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDrawMS, meshletDrawPS);
+
+			if (!res1 || !res2) {
 				return;
 			}
 
+			m_MeshletDepthPass = std::move(meshletDrawDepthPass);
 			m_MeshCullCS = std::move(meshCullCS);
 			m_MeshCullPass = std::move(meshCullPass);
 			m_MeshletDrawAS = std::move(meshletDrawAS);
@@ -172,17 +180,33 @@ namespace aZero
 			m_IndirectArgumentCounter = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::IndirectArgumentCounter) * 1, D3D12_HEAP_TYPE_DEFAULT, true));
 			m_IndirectArguments = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::IndirectArguments) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true));
 
-			std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs{};
-			iaArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
-			iaArgs[0].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetRootIndex();
-			iaArgs[0].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetNumConstants();
-			iaArgs[0].Constant.DestOffsetIn32BitValues = 0;
-			iaArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
-			D3D12_COMMAND_SIGNATURE_DESC iaArgsDesc{};
-			iaArgsDesc.pArgumentDescs = iaArgs.data();
-			iaArgsDesc.NumArgumentDescs = iaArgs.size();
-			iaArgsDesc.ByteStride = sizeof(GPU_Struct::IndirectArguments);
-			m_diDevice->CreateCommandSignature(&iaArgsDesc, m_MeshletDrawPass.GetRootSignature(), IID_PPV_ARGS(m_MeshletDrawSignature.GetAddressOf()));
+			{
+				std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs{};
+				iaArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+				iaArgs[0].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetRootIndex();
+				iaArgs[0].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetNumConstants();
+				iaArgs[0].Constant.DestOffsetIn32BitValues = 0;
+				iaArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+				D3D12_COMMAND_SIGNATURE_DESC iaArgsDesc{};
+				iaArgsDesc.pArgumentDescs = iaArgs.data();
+				iaArgsDesc.NumArgumentDescs = iaArgs.size();
+				iaArgsDesc.ByteStride = sizeof(GPU_Struct::IndirectArguments);
+				m_diDevice->CreateCommandSignature(&iaArgsDesc, m_MeshletDrawPass.GetRootSignature(), IID_PPV_ARGS(m_MeshletDrawSignature.GetAddressOf()));
+			}
+
+			{
+				std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs{};
+				iaArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+				iaArgs[0].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetRootIndex();
+				iaArgs[0].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetNumConstants();
+				iaArgs[0].Constant.DestOffsetIn32BitValues = 0;
+				iaArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+				D3D12_COMMAND_SIGNATURE_DESC iaArgsDesc{};
+				iaArgsDesc.pArgumentDescs = iaArgs.data();
+				iaArgsDesc.NumArgumentDescs = iaArgs.size();
+				iaArgsDesc.ByteStride = sizeof(GPU_Struct::IndirectArguments);
+				m_diDevice->CreateCommandSignature(&iaArgsDesc, m_MeshletDepthPass.GetRootSignature(), IID_PPV_ARGS(m_MeshletDepthPassSignature.GetAddressOf()));
+			}
 
 #ifdef USE_DEBUG
 			m_IndirectArgumentCounter.GetResource()->SetName(L"m_IndirectArgumentCounter");
@@ -190,6 +214,7 @@ namespace aZero
 			m_MeshletDrawSignature->SetName(L"m_MeshletDrawSignature");
 			m_MeshCullPass.GetPipelineState()->SetName(L"m_MeshCullPass");
 			m_MeshletDrawPass.GetPipelineState()->SetName(L"m_MeshletDrawPass");
+			m_MeshletDepthPass.GetPipelineState()->SetName(L"m_MeshletDepthPass");
 #endif
 		}
 
@@ -256,10 +281,6 @@ namespace aZero
 				cmdList.SetComputeRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
 
 				cmdList->Dispatch(std::ceil(renderDataFrameInfo.MeshCount / 32.f), 1, 1);
-			}
-
-			{
-				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet culling and drawing pass");
 
 				barriers[0] = CD3DX12_RESOURCE_BARRIER::UAV(m_IndirectArguments.GetResource());
 				barriers[1] = CD3DX12_RESOURCE_BARRIER::UAV(m_IndirectArgumentCounter.GetResource());
@@ -268,6 +289,37 @@ namespace aZero
 				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArguments.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArgumentCounter.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 				cmdList->ResourceBarrier(2, barriers.data());
+			}
+
+			{
+				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet depth pass");
+				auto cameraBuffer = m_MeshletDepthPass.GetBufferBinding("CameraDataBuffer");
+				auto instanceDataBufferAS = m_MeshletDepthPass.GetBufferBinding("InstanceDataBufferAS");
+				auto meshletBoundBuffer = m_MeshletDepthPass.GetBufferBinding("MeshletBoundBuffer");
+
+				auto instanceDataBufferMS = m_MeshletDepthPass.GetBufferBinding("InstanceDataBufferMS");
+				auto meshletBuffer = m_MeshletDepthPass.GetBufferBinding("MeshletBuffer");
+				auto vertexBuffer = m_MeshletDepthPass.GetBufferBinding("VertexBuffer");
+
+				m_MeshletDepthPass.Begin(cmdList);
+				cmdList.OMSetRenderTargets({}, depthStencilTarget.GetDescriptor());
+
+				cmdList.SetGraphicsConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferAS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBoundBuffer, m_RenderAssetManager.get()->m_MeshletBoundsBuffer.GetResource()->GetGPUVirtualAddress());
+
+				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
+				cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
+
+				cmdList->RSSetScissorRects(1, &scizzorRect);
+				cmdList->RSSetViewports(1, &viewport);
+
+				cmdList->ExecuteIndirect(m_MeshletDepthPassSignature.Get(), MAX_INSTANCES, m_IndirectArguments.GetResource(), 0, m_IndirectArgumentCounter.GetResource(), 0);
+			}
+
+			{
+				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet draw pass");
 
 				auto cameraBuffer = m_MeshletDrawPass.GetBufferBinding("CameraDataBuffer");
 				auto instanceDataBufferAS = m_MeshletDrawPass.GetBufferBinding("InstanceDataBufferAS");

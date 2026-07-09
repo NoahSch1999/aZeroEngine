@@ -10,7 +10,7 @@ namespace aZero::Asset
 
 	struct Vertex
 	{
-		DXM::Vector3 Position;
+		DXM::Vector4 Position;
 		uint16_t UV[2];
 		uint16_t Normal[2];
 	};
@@ -46,14 +46,14 @@ namespace aZero::Asset
 
 	inline DirectX::BoundingSphere ComputeBoundingSphere(const std::vector<Asset::Vertex>& points)
 	{
-		DXM::Vector3 p0 = points[0].Position;
+		DXM::Vector3 p0 = { points[0].Position.x, points[0].Position.y, points[0].Position.z };
 
 		int i1 = 0;
 		float maxDist = 0.0f;
 
 		for (int i = 0; i < points.size(); i++)
 		{
-			float d = (points[i].Position - p0).LengthSquared();
+			float d = (DXM::Vector3(points[i].Position.x, points[i].Position.y, points[i].Position.z) - p0).LengthSquared();
 			if (d > maxDist)
 			{
 				maxDist = d;
@@ -66,7 +66,7 @@ namespace aZero::Asset
 
 		for (int i = 0; i < points.size(); i++)
 		{
-			float d = (points[i].Position - points[i1].Position).LengthSquared();
+			float d = (DXM::Vector3(points[i].Position.x, points[i].Position.y, points[i].Position.z) - DXM::Vector3(points[i1].Position.x, points[i1].Position.y, points[i1].Position.z)).LengthSquared();
 			if (d > maxDist)
 			{
 				maxDist = d;
@@ -74,8 +74,8 @@ namespace aZero::Asset
 			}
 		}
 
-		DXM::Vector3 center = (points[i1].Position + points[i2].Position) * 0.5f;
-		float radius = (points[i2].Position - center).Length();
+		DXM::Vector3 center = DXM::Vector3(points[i1].Position.x, points[i1].Position.y, points[i1].Position.z) + DXM::Vector3(points[i2].Position.x, points[i2].Position.y, points[i2].Position.z) * 0.5f;
+		float radius = (DXM::Vector3(points[i2].Position.x, points[i2].Position.y, points[i2].Position.z) - center).Length();
 
 		for (const auto& p : points)
 		{
@@ -123,18 +123,14 @@ namespace aZero::Asset
 		meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
 		meshopt_optimizeOverdraw(indices.data(), indices.data(), indices.size(), &vertices[0].Position.x, vertices.size(), sizeof(vertices[0]), 1.05f);
 
-		std::vector<unsigned int> remap(vertices.size());
-
-		meshopt_optimizeVertexFetchRemap(
-			remap.data(),
+		meshopt_optimizeVertexFetch(
+			vertices.data(),
 			indices.data(),
 			indices.size(),
-			vertices.size()
+			vertices.data(),
+			vertices.size(),
+			sizeof(vertices[0])
 		);
-
-		meshopt_remapVertexBuffer(vertices.data(), vertices.data(), vertices.size(), sizeof(vertices[0]), remap.data());
-
-		meshopt_remapIndexBuffer(indices.data(), indices.data(), indices.size(), remap.data());
 
 		meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
 

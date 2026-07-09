@@ -25,7 +25,7 @@ struct RasterVertex
 
 struct MeshVertex
 {
-    float3 Position;
+    float4 Position;
     uint UV;
     uint Normal;
 };

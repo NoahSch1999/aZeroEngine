@@ -238,16 +238,14 @@ namespace aZero::Editor
 
 			auto loadedGltf = m_CurrentScene->LoadGltf(
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.glb",
-				m_Engine->GetProjectRootDirectory() + "scenes/idk.gltf",
+				m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
 				//m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
+				//"C:/Projects/Programming/aZeroEditor/content/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf",
 				m_Engine->GetAssetManager()
 			);
 			if (!loadedGltf) {
 				throw std::runtime_error("No default scene loaded.");
 			}
-
-			auto& assetManager = m_Engine->GetAssetManager();
-			assetManager.RegisterScene(m_CurrentScene.get());
 		}
 
 		std::unique_ptr<Engine> m_Engine;
