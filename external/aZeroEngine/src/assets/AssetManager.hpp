@@ -224,6 +224,19 @@ inline std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_M
 			const auto& primitive = mesh.primitives[i];
 			size_t materialIndex = primitive.materialIndex.has_value() ? primitive.materialIndex.value() : 0 /*todo Set default material index*/;
 
+			size_t baseColorTexcoordIndex = 0;
+
+			if (primitive.materialIndex.has_value())
+			{
+				const fastgltf::Material& material = asset->materials[primitive.materialIndex.value()];
+				if (material.pbrData.baseColorTexture->transform && material.pbrData.baseColorTexture->transform->texCoordIndex.has_value()) {
+					baseColorTexcoordIndex = material.pbrData.baseColorTexture->transform->texCoordIndex.value();
+				}
+				else {
+					baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
+				}
+			}
+
 			auto& positionAccessor = asset->accessors[primitive.findAttribute("POSITION")->accessorIndex];
 			/*if (!positionAccessor.bufferViewIndex.has_value())
 				continue;*/
@@ -244,7 +257,8 @@ inline std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_M
 				std::copy(normal.begin(), normal.end(), vertexData[idx].Normal);
 				});
 
-			if (const auto* texcoord = primitive.findAttribute("TEXCOORD_0"); texcoord != primitive.attributes.end()) {
+			const std::string texcoordAttribute = std::string("TEXCOORD_") + std::to_string(baseColorTexcoordIndex);
+			if (const auto* texcoord = primitive.findAttribute(texcoordAttribute); texcoord != primitive.attributes.end()) {
 				// Tex coord
 				auto& texCoordAccessor = asset->accessors[texcoord->accessorIndex];
 				/*if (!texCoordAccessor.bufferViewIndex.has_value())
