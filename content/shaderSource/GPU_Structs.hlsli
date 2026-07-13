@@ -21,6 +21,7 @@ struct RasterVertex
     float3 WorldPosition : WORLD_POSITION;
     float2 UV : UV;
     float3 Normal : NORMAL;
+    float3 Meshletid : meshletid;
 };
 
 struct MeshVertex

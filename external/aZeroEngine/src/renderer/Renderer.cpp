@@ -19,7 +19,9 @@ namespace aZero
 			Pipeline::Shader meshCullCS;
 
 			Pipeline::RenderPass meshletDrawPass;
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> meshletDrawSignature;
 			Pipeline::RenderPass meshletDrawDepthPass;
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> meshletDepthPassSignature;
 			Pipeline::Shader meshletDrawAS;
 			Pipeline::Shader meshletDrawMS;
 			Pipeline::Shader meshletDrawPS;
@@ -36,23 +38,76 @@ namespace aZero
 
 			Pipeline::RenderPass::Desc passDesc;
 			passDesc.DsvFormat = DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT;
-			const bool res1 = meshletDrawDepthPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDepthMS, {});
+
+			if(m_RenderSettings.EnableDepthPrepass)
+			{
+				if(!meshletDrawDepthPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDepthMS, {})) {
+					m_RenderSettings.EnableDepthPrepass = false;
+					return;
+				}
+				passDesc.ComparisonFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_EQUAL;
+				
+			}
 
 			passDesc.RtvFormats.push_back(DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
-			//passDesc.ComparisonFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_EQUAL;
-			const bool res2 = meshletDrawPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDrawMS, meshletDrawPS);
-
-			if (!res1 || !res2) {
+			if(!meshletDrawPass.CompileMeshletPass(passDesc, m_diDevice, meshletDrawAS, meshletDrawMS, meshletDrawPS)) {
 				return;
 			}
 
-			m_MeshletDepthPass = std::move(meshletDrawDepthPass);
-			m_MeshCullCS = std::move(meshCullCS);
+			{
+				std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs{};
+				iaArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+				iaArgs[0].Constant.RootParameterIndex = meshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetRootIndex();
+				iaArgs[0].Constant.Num32BitValuesToSet = meshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetNumConstants();
+				iaArgs[0].Constant.DestOffsetIn32BitValues = 0;
+				iaArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+				D3D12_COMMAND_SIGNATURE_DESC iaArgsDesc{};
+				iaArgsDesc.pArgumentDescs = iaArgs.data();
+				iaArgsDesc.NumArgumentDescs = iaArgs.size();
+				iaArgsDesc.ByteStride = sizeof(GPU_Struct::IndirectArguments);
+				if (FAILED(m_diDevice->CreateCommandSignature(&iaArgsDesc, meshletDrawPass.GetRootSignature(), IID_PPV_ARGS(meshletDrawSignature.GetAddressOf())))) {
+					return;
+				}
+			}
+
+			if (m_RenderSettings.EnableDepthPrepass)
+			{
+				std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs{};
+				iaArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+				iaArgs[0].Constant.RootParameterIndex = meshletDrawDepthPass.GetConstantBinding("Input_CONSTANT").value().get().GetRootIndex();
+				iaArgs[0].Constant.Num32BitValuesToSet = meshletDrawDepthPass.GetConstantBinding("Input_CONSTANT").value().get().GetNumConstants();
+				iaArgs[0].Constant.DestOffsetIn32BitValues = 0;
+				iaArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+				D3D12_COMMAND_SIGNATURE_DESC iaArgsDesc{};
+				iaArgsDesc.pArgumentDescs = iaArgs.data();
+				iaArgsDesc.NumArgumentDescs = iaArgs.size();
+				iaArgsDesc.ByteStride = sizeof(GPU_Struct::IndirectArguments);
+				if (FAILED(m_diDevice->CreateCommandSignature(&iaArgsDesc, meshletDrawDepthPass.GetRootSignature(), IID_PPV_ARGS(meshletDepthPassSignature.GetAddressOf())))) {
+					return;
+				}
+			}
+
+			this->FlushRenderCommands();
+
+			if (m_RenderSettings.EnableDepthPrepass) {
+				m_MeshletDepthPass = std::move(meshletDrawDepthPass);
+				m_MeshletDepthPassSignature = std::move(meshletDepthPassSignature);
+			}
+
 			m_MeshCullPass = std::move(meshCullPass);
-			m_MeshletDrawAS = std::move(meshletDrawAS);
-			m_MeshletDrawMS = std::move(meshletDrawMS);
-			m_MeshletDrawPS = std::move(meshletDrawPS);
+
 			m_MeshletDrawPass = std::move(meshletDrawPass);
+			m_MeshletDrawSignature = std::move(meshletDrawSignature);
+
+#ifdef USE_DEBUG
+			m_MeshletDrawSignature->SetName(L"m_MeshletDrawSignature");
+			m_MeshCullPass.GetPipelineState()->SetName(L"m_MeshCullPass");
+			m_MeshletDrawPass.GetPipelineState()->SetName(L"m_MeshletDrawPass");
+			if (m_RenderSettings.EnableDepthPrepass) {
+				m_MeshletDepthPassSignature->SetName(L"m_MeshletDepthPassSignature");
+				m_MeshletDepthPass.GetPipelineState()->SetName(L"m_MeshletDepthPass");
+			}
+#endif
 		}
 
 		void Renderer::temp_LoadVB(FBX::FBX_Mesh& mesh)
@@ -175,47 +230,14 @@ namespace aZero
 
 		void Renderer::InitGPUDrivenRenderPipeline()
 		{
-			this->CompilePipeline();
-
 			m_IndirectArgumentCounter = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::IndirectArgumentCounter) * 1, D3D12_HEAP_TYPE_DEFAULT, true));
 			m_IndirectArguments = RenderAPI::Buffer(m_diDevice, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::IndirectArguments) * MAX_INSTANCES, D3D12_HEAP_TYPE_DEFAULT, true));
-
-			{
-				std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs{};
-				iaArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
-				iaArgs[0].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetRootIndex();
-				iaArgs[0].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetNumConstants();
-				iaArgs[0].Constant.DestOffsetIn32BitValues = 0;
-				iaArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
-				D3D12_COMMAND_SIGNATURE_DESC iaArgsDesc{};
-				iaArgsDesc.pArgumentDescs = iaArgs.data();
-				iaArgsDesc.NumArgumentDescs = iaArgs.size();
-				iaArgsDesc.ByteStride = sizeof(GPU_Struct::IndirectArguments);
-				m_diDevice->CreateCommandSignature(&iaArgsDesc, m_MeshletDrawPass.GetRootSignature(), IID_PPV_ARGS(m_MeshletDrawSignature.GetAddressOf()));
-			}
-
-			{
-				std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> iaArgs{};
-				iaArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
-				iaArgs[0].Constant.RootParameterIndex = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetRootIndex();
-				iaArgs[0].Constant.Num32BitValuesToSet = m_MeshletDrawPass.GetConstantBinding("Input_CONSTANT").value().get().GetNumConstants();
-				iaArgs[0].Constant.DestOffsetIn32BitValues = 0;
-				iaArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
-				D3D12_COMMAND_SIGNATURE_DESC iaArgsDesc{};
-				iaArgsDesc.pArgumentDescs = iaArgs.data();
-				iaArgsDesc.NumArgumentDescs = iaArgs.size();
-				iaArgsDesc.ByteStride = sizeof(GPU_Struct::IndirectArguments);
-				m_diDevice->CreateCommandSignature(&iaArgsDesc, m_MeshletDepthPass.GetRootSignature(), IID_PPV_ARGS(m_MeshletDepthPassSignature.GetAddressOf()));
-			}
-
 #ifdef USE_DEBUG
 			m_IndirectArgumentCounter.GetResource()->SetName(L"m_IndirectArgumentCounter");
 			m_IndirectArguments.GetResource()->SetName(L"m_IndirectArguments");
-			m_MeshletDrawSignature->SetName(L"m_MeshletDrawSignature");
-			m_MeshCullPass.GetPipelineState()->SetName(L"m_MeshCullPass");
-			m_MeshletDrawPass.GetPipelineState()->SetName(L"m_MeshletDrawPass");
-			m_MeshletDepthPass.GetPipelineState()->SetName(L"m_MeshletDepthPass");
 #endif
+			this->CompilePipeline();
+			
 		}
 
 		void Renderer::RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, Scene::Scene& scene)
@@ -291,7 +313,8 @@ namespace aZero
 				cmdList->ResourceBarrier(2, barriers.data());
 			}
 
-			/*{
+			if (m_RenderSettings.EnableDepthPrepass)
+			{
 				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet depth pass");
 				auto cameraBuffer = m_MeshletDepthPass.GetBufferBinding("CameraDataBuffer");
 				auto instanceDataBufferAS = m_MeshletDepthPass.GetBufferBinding("InstanceDataBufferAS");
@@ -316,7 +339,7 @@ namespace aZero
 				cmdList->RSSetViewports(1, &viewport);
 
 				cmdList->ExecuteIndirect(m_MeshletDepthPassSignature.Get(), MAX_INSTANCES, m_IndirectArguments.GetResource(), 0, m_IndirectArgumentCounter.GetResource(), 0);
-			}*/
+			}
 
 			{
 				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet draw pass");

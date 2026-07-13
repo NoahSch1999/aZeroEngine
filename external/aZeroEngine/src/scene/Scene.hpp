@@ -26,6 +26,7 @@ namespace aZero
 		struct SceneRenderDataFrameInfo
 		{
 			uint32_t MeshCount;
+			uint32_t PointLightCount, SpotLightCount, DirectionalLightCount;
 		};
 
 		struct SceneRenderData
@@ -34,6 +35,9 @@ namespace aZero
 			aZero::RenderAPI::Buffer ObjectCullDataBuffer;
 			aZero::RenderAPI::Buffer InstanceBuffer;
 			aZero::RenderAPI::Buffer CameraBuffer;
+			aZero::RenderAPI::Buffer PointLightBuffer;
+			aZero::RenderAPI::Buffer SpotLightBuffer;
+			aZero::RenderAPI::Buffer DirectionalLightBuffer;
 			std::vector<D3D12_VIEWPORT> CameraRSData;
 		};
 
@@ -65,6 +69,7 @@ namespace aZero
 			void OptimizePhysics();
 
 			void MarkStaticMeshesDirty() { m_ShouldRebuildStaticMeshes = true; }
+			void MarkStaticLightsDirty() { m_ShouldRebuildStaticLights = true; }
 
 			const std::unordered_map<uint32_t, flecs::entity_t>& GetBodyID_To_EntityID_Map() const { return m_BodyID_To_EntityID; } // This name...
 
@@ -78,12 +83,17 @@ namespace aZero
 			void RebuildStaticMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList);
 			uint32_t UploadDynamicMeshes(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList);
 
+			void RebuildStaticLights(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList);
+			std::tuple<uint32_t, uint32_t, uint32_t> UploadDynamicLights(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList);
+
 			void ResolveCollisionEvents();
 			void RegisterToPhysics(flecs::entity entity, Physics::Body& body, JPH::BodyCreationSettings& bodySettings);
 			void UnregisterFromPhysics(flecs::entity entity, Physics::Body& body);
 
 			std::unordered_map<uint32_t, std::string> LoadGltf_Meshes(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset);
-			std::unordered_map<uint32_t, std::string> LoadGltf_Materials(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset, const std::unordered_map<uint32_t, std::string>& textureIndexToName);
+			std::unordered_map<uint32_t, std::string> LoadGltf_Materials(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset, const std::unordered_map<uint32_t, std::string>& imageIndexToName);
+
+			// Currently only supports images
 			std::unordered_map<uint32_t, std::string> LoadGltf_Textures(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset);
 
 			flecs::world m_World;
@@ -93,8 +103,17 @@ namespace aZero
 			flecs::observer m_Triggerbody_OnRemove_Observer;
 
 			flecs::query<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale> m_Static_Mesh_Query;
-
 			flecs::query<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale> m_Dynamic_Mesh_Query;
+
+			flecs::query<const Component::PointLight, const Component::Position> m_Static_PointLight_Query;
+			flecs::query<const Component::PointLight, const Component::Position> m_Dynamic_PointLight_Query;
+
+			flecs::query<const Component::SpotLight, const Component::Position, const Component::Rotation> m_Static_SpotLight_Query;
+			flecs::query<const Component::SpotLight, const Component::Position, const Component::Rotation> m_Dynamic_SpotLight_Query;
+
+			flecs::query<const Component::DirectionalLight, const Component::Rotation> m_Static_DirectionalLight_Query;
+			flecs::query<const Component::DirectionalLight, const Component::Rotation> m_Dynamic_DirectionalLight_Query;
+
 			flecs::query<Component::Camera, Component::Position, Component::Rotation> m_CameraQuery;
 			flecs::query<Component::Rigidbody, Component::Position, Component::Rotation> m_ApplyPhysicsQuery;
 			flecs::query<Component::Triggerbody, Component::Position> m_TriggerbodyQuery;
@@ -112,7 +131,13 @@ namespace aZero
 			SceneRenderData m_RenderData;
 			uint32_t m_NumUniqueStaticMeshes = 0;
 			uint32_t m_NumUniqueStaticInstanceData = 0;
+
+			uint32_t m_NumStaticPointLights = 0;
+			uint32_t m_NumStaticSpotLights = 0;
+			uint32_t m_NumStaticDirectionalLights = 0;
+
 			bool m_ShouldRebuildStaticMeshes = true;
+			bool m_ShouldRebuildStaticLights = true;
 		};
 
 		template<typename AssetType>

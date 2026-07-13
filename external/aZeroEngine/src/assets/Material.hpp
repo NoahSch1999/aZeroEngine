@@ -5,6 +5,18 @@
 
 namespace aZero::Asset
 {
+	struct PBRMaterialData
+	{
+		uint32_t AlbedoTexture = std::numeric_limits<uint32_t>::max();
+		uint32_t NormalMap = std::numeric_limits<uint32_t>::max();
+		uint32_t RoughnessMetallic = std::numeric_limits<uint32_t>::max();
+		uint32_t GlowMap = std::numeric_limits<uint32_t>::max();
+		uint32_t TransparencyMap = std::numeric_limits<uint32_t>::max();
+	};
+}
+
+namespace aZero::Asset
+{
 	struct MaterialRenderRef
 	{
 		uint32_t MaterialIndex = std::numeric_limits<uint32_t>::max();
@@ -89,6 +101,17 @@ namespace aZero::Asset
 		Asset::Texture* GetAlbedoPtr() const { return m_Info.AlbedoTexture; }
 		Asset::Texture* GetNormalMapPtr() const { return m_Info.NormalTexture; }
 		Asset::Texture* GetMetallicRoughnessTexturePtr() const { return m_Info.MetallicRoughnessTexture; }
+
+
+		Asset::PBRMaterialData GetFormat_PBR_GPU() const {
+			return {
+				.AlbedoTexture = this->GetAlbedoPtr() ? this->GetAlbedoPtr()->GetRenderRef().DescriptorIndex : 0xffffffff,
+				.NormalMap = this->GetNormalMapPtr() ? this->GetNormalMapPtr()->GetRenderRef().DescriptorIndex : 0xffffffff,
+				.RoughnessMetallic = this->GetMetallicRoughnessTexturePtr() ? this->GetMetallicRoughnessTexturePtr()->GetRenderRef().DescriptorIndex : 0xffffffff,
+				.GlowMap = 0xffffffff,
+				.TransparencyMap = 0xffffffff
+			};
+		}
 
 	private:
 		MaterialInfo m_Info;

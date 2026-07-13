@@ -113,6 +113,24 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(flecs)
 #
 
+# KTX 
+FetchContent_Declare(
+    ktx
+    GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
+    GIT_TAG "v4.4.2"
+    #SOURCE_SUBDIR "lib"
+    GIT_SHALLOW TRUE)
+set(KTX_FEATURE_TOOLS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_TESTS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_LOADTEST_APPS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_GL_UPLOAD OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_VK_UPLOAD OFF CACHE BOOL "" FORCE)
+
+# https://github.com/KhronosGroup/KTX-Software/blob/main/lib/include/ktx.h 
+# https://github.com/KhronosGroup/KTX-Software/blob/main/examples/vkload.cpp 
+FetchContent_MakeAvailable(ktx)
+#
+
 # aZero Audio
 FetchContent_Declare(
     aZeroAudio
@@ -197,10 +215,12 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC ${CMAKE_BINARY_DIR}/_deps/aZero-linear-allocator-src/include
     PUBLIC ${joltPhysics_SOURCE_DIR}/..
     PUBLIC ${winpix_SOURCE_DIR}/Include
+    PUBLIC ${ktx_SOURCE_DIR}/include
 )
 
 target_link_directories(${PROJECT_NAME}
     PUBLIC ${winpix_SOURCE_DIR}/bin/x64
+    #PUBLIC ${ktx_SOURCE_DIR}/include
 )
 
 # Linking
@@ -217,6 +237,7 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC Jolt
     PUBLIC WinPixEventRuntime
     PUBLIC flecs::flecs_static
+    PUBLIC ktx
     PUBLIC fastgltf
     #PUBLIC DXGIDebug.dll
 )

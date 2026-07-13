@@ -15,7 +15,7 @@ namespace aZero::Editor::GUI
 		)
 			:m_diWireframeRenderer(&wireframeRenderer) { }
 
-		void Update(Scene::Scene& scene)
+		void Update(Scene::Scene& scene, Rendering::Renderer& renderer)
 		{
 			m_FrameCount++;
 			auto now = std::chrono::high_resolution_clock::now();
@@ -58,6 +58,12 @@ namespace aZero::Editor::GUI
 					{
 						ent.remove<Component::Rigidbody>();
 					}
+				}
+
+				auto renderSettings = renderer.GetRenderSettings();
+				if (ImGui::Checkbox("Enable depth prepass", &renderSettings.EnableDepthPrepass))
+				{
+					renderer.ToggleDepthPrepass(renderSettings.EnableDepthPrepass);
 				}
 
 				m_EnableFlecsExplorer = scene.GetEntityWorld().has<flecs::Rest>();

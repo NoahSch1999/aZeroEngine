@@ -145,14 +145,12 @@ namespace aZero
 
         struct SpotLight {
             DXM::Vector3 color;
-            DXM::Vector3 direction;
             float coneAngle;
             float intensity;
         };
 
         struct DirectionalLight {
             DXM::Vector3 color;
-            DXM::Vector3 direction;
             float intensity;
         };
 

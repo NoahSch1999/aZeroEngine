@@ -28,16 +28,6 @@ namespace aZero
 			};
 
 			// --------------------------------------------------------------------------------------------------------------
-			//			MATERIAL
-			// --------------------------------------------------------------------------------------------------------------
-
-			struct MaterialData
-			{
-				uint32_t AlbedoDescriptorIndex = std::numeric_limits<uint32_t>::max();
-				uint32_t NormalDescriptorIndex = std::numeric_limits<uint32_t>::max();
-			};
-
-			// --------------------------------------------------------------------------------------------------------------
 
 			RenderAssetManager() = default;
 
@@ -53,8 +43,8 @@ namespace aZero
 				m_MeshletFreelist = aZero::FreelistAllocator(MAX_MESHLETS * sizeof(Asset::Meshlet));
 				m_VertexFreelist = aZero::FreelistAllocator(MAX_VERTICES * sizeof(Asset::Vertex));
 
-				m_MaterialDataBuffer = RenderAPI::IndexedBuffer<MaterialData>(device, 1000, &recycler);
-				m_MaterialBufferView = RenderAPI::ShaderResourceView(device, descriptorHeap, m_MaterialDataBuffer.GetBuffer(), 1000, sizeof(MaterialData), 0);
+				m_MaterialDataBuffer = RenderAPI::IndexedBuffer<aZero::Asset::PBRMaterialData>(device, 1000, &recycler);
+				m_MaterialBufferView = RenderAPI::ShaderResourceView(device, descriptorHeap, m_MaterialDataBuffer.GetBuffer(), 1000, sizeof(aZero::Asset::PBRMaterialData), 0);
 
 				// todo Load default assets
 				m_DefaultTextureIndex = 0; // set to default index
@@ -79,7 +69,7 @@ namespace aZero
 				return { meshAlloc.MeshletGlobalAllocation.Offset / sizeof(meshletData[0]), meshAlloc.VertexGlobalAllocation.Offset / sizeof(vertexData[0]) };
 			}
 
-			uint32_t UpdateRenderState(FrameStagingAllocator& frameAllocator, uint32_t materialIndex, uint32_t albedoIndex, uint32_t normalMapIndex)
+			uint32_t UpdateRenderState(FrameStagingAllocator& frameAllocator, uint32_t materialIndex, const aZero::Asset::PBRMaterialData& data)
 			{
 				uint32_t index = materialIndex;
 				if (index == std::numeric_limits<decltype(materialIndex)>::max()) // Create a new entry for the material data if it doesn't have one
@@ -87,9 +77,6 @@ namespace aZero
 					index = m_MaterialDataBuffer.Allocate();
 				}
 
-				MaterialData data;
-				data.AlbedoDescriptorIndex = albedoIndex;
-				data.NormalDescriptorIndex = normalMapIndex;
 				frameAllocator.AddAllocation(&data, &m_MaterialDataBuffer.GetBuffer(), index * sizeof(data), sizeof(data));
 
 				return index;
@@ -97,28 +84,31 @@ namespace aZero
 
 			uint32_t UpdateRenderState(ID3D12DeviceX* device, RenderAPI::CommandList& cmdList,
 				RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap,
-				const std::vector<uint8_t>& texelData, uint32_t width, uint32_t height, DXGI_FORMAT format
+				const RenderAPI::TextureData& data
 			)
 			{
 				auto descriptor = descriptorHeap.CreateDescriptor();
 				uint32_t index = descriptor.GetHeapIndex();
 
-				m_TextureMap[index] = RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(width, height, format, D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS), &recycler, {});
-				m_TextureDescriptorMap[index] = RenderAPI::ShaderResourceView(device, std::move(descriptor), m_TextureMap[index]);
+				m_TextureMap[index] = RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(data.Height, data.Height, RenderAPI::ToDX_Format(data.Format), D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS, data.MipPitchData.size(), D3D12_RESOURCE_STATE_COMMON), &recycler, {});
+				m_TextureDescriptorMap[index] = RenderAPI::ShaderResourceView(device, std::move(descriptor), m_TextureMap[index], data.MipPitchData.size());
 
-				const uint64_t stagingBufferSize = static_cast<uint64_t>(GetRequiredIntermediateSize(m_TextureMap[index].GetResource(), 0, 1));
+				const uint64_t stagingBufferSize = static_cast<uint64_t>(GetRequiredIntermediateSize(m_TextureMap[index].GetResource(), 0, data.MipPitchData.size()));
 				RenderAPI::Buffer stagingBuffer(device, RenderAPI::Buffer::Desc(stagingBufferSize, D3D12_HEAP_TYPE_UPLOAD), &recycler);
 
-				D3D12_SUBRESOURCE_DATA subresourceData{};
-				subresourceData.pData = texelData.data();
-				subresourceData.RowPitch = /*roundUp(*/width * sizeof(DWORD)/*, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)*/; // todo Rounding needed?
-				subresourceData.SlicePitch = subresourceData.RowPitch * height;
+				std::vector<D3D12_SUBRESOURCE_DATA> subresourceData(data.MipPitchData.size());
+				for (int32_t mip = 0; mip < data.MipPitchData.size(); mip++)
+				{
+					subresourceData[mip].pData = data.Data.data() + data.MipPitchData[mip].Offset;
+					subresourceData[mip].RowPitch = data.MipPitchData[mip].RowPitch;
+					subresourceData[mip].SlicePitch = data.MipPitchData[mip].SlicePitch;
+				}
 
 				UpdateSubresources(
 					cmdList.Get(),
 					m_TextureMap[index].GetResource(),
 					stagingBuffer.GetResource(),
-					0, 0, 1, &subresourceData);
+					0, 0, data.MipPitchData.size(), subresourceData.data());
 
 				m_TextureMap[index].CreateTransition(D3D12_RESOURCE_STATE_COPY_DEST);
 				auto barrier = m_TextureMap[index].CreateTransition(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
@@ -172,7 +162,7 @@ namespace aZero
 			// --------------------------------------------------------------------------------------------------------------
 			//			MATERIAL
 			// --------------------------------------------------------------------------------------------------------------
-			RenderAPI::IndexedBuffer<MaterialData> m_MaterialDataBuffer;
+			RenderAPI::IndexedBuffer<aZero::Asset::PBRMaterialData> m_MaterialDataBuffer;
 			RenderAPI::ShaderResourceView m_MaterialBufferView;
 
 			// --------------------------------------------------------------------------------------------------------------

@@ -10,23 +10,26 @@ namespace aZero::Asset
 		AssetManagerT() = default;
 		AssetManagerT(Rendering::Renderer& diRenderer, std::string_view projectRootDirectory)
 			:m_diRenderer(&diRenderer), m_ProjectRootDirectory(projectRootDirectory) {
-			
-			Asset::TextureData fallbackTextureData;
-			fallbackTextureData.Name = "Fallback";
-			fallbackTextureData.TexelData = { 1,0,1,1 };
-			fallbackTextureData.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+
+			RenderAPI::TextureData::MipLevel mip;
+			mip.Offset = 0;
+			mip.RowPitch = 1 * sizeof(DWORD);
+			mip.SlicePitch = mip.RowPitch * 1;
+
+			RenderAPI::TextureData fallbackTextureData;
+			fallbackTextureData.Data = { 1,0,1,1 };
+			fallbackTextureData.Format = RenderAPI::TEXTURE_FORMAT::RGBA8_UNORM_SRGB;
 			fallbackTextureData.Height = 1;
 			fallbackTextureData.Width = 1;
-			fallbackTextureData.NumChannels = 4;
+			fallbackTextureData.MipPitchData.emplace_back(mip);
 			Asset::Texture* fallbackTexture = this->Create<Asset::Texture>("Fallback", std::move(fallbackTextureData));
 
-			Asset::TextureData fallbackNormalMapData;
-			fallbackNormalMapData.Name = "FallbackNormalMap";
-			fallbackNormalMapData.TexelData = { 0,0,0,1 };
-			fallbackNormalMapData.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			RenderAPI::TextureData fallbackNormalMapData;
+			fallbackNormalMapData.Data = { 0,0,0,1 };
+			fallbackNormalMapData.Format = RenderAPI::TEXTURE_FORMAT::RGBA8_UNORM;
 			fallbackNormalMapData.Height = 1;
 			fallbackNormalMapData.Width = 1;
-			fallbackNormalMapData.NumChannels = 4;
+			fallbackNormalMapData.MipPitchData.emplace_back(mip);
 			Asset::Texture* fallbackNormalMap = this->Create<Asset::Texture>("FallbackNormalMap", std::move(fallbackNormalMapData));
 
 			Asset::MaterialData fallbackMaterialData;

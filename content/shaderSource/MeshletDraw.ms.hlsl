@@ -39,8 +39,8 @@ void main(
             positionWorld = mul(CameraDataBuffer.ViewProjectionMatrix, positionWorld);
             verts[localThreadIndex].Position = positionWorld;
             verts[localThreadIndex].Normal = normalize(mul(Input_CONSTANT.Instance, float4(DecodeNormalOctahedral(UnpackOct16(Unpack32To16(vertex.Normal))), 0.f))).xyz;
-            //verts[localThreadIndex].UV = float2(2, 2);
             verts[localThreadIndex].UV = Unpack32ToHalfFloats(vertex.UV);
+            verts[localThreadIndex].Meshletid = HashColor(meshletIndex);
         }
     }
 }

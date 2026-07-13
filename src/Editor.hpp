@@ -122,7 +122,7 @@ namespace aZero::Editor
 				m_CurrentScene->GetEntityWorld().progress();
 			}
 
-			m_Gui.Update(*m_CurrentScene.get());
+			m_Gui.Update(*m_CurrentScene.get(), m_Engine->GetRenderer());
 
 			this->CameraUpdate();
 
@@ -240,7 +240,6 @@ namespace aZero::Editor
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.glb",
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
 				m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
-				//"C:/Projects/Programming/aZeroEditor/content/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf",
 				m_Engine->GetAssetManager()
 			);
 			if (!loadedGltf) {

@@ -49,6 +49,12 @@ aZero::Scene::Scene::~Scene()
 	// Reset queries since they should live shorter than the world
 	m_Dynamic_Mesh_Query = {};
 	m_Static_Mesh_Query = {};
+	m_Dynamic_PointLight_Query = {};
+	m_Static_PointLight_Query = {};
+	m_Dynamic_SpotLight_Query = {};
+	m_Static_SpotLight_Query = {};
+	m_Dynamic_DirectionalLight_Query = {};
+	m_Static_DirectionalLight_Query = {};
 	m_CameraQuery = {};
 	m_ApplyPhysicsQuery = {};
 	m_TriggerbodyQuery = {};
@@ -82,6 +88,16 @@ void aZero::Scene::Scene::Init()
 
 	m_Static_Mesh_Query = m_World.query_builder<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale>().with<Component::Static>().build();
 	m_Dynamic_Mesh_Query = m_World.query_builder<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale>().without<Component::Static>().cached().build();
+
+	m_Static_PointLight_Query = m_World.query_builder<const Component::PointLight, const Component::Position>().with<Component::Static>().build();
+	m_Dynamic_PointLight_Query = m_World.query_builder<const Component::PointLight, const Component::Position>().without<Component::Static>().cached().build();
+
+	m_Static_SpotLight_Query = m_World.query_builder<const Component::SpotLight, const Component::Position, const Component::Rotation>().with<Component::Static>().build();
+	m_Dynamic_SpotLight_Query = m_World.query_builder<const Component::SpotLight, const Component::Position, const Component::Rotation>().without<Component::Static>().cached().build();
+
+	m_Static_DirectionalLight_Query = m_World.query_builder<const Component::DirectionalLight, const Component::Rotation>().with<Component::Static>().build();
+	m_Dynamic_DirectionalLight_Query = m_World.query_builder<const Component::DirectionalLight, const Component::Rotation>().without<Component::Static>().cached().build();
+
 	m_CameraQuery = m_World.query_builder<Component::Camera, Component::Position, Component::Rotation>().cached().build();
 
 	m_StaticMeshPrefab = m_World.prefab("StaticMeshPrefab").set(Component::Mesh()).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0)).set(Component::Scale(1, 1, 1));
@@ -186,6 +202,90 @@ uint32_t aZero::Scene::Scene::UploadDynamicMeshes(aZero::LinearAllocator<>& fram
 	return m_NumUniqueStaticMeshes + numUniqueMeshes;
 }
 
+void aZero::Scene::Scene::RebuildStaticLights(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList)
+{
+	using namespace Rendering;
+
+	{
+		GPU_Struct::PointLight* plight = reinterpret_cast<GPU_Struct::PointLight*>(frameDataAllocator.Allocate(m_Static_PointLight_Query.count() * sizeof(GPU_Struct::PointLight)));
+		size_t srcOffset = frameDataAllocator.GetOffset() - m_Static_PointLight_Query.count() * sizeof(GPU_Struct::PointLight);
+		uint32_t numLights = 0;
+		m_Static_PointLight_Query.each([&numLights, &plight](const Component::PointLight& light, const Component::Position& position) {
+			*(plight + numLights) = GPU_Struct::PointLight(light, position);
+			numLights++;
+		});
+		cmdList->CopyBufferRegion(m_RenderData.PointLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::PointLight));
+		m_NumStaticPointLights = numLights;
+	}
+
+	{
+		GPU_Struct::SpotLight* plight = reinterpret_cast<GPU_Struct::SpotLight*>(frameDataAllocator.Allocate(m_Static_SpotLight_Query.count() * sizeof(GPU_Struct::SpotLight)));
+		size_t srcOffset = frameDataAllocator.GetOffset() - m_Static_SpotLight_Query.count() * sizeof(GPU_Struct::SpotLight);
+		uint32_t numLights = 0;
+		m_Static_SpotLight_Query.each([&numLights, &plight](const Component::SpotLight& light, const Component::Position& position, const Component::Rotation& rotation) {
+			*(plight + numLights) = GPU_Struct::SpotLight(light, position, rotation);
+			numLights++;
+		});
+		cmdList->CopyBufferRegion(m_RenderData.SpotLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::SpotLight));
+		m_NumStaticSpotLights = numLights;
+	}
+
+	{
+		GPU_Struct::DirectionalLight* plight = reinterpret_cast<GPU_Struct::DirectionalLight*>(frameDataAllocator.Allocate(m_Static_DirectionalLight_Query.count() * sizeof(GPU_Struct::DirectionalLight)));
+		size_t srcOffset = frameDataAllocator.GetOffset() - m_Static_DirectionalLight_Query.count() * sizeof(GPU_Struct::DirectionalLight);
+		uint32_t numLights = 0;
+		m_Static_DirectionalLight_Query.each([&numLights, &plight](const Component::DirectionalLight& light, const Component::Rotation& rotation) {
+			*(plight + numLights) = GPU_Struct::DirectionalLight(light, rotation);
+			numLights++;
+			});
+		cmdList->CopyBufferRegion(m_RenderData.DirectionalLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::DirectionalLight));
+		m_NumStaticDirectionalLights = numLights;
+	}
+}
+
+std::tuple<uint32_t, uint32_t, uint32_t> aZero::Scene::Scene::UploadDynamicLights(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList)
+{
+	using namespace Rendering;
+
+	uint32_t numPointLights = 0, numSpotLights = 0, numDirectionalLights = 0;
+	{
+		GPU_Struct::PointLight* plight = reinterpret_cast<GPU_Struct::PointLight*>(frameDataAllocator.Allocate(m_Dynamic_PointLight_Query.count() * sizeof(GPU_Struct::PointLight)));
+		size_t srcOffset = frameDataAllocator.GetOffset() - m_Dynamic_PointLight_Query.count() * sizeof(GPU_Struct::PointLight);
+		uint32_t numLights = 0;
+		m_Dynamic_PointLight_Query.each([&numLights, &plight](const Component::PointLight& light, const Component::Position& position) {
+			*(plight + numLights) = GPU_Struct::PointLight(light, position);
+			numLights++;
+			});
+		cmdList->CopyBufferRegion(m_RenderData.PointLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::PointLight));
+		numPointLights = numLights;
+	}
+
+	{
+		GPU_Struct::SpotLight* plight = reinterpret_cast<GPU_Struct::SpotLight*>(frameDataAllocator.Allocate(m_Dynamic_SpotLight_Query.count() * sizeof(GPU_Struct::SpotLight)));
+		size_t srcOffset = frameDataAllocator.GetOffset() - m_Dynamic_SpotLight_Query.count() * sizeof(GPU_Struct::SpotLight);
+		uint32_t numLights = 0;
+		m_Dynamic_SpotLight_Query.each([&numLights, &plight](const Component::SpotLight& light, const Component::Position& position, const Component::Rotation& rotation) {
+			*(plight + numLights) = GPU_Struct::SpotLight(light, position, rotation);
+			numLights++;
+			});
+		cmdList->CopyBufferRegion(m_RenderData.SpotLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::SpotLight));
+		numSpotLights = numLights;
+	}
+
+	{
+		GPU_Struct::DirectionalLight* plight = reinterpret_cast<GPU_Struct::DirectionalLight*>(frameDataAllocator.Allocate(m_Dynamic_DirectionalLight_Query.count() * sizeof(GPU_Struct::DirectionalLight)));
+		size_t srcOffset = frameDataAllocator.GetOffset() - m_Dynamic_DirectionalLight_Query.count() * sizeof(GPU_Struct::DirectionalLight);
+		uint32_t numLights = 0;
+		m_Dynamic_DirectionalLight_Query.each([&numLights, &plight](const Component::DirectionalLight& light, const Component::Rotation& rotation) {
+			*(plight + numLights) = GPU_Struct::DirectionalLight(light, rotation);
+			numLights++;
+			});
+		cmdList->CopyBufferRegion(m_RenderData.DirectionalLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::DirectionalLight));
+		numDirectionalLights = numLights;
+	}
+	return { numPointLights, numSpotLights, numDirectionalLights };
+}
+
 std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero::Scene::SceneRenderData>> aZero::Scene::Scene::GetRenderData(aZero::LinearAllocator<>& frameDataAllocator, RenderAPI::Buffer& frameDataBuffer, RenderAPI::CommandList& cmdList)
 {
 	using namespace Rendering;
@@ -195,7 +295,11 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 		ID3D12DeviceX* device = GetID3D12DeviceX(cmdList.Get());
 		m_RenderData.ObjectCullDataBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::ObjectCullData) * 100000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
 		m_RenderData.InstanceBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::InstanceData) * 100000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
-		m_RenderData.CameraBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::CameraData) * 1000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
+		m_RenderData.CameraBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::CameraData) * 100, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
+
+		m_RenderData.PointLightBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::PointLight) * 1000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
+		m_RenderData.SpotLightBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::SpotLight) * 1000, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
+		m_RenderData.DirectionalLightBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::DirectionalLight) * 100, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
 	}
 
 	this->m_RenderData.CameraRSData.clear();
@@ -227,7 +331,18 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 		m_ShouldRebuildStaticMeshes = false;
 	}
 
-	return { SceneRenderDataFrameInfo{.MeshCount = this->UploadDynamicMeshes(frameDataAllocator, frameDataBuffer, cmdList) }, m_RenderData };
+	if (m_ShouldRebuildStaticLights)
+	{
+		this->RebuildStaticLights(frameDataAllocator, frameDataBuffer, cmdList);
+		m_ShouldRebuildStaticLights = false;
+	}
+
+	const auto [numPointLights, numSpotLights, numDirectionalLights] = this->UploadDynamicLights(frameDataAllocator, frameDataBuffer, cmdList);
+
+	return { SceneRenderDataFrameInfo{
+		.MeshCount = this->UploadDynamicMeshes(frameDataAllocator, frameDataBuffer, cmdList),
+		.PointLightCount = numPointLights, .SpotLightCount = numSpotLights, .DirectionalLightCount = numDirectionalLights
+	}, m_RenderData };
 }
 
 void aZero::Scene::Scene::ApplyPhysics()
@@ -430,18 +545,15 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Meshes(c
 			if (primitive.materialIndex.has_value())
 			{
 				const fastgltf::Material& material = asset->materials[primitive.materialIndex.value()];
-				if (material.pbrData.baseColorTexture->transform && material.pbrData.baseColorTexture->transform->texCoordIndex.has_value()) {
-					baseColorTexcoordIndex = material.pbrData.baseColorTexture->transform->texCoordIndex.value();
+				if (material.pbrData.baseColorTexture.has_value())
+				{
+					if (material.pbrData.baseColorTexture->transform && material.pbrData.baseColorTexture->transform->texCoordIndex.has_value()) {
+						baseColorTexcoordIndex = material.pbrData.baseColorTexture->transform->texCoordIndex.value();
+					}
+					else {
+						baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
+					}
 				}
-				else {
-					baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
-				}
-			}
-
-			// todo Remove once it's not needed anymore
-			if (baseColorTexcoordIndex != 0) {
-				const fastgltf::Material& material = asset->materials[primitive.materialIndex.value()];
-				std::cout << "Mesh '" << mesh.name << "' with material '" << material.name << "' had texcoord: " << baseColorTexcoordIndex << "\n";
 			}
 
 			auto& positionAccessor = asset->accessors[primitive.findAttribute("POSITION")->accessorIndex];
@@ -520,7 +632,7 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Meshes(c
 	return meshIndexToName;
 }
 
-std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Materials(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset, const std::unordered_map<uint32_t, std::string>& textureIndexToName)
+std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Materials(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset, const std::unordered_map<uint32_t, std::string>& imageIndexToName)
 {
 	std::unordered_map<uint32_t, std::string> materialIndexToName;
 	for (int i = 0; i < asset->materials.size(); i++)
@@ -531,9 +643,12 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Material
 		materialData.Name = material.name;
 
 		if (material.pbrData.baseColorTexture.has_value()) {
-			// todo Lookup texture in asset manager and set ptr
-			Asset::Texture* texture = assetManager.Get<Asset::Texture>(textureIndexToName.at(material.pbrData.baseColorTexture.value().textureIndex));
-			materialData.Info.AlbedoTexture = texture;
+			auto imageIndex = asset->textures[material.pbrData.baseColorTexture.value().textureIndex].imageIndex;
+			if (imageIndex.has_value())
+			{
+				Asset::Texture* texture = assetManager.Get<Asset::Texture>(imageIndexToName.at(imageIndex.value()));
+				materialData.Info.AlbedoTexture = texture;
+			}
 		}
 
 		if (!materialData.Info.AlbedoTexture) {
@@ -543,9 +658,12 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Material
 		}
 
 		if (material.normalTexture.has_value()) {
-			// todo Lookup texture in asset manager and set ptr
-			Asset::Texture* texture = assetManager.Get<Asset::Texture>(textureIndexToName.at(material.normalTexture.value().textureIndex));
-			materialData.Info.NormalTexture = texture;
+			auto imageIndex = asset->textures[material.normalTexture.value().textureIndex].imageIndex;
+			if (imageIndex.has_value())
+			{
+				Asset::Texture* texture = assetManager.Get<Asset::Texture>(imageIndexToName.at(imageIndex.value()));
+				materialData.Info.NormalTexture = texture;
+			}
 		}
 
 		if (!materialData.Info.NormalTexture) {
@@ -573,55 +691,43 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Material
 
 std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Textures(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset)
 {
-	std::unordered_map<uint32_t, std::string> textureIndexToName;
+	std::unordered_map<uint32_t, std::string> imageIndexToName;
 
-	for (int i = 0; i < asset->textures.size(); i++)
+	for (int i = 0; i < asset->images.size(); i++)
 	{
-		const fastgltf::Texture& texture = asset->textures[i];
-		Asset::TextureData textureData;
-		if (texture.imageIndex.has_value()) {
-			const fastgltf::Image& image = asset->images[texture.imageIndex.value()];
+		const fastgltf::Image& image = asset->images[i];
 
-			std::visit(fastgltf::visitor{
-				[](const auto& arg) {},
-				[&](const fastgltf::sources::URI& filePath) {
-					const std::string path(filePath.uri.path().begin(), filePath.uri.path().end());
+		RenderAPI::TextureData textureData;
+		std::visit(fastgltf::visitor{
+			[](const auto& arg) {},
+			[&](const fastgltf::sources::URI& filePath) {
+				// todo Figure out how to handle formatting
+				textureData.CreateFromFile(path.parent_path() / std::filesystem::path(filePath.uri.path()));
 
-					// todo Figure out how to handle formatting
-					textureData.Load(path, DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
-					
-				},
-				[&](const fastgltf::sources::Array& vector) {
-					textureData.LoadFromMemory(image.name.c_str(), DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, vector.bytes.data(), vector.bytes.size(), 0);
-				},
-				[&](const fastgltf::sources::BufferView& view) {
-					auto& bufferView = asset->bufferViews[view.bufferViewIndex];
-					auto& buffer = asset->buffers[bufferView.bufferIndex];
-					std::visit(fastgltf::visitor{
-						[](const auto& arg) {},
-						[&](const fastgltf::sources::Array& vector) {
-							if (image.name == "goblinNormal") {
-								textureData.LoadFromMemory(image.name.c_str(), DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM, vector.bytes.data(), bufferView.byteLength, bufferView.byteOffset);
-							}
-							else
-								textureData.LoadFromMemory(image.name.c_str(), DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, vector.bytes.data(), bufferView.byteLength, bufferView.byteOffset);
-						}
-					}, buffer.data);
-				}
-				}, image.data);
-
-			if (textureData.TexelData.size()) {
-				textureIndexToName[i] = textureData.Name;
-				Asset::Texture* tex = assetManager.Create<Asset::Texture>(textureIndexToName[i], std::move(textureData));
-				tex->ClearCachedData();
+			},
+			[&](const fastgltf::sources::Array& vector) {
+				textureData.LoadFromMemory(image.name.c_str(), vector.bytes.data(), vector.bytes.size(), 0);
+			},
+			[&](const fastgltf::sources::BufferView& view) {
+				auto& bufferView = asset->bufferViews[view.bufferViewIndex];
+				auto& buffer = asset->buffers[bufferView.bufferIndex];
+				std::visit(fastgltf::visitor{
+					[](const auto& arg) {},
+					[&](const fastgltf::sources::Array& vector) {
+						textureData.LoadFromMemory(image.name.c_str(), vector.bytes.data(), bufferView.byteLength, bufferView.byteOffset);
+					}
+				}, buffer.data);
 			}
-		}
-		else {
-			throw std::runtime_error("Texture had no connected image.");
+			}, image.data);
+
+		if (textureData.Data.size()) {
+			imageIndexToName[i] = textureData.FilePath.generic_string();
+			Asset::Texture* tex = assetManager.Create<Asset::Texture>(imageIndexToName[i], std::move(textureData));
+			tex->ClearCachedData();
 		}
 	}
 
-	return textureIndexToName;
+	return imageIndexToName;
 }
 
 bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager)
@@ -630,7 +736,8 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 		fastgltf::Extensions::KHR_mesh_quantization |
 		fastgltf::Extensions::KHR_texture_transform |
 		fastgltf::Extensions::KHR_materials_variants |
-		fastgltf::Extensions::KHR_lights_punctual
+		fastgltf::Extensions::KHR_lights_punctual |
+		fastgltf::Extensions::KHR_texture_basisu
 		;
 
 	fastgltf::Parser parser(supportedExtensions);
@@ -639,7 +746,7 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 		fastgltf::Options::DontRequireValidAssetMember |
 		fastgltf::Options::AllowDouble |
 		fastgltf::Options::LoadExternalBuffers |
-		fastgltf::Options::LoadExternalImages |
+		//fastgltf::Options::LoadExternalImages |
 		fastgltf::Options::GenerateMeshIndices |
 		fastgltf::Options::DecomposeNodeMatrices
 		;
@@ -746,9 +853,6 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 					/*p.coneAngle = light.innerConeAngle.has_value() ? light.innerConeAngle.value() : 0.f;
 					p.coneAngle = light.outerConeAngle.has_value() ? light.outerConeAngle.value() : 0.f;*/
 
-					const Component::Rotation* rotation = entity.try_get<Component::Rotation>();
-					p.direction = rotation ? DXM::Vector3(rotation->x, rotation->y, rotation->z) : DXM::Vector3(0.f, -1.f, 0.f); // default to -y
-
 					entity.set<Component::SpotLight>(p);
 					break;
 				}
@@ -757,8 +861,6 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 					Component::DirectionalLight p;
 					p.color = { light.color.x(), light.color.y(), light.color.z() };
 					p.intensity = light.intensity;
-					const Component::Rotation* rotation = entity.try_get<Component::Rotation>();
-					p.direction = rotation ? DXM::Vector3(rotation->x, rotation->y, rotation->z) : DXM::Vector3(0.f, -1.f, 0.f); // default to -y
 					entity.set<Component::DirectionalLight>(p);
 					break;
 				}

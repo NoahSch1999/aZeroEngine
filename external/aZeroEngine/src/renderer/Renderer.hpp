@@ -23,6 +23,11 @@ namespace aZero::Rendering
 	class Renderer : public NonCopyable
 	{
 	public:
+		struct RenderSettings
+		{
+			bool EnableDepthPrepass = false;
+		};
+
 		Renderer() = default;
 		Renderer(ID3D12DeviceX* device, uint32_t bufferCount, IDxcCompilerX& compiler);
 		Renderer(Renderer&&) noexcept = default;
@@ -73,6 +78,19 @@ namespace aZero::Rendering
 
 		void CompilePipeline();
 
+		RenderSettings GetRenderSettings() const { return m_RenderSettings; }
+
+		void ToggleDepthPrepass(bool on) {
+			if (on && !m_RenderSettings.EnableDepthPrepass) {
+				m_RenderSettings.EnableDepthPrepass = on;
+				this->CompilePipeline();
+			}
+			else if (!on && m_RenderSettings.EnableDepthPrepass) {
+				m_RenderSettings.EnableDepthPrepass = on;
+				this->CompilePipeline();
+			}
+		}
+
 	private:
 
 		// TODO: Remove and figure out a smooth way to replace it
@@ -91,15 +109,11 @@ namespace aZero::Rendering
 
 		// New version of GPU-driven
 		Pipeline::RenderPass m_MeshCullPass;
-		Pipeline::Shader m_MeshCullCS;
 
 		Pipeline::RenderPass m_MeshletDepthPass;
 		Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_MeshletDepthPassSignature;
 
 		Pipeline::RenderPass m_MeshletDrawPass;
-		Pipeline::Shader m_MeshletDrawAS;
-		Pipeline::Shader m_MeshletDrawMS;
-		Pipeline::Shader m_MeshletDrawPS;
 
 		RenderAPI::Buffer m_IndirectArguments;
 		RenderAPI::Buffer m_IndirectArgumentCounter;
@@ -128,6 +142,8 @@ namespace aZero::Rendering
 
 		ID3D12DeviceX* m_diDevice;
 		IDxcCompilerX& m_diCompiler;
+
+		RenderSettings m_RenderSettings;
 	};
 
 	template<typename AssetType>
@@ -168,12 +184,8 @@ namespace aZero::Rendering
 			throw std::invalid_argument("No bound valid albedo texture");
 		}
 
-		// todo Handle if the texture isnt valid
-		uint32_t albedoIndex = material.m_Info.AlbedoTexture ? material.m_Info.AlbedoTexture->GetRenderRef().DescriptorIndex : 0xffffffff;
-		uint32_t normalIndex = material.m_Info.NormalTexture ? material.m_Info.NormalTexture->GetRenderRef().DescriptorIndex : 0xffffffff;
-
 		// todo Maybe call different overloads based on material properties?
-		material.m_RenderRef.MaterialIndex = m_RenderAssetManager->UpdateRenderState(context.GetFrameStagingAllocator(), material.m_RenderRef.MaterialIndex, albedoIndex, normalIndex);
+		material.m_RenderRef.MaterialIndex = m_RenderAssetManager->UpdateRenderState(context.GetFrameStagingAllocator(), material.m_RenderRef.MaterialIndex, material.GetFormat_PBR_GPU());
 	}
 
 	template<>
@@ -191,8 +203,7 @@ namespace aZero::Rendering
 			return;
 		}
 		FrameContext& context = this->GetCurrentContext();
-		texture.m_RenderRef.DescriptorIndex = m_RenderAssetManager->UpdateRenderState(m_diDevice, context.GetCommandList(), m_ResourceRecycler, m_ResourceHeap,
-			texture.GetCachedData().TexelData, texture.GetCachedData().Width, texture.GetCachedData().Height, texture.GetCachedData().Format);
+		texture.m_RenderRef.DescriptorIndex = m_RenderAssetManager->UpdateRenderState(m_diDevice, context.GetCommandList(), m_ResourceRecycler, m_ResourceHeap, texture.GetCachedData());
 		m_DirectCommandQueue.ExecuteCommandList(context.GetCommandList());
 	}
 

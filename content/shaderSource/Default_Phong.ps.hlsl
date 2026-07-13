@@ -8,14 +8,14 @@ struct Output
     float4 color : SV_TARGET0;
 };
 
-StructuredBuffer<DefaultMaterial> MaterialBuffer : register(t0);
+StructuredBuffer<PBRMaterial> MaterialBuffer : register(t0);
 
 Output main(RasterVertex pin)
 {
     Output output;
     
     const SamplerState samplerState = SamplerDescriptorHeap[0];
-    DefaultMaterial material = MaterialBuffer[Input_CONSTANT.MaterialIndex];
+    PBRMaterial material = MaterialBuffer[Input_CONSTANT.MaterialIndex];
     
     if (material.AlbedoTexture == 0xffffffff)
     {
@@ -24,7 +24,7 @@ Output main(RasterVertex pin)
     }
     
     const Texture2D<float4> albedoTexture = ResourceDescriptorHeap[material.AlbedoTexture];
-    float3 sampled = albedoTexture.SampleLevel(samplerState, pin.UV, 0.f).xyz;
+    float3 sampled = albedoTexture.Sample(samplerState, pin.UV).xyz;
     
     float3 fragmentNormal;
     if (material.NormalMap == 0xffffffff)
@@ -34,7 +34,7 @@ Output main(RasterVertex pin)
     else
     {
         const Texture2D<float4> normalMap = ResourceDescriptorHeap[material.NormalMap];
-        const float3 sampledNormal = normalMap.SampleLevel(samplerState, pin.UV, 0.f).xyz;
+        const float3 sampledNormal = normalMap.Sample(samplerState, pin.UV).xyz;
         float3 tangent;
         float3 bitangent;
         float3 normal = normalize(pin.Normal);
@@ -62,9 +62,9 @@ Output main(RasterVertex pin)
     //output.color = float4(frac(lod / 10.0).xxx, 1.0);
     
     //output.color = float4(pin.UV, 0, 1);
-    output.color = float4(sampled * fragmentNormal, 1);
-    //output.color = float4(fragmentNormal, 1);
-    //output.color = float4(pin.Normal, 1.f);
+    //output.color = float4(sampled * fragmentNormal, 1);
+    output.color = float4(fragmentNormal * 0.5 + 0.5, 1);
+    //output.color = float4(pin.Meshletid, 1);
     
     return output;
 }

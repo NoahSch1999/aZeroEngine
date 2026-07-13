@@ -45,7 +45,7 @@ namespace aZero
 			RenderTarget() = default;
 
 			RenderTarget(const Desc& desc, ID3D12DeviceX* device, RenderAPI::DescriptorHeap& heap, std::optional<RenderAPI::ResourceRecycler*> opt_diResourceRecycler = std::optional<RenderAPI::ResourceRecycler*>{})
-				:m_Desc(desc), m_Texture(device, RenderAPI::Texture2D::Desc(desc.Width, desc.Height, desc.Format, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET), opt_diResourceRecycler, desc.CreateClearFrom()), m_View(device, heap, m_Texture, desc.Format)
+				:m_Desc(desc), m_Texture(device, RenderAPI::Texture2D::Desc(desc.Width, desc.Height, desc.Format, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, 1, D3D12_RESOURCE_STATE_RENDER_TARGET), opt_diResourceRecycler, desc.CreateClearFrom()), m_View(device, heap, m_Texture, desc.Format)
 			{ }
 
 			uint32_t GetHeapIndex() const { return m_View.GetHeapIndex(); }

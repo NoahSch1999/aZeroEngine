@@ -38,7 +38,7 @@ namespace aZero
 			DepthStencilTarget() = default;
 
 			DepthStencilTarget(const Desc& desc, ID3D12DeviceX* device, RenderAPI::DescriptorHeap& heap, std::optional<RenderAPI::ResourceRecycler*> opt_diResourceRecycler = std::optional<RenderAPI::ResourceRecycler*>{})
-				:m_Desc(desc), m_Texture(device, RenderAPI::Texture2D::Desc(desc.Width, desc.Height, DXGI_FORMAT_D24_UNORM_S8_UINT, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, D3D12_RESOURCE_STATE_DEPTH_WRITE), opt_diResourceRecycler, desc.CreateClearFrom()), m_View(device, heap, m_Texture, DXGI_FORMAT_D24_UNORM_S8_UINT)
+				:m_Desc(desc), m_Texture(device, RenderAPI::Texture2D::Desc(desc.Width, desc.Height, DXGI_FORMAT_D24_UNORM_S8_UINT, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, 1, D3D12_RESOURCE_STATE_DEPTH_WRITE), opt_diResourceRecycler, desc.CreateClearFrom()), m_View(device, heap, m_Texture, DXGI_FORMAT_D24_UNORM_S8_UINT)
 			{
 
 			}

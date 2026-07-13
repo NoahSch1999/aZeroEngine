@@ -4,6 +4,63 @@
 
 namespace aZero::Rendering::GPU_Struct
 {
+    struct PointLight
+    {
+    public:
+        DXM::Vector3 Position;
+        DXM::Vector3 Color;
+        float Intensity;
+        float Attenuation;
+        float BoundsRadius;
+
+        PointLight() = default;
+        PointLight(const Component::PointLight& other, const Component::Position& position)
+        {
+            Position = position;
+            Color = other.color;
+            Intensity = other.intensity;
+            // todo Init rest
+        }
+    };
+
+    struct SpotLight
+    {
+    public:
+        DXM::Vector3 Position;
+        DXM::Vector3 Rotation;
+        DXM::Vector3 Color;
+        float Intensity;
+        float BoundsRadius;
+        float ConeAngle;
+
+        SpotLight() = default;
+        SpotLight(const Component::SpotLight& other, const Component::Position& position, const Component::Rotation& rotation)
+        {
+            Position = position;
+            Rotation = rotation;
+            Color = other.color;
+            Intensity = other.intensity;
+            ConeAngle = other.coneAngle;
+            // todo Init rest
+        }
+    };
+
+    struct DirectionalLight
+    {
+    public:
+        DXM::Vector3 Rotation;
+        DXM::Vector3 Color;
+        float Intensity;
+
+        DirectionalLight() = default;
+        DirectionalLight(const Component::DirectionalLight& other, const Component::Rotation& rotation)
+        {
+            Rotation = rotation;
+            Color = other.color;
+            Intensity = other.intensity;
+        }
+    };
+
     struct CameraData
     {
         DXM::Matrix ViewMatrix;
