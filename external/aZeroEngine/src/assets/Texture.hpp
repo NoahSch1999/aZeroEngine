@@ -1,6 +1,6 @@
 #pragma once
 #include "RenderAssetBase.hpp"
-#include "render_api/resource/texture/TextureData.hpp"
+#include "assets/TextureData.hpp"
 #include "render_api/D3D12Include.hpp"
 
 namespace aZero::Asset
@@ -13,16 +13,18 @@ namespace aZero::Asset
 		}
 	};
 
-	class Texture : public RenderAssetBase<TextureRenderRef, aZero::RenderAPI::TextureData>
+	class Texture : public RenderAssetBase<TextureRenderRef, aZero::Asset::TextureData>
 	{
 	public:
 		Texture() = default;
-		Texture(aZero::RenderAPI::TextureData&& data)
+		Texture(aZero::Asset::TextureData&& data)
 			:RenderAssetBase(std::move(data)) {
 		}
-		Texture(const aZero::RenderAPI::TextureData& data)
+		Texture(const aZero::Asset::TextureData& data)
 			:RenderAssetBase(data) {
 		}
+
+		void ClearCachedData() { m_CachedData.Data.clear(); }
 
 	private:
 

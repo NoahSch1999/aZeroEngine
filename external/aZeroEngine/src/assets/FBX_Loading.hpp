@@ -24,7 +24,6 @@ namespace aZero::FBX
 
 	struct FBX_Submesh
 	{
-		std::string Name;
 		DirectX::BoundingSphere Bounds;
 		FBX_Material Material;
 		std::vector<Asset::Vertex> Vertices;
@@ -33,6 +32,7 @@ namespace aZero::FBX
 
 	struct FBX_Mesh
 	{
+		std::string Name;
 		std::vector<FBX_Submesh> Submeshes;
 	};
 
@@ -71,7 +71,6 @@ namespace aZero::FBX
 
 				// Geometry processing
 				const aiMesh* mesh = scene->mMeshes[node->mMeshes[meshIndex]];
-				submesh.Name = mesh->mName.C_Str();
 
 				submesh.Vertices.reserve(mesh->mNumVertices);
 				submesh.Indices.reserve(mesh->mNumFaces * 3);
@@ -111,6 +110,7 @@ namespace aZero::FBX
 				if (texRet == aiReturn_SUCCESS) { submesh.Material.TransparencyMap = texturePath.C_Str(); }
 
 				output.Meshes[output.Meshes.size() - 1].Submeshes.emplace_back(std::move(submesh));
+				output.Meshes[output.Meshes.size() - 1].Name = mesh->mName.C_Str();
 			}
 
 			for (uint32_t i = 0; i < node->mNumChildren; i++)

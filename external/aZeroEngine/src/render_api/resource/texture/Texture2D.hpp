@@ -1,6 +1,5 @@
 #pragma once
 #include "render_api/resource/ResourceBase.hpp"
-#include "render_api/resource/texture/TextureData.hpp"
 
 namespace aZero
 {

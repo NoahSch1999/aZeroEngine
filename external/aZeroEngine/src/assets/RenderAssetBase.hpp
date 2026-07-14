@@ -18,14 +18,9 @@ namespace aZero::Asset
 
 		const RenderRef& GetRenderRef() const { return m_RenderRef; }
 		const Data& GetCachedData() const { return m_CachedData; }
-		void ClearCachedData() { m_CachedData = Data(); }
-		const std::string& GetName() const { return m_Name; }
-		const std::string& GetFilePath() const { return m_FilePath; }
 	private:
 		RenderRef m_RenderRef;
-		Data m_CachedData;
 	protected:
-		std::string m_Name;
-		std::string m_FilePath;
+		Data m_CachedData;
 	};
 }

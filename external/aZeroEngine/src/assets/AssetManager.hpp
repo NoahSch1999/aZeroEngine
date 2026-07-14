@@ -3,6 +3,7 @@
 
 namespace aZero::Asset
 {
+	// todo Make key work as more than string
 	template<typename Key, typename ...AssetTypes>
 	class AssetManagerT
 	{
@@ -11,12 +12,12 @@ namespace aZero::Asset
 		AssetManagerT(Rendering::Renderer& diRenderer, std::string_view projectRootDirectory)
 			:m_diRenderer(&diRenderer), m_ProjectRootDirectory(projectRootDirectory) {
 
-			RenderAPI::TextureData::MipLevel mip;
+			Asset::TextureData::MipLevel mip;
 			mip.Offset = 0;
 			mip.RowPitch = 1 * sizeof(DWORD);
 			mip.SlicePitch = mip.RowPitch * 1;
 
-			RenderAPI::TextureData fallbackTextureData;
+			Asset::TextureData fallbackTextureData;
 			fallbackTextureData.Data = { 1,0,1,1 };
 			fallbackTextureData.Format = RenderAPI::TEXTURE_FORMAT::RGBA8_UNORM_SRGB;
 			fallbackTextureData.Height = 1;
@@ -24,7 +25,7 @@ namespace aZero::Asset
 			fallbackTextureData.MipPitchData.emplace_back(mip);
 			Asset::Texture* fallbackTexture = this->Create<Asset::Texture>("Fallback", std::move(fallbackTextureData));
 
-			RenderAPI::TextureData fallbackNormalMapData;
+			Asset::TextureData fallbackNormalMapData;
 			fallbackNormalMapData.Data = { 0,0,0,1 };
 			fallbackNormalMapData.Format = RenderAPI::TEXTURE_FORMAT::RGBA8_UNORM;
 			fallbackNormalMapData.Height = 1;
@@ -37,6 +38,22 @@ namespace aZero::Asset
 			fallbackMaterialData.Info.AlbedoTexture = fallbackTexture;
 			fallbackMaterialData.Info.NormalTexture = fallbackNormalMap;
 			this->Create<Asset::Material>("Fallback", std::move(fallbackMaterialData));
+
+			// todo Test
+			Asset::MeshData fallbackMeshData;
+			fallbackMeshData.Name = "Fallback";
+			fallbackMeshData.m_Submeshes.resize(1);
+			fallbackMeshData.m_Submeshes[0].Bounds = DirectX::BoundingSphere({ 0.f,0.f,0.f }, 1.f);
+			fallbackMeshData.m_Submeshes[0].MeshletCount = 0;
+			fallbackMeshData.m_Submeshes[0].MeshletOffset = 0;
+			fallbackMeshData.m_VertexData.Meshlets.resize(1);
+			memset(&fallbackMeshData.m_VertexData.Meshlets[0], 0, sizeof(fallbackMeshData.m_VertexData.Meshlets[0]));
+			fallbackMeshData.m_VertexData.Vertices.resize(1);
+			memset(&fallbackMeshData.m_VertexData.Vertices[0], 0, sizeof(fallbackMeshData.m_VertexData.Vertices[0]));
+			fallbackMeshData.m_VertexData.MeshletBounds.resize(1);
+			memset(&fallbackMeshData.m_VertexData.MeshletBounds[0], 0, sizeof(fallbackMeshData.m_VertexData.MeshletBounds[0]));
+			fallbackMeshData.m_VertexData.MeshletBounds[0].Radius = 1.f;
+			this->Create<Asset::Mesh>("Fallback", std::move(fallbackMeshData));
 		}
 
 		template<typename AssetType>
@@ -73,37 +90,6 @@ namespace aZero::Asset
 
 			AssetType* asset = container.emplace(key, std::make_unique<AssetType>(std::forward<CtorArgs>(args)...)).first->second.get();
 
-			// todo Implement the case where the texture references for a material aren't valid
-			
-			//if constexpr (std::is_same<AssetType, Asset::Material>::value) // Ugly, but needed for this case
-			//{
-			//	Asset::Material* material = static_cast<Asset::Material*>(asset);
-
-			//	const std::string& albedoName = material->GetCachedData().AlbedoTexture;
-			//	if (!albedoName.empty()) {
-			//		Asset::Texture* albedo = this->Get<Asset::Texture>(albedoName);
-			//		if (!albedo) {
-			//			Asset::TextureData texData;
-			//			texData.Load(this->GetAssetDirectory<Asset::Texture>() + albedoName, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
-			//			this->Create<Asset::Texture>(albedoName, std::move(texData));
-			//			albedo = this->Get<Asset::Texture>(albedoName);
-			//		}
-			//		material->SetAlbedo(*albedo);
-			//	}
-
-			//	const std::string& normalMapName = material->GetCachedData().NormalMap;
-			//	if (!normalMapName.empty()) {
-			//		Asset::Texture* normalMap = this->Get<Asset::Texture>(normalMapName);
-			//		if (!normalMap) {
-			//			Asset::TextureData texData;
-			//			texData.Load(this->GetAssetDirectory<Asset::Texture>() + normalMapName, DXGI_FORMAT_R8G8B8A8_UNORM);
-			//			this->Create<Asset::Texture>(normalMapName, std::move(texData));
-			//			normalMap = this->Get<Asset::Texture>(normalMapName);
-			//		}
-			//		material->SetNormalMap(*normalMap);
-			//	}
-			//}
-
 			m_diRenderer->RegisterOrUpdateAsset(*asset);
 
 			return asset;
@@ -130,6 +116,31 @@ namespace aZero::Asset
 			if (auto assetIter = container.find(key); assetIter != container.end())
 			{
 				return assetIter->second.get();
+			}
+
+			return nullptr;
+		}
+
+		template<typename AssetType>
+		AssetType* GetOrDefault(const Key& key)
+		{
+			auto& container = std::get<AssetContainer<AssetType>>(m_AssetContainer);
+			if (auto assetIter = container.find(key); assetIter != container.end())
+			{
+				return assetIter->second.get();
+			}
+
+			if constexpr (std::is_same<AssetType, Asset::Texture>::value)
+			{
+				return container.at("Fallback").get();
+			}
+			else if constexpr (std::is_same<AssetType, Asset::Material>::value)
+			{
+				return container.at("Fallback").get();
+			}
+			else if constexpr (std::is_same<AssetType, Asset::Mesh>::value)
+			{
+				return container.at("Fallback").get();
 			}
 
 			return nullptr;
@@ -173,13 +184,13 @@ namespace aZero::Asset
 					Asset::Texture* texture = static_cast<Asset::Texture*>(&asset);
 					if (material->GetAlbedoPtr()->GetRenderRef().DescriptorIndex == texture->GetRenderRef().DescriptorIndex)
 					{
-						material->SetAlbedo(this->Get<Asset::Texture>(textures[m_diRenderer->GetRenderAssetManager().GetDefaultTextureIndex()]));
+						material->SetAlbedo(this->GetOrDefault<Asset::Texture>(textures[m_diRenderer->GetRenderAssetManager().GetDefaultTextureIndex()]));
 						hasUpdated = true;
 					}
 
 					if (material->GetNormalMapPtr()->GetRenderRef().DescriptorIndex == texture->GetRenderRef().DescriptorIndex)
 					{
-						material->SetNormalMap(this->Get<Asset::Texture>(textures[m_diRenderer->GetRenderAssetManager().GetDefaultTextureIndex()]));
+						material->SetNormalMap(this->GetOrDefault<Asset::Texture>(textures[m_diRenderer->GetRenderAssetManager().GetDefaultTextureIndex()]));
 						hasUpdated = true;
 					}
 

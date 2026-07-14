@@ -178,7 +178,7 @@ namespace aZero::Rendering
 	{
 		FrameContext& context = this->GetCurrentContext();
 
-		if (!material.m_Info.AlbedoTexture->GetRenderRef().IsValid())
+		if (material.GetAlbedoPtr() && !material.GetAlbedoPtr()->GetRenderRef().IsValid())
 		{
 			// todo Impl handling of textures non-valid textures
 			throw std::invalid_argument("No bound valid albedo texture");

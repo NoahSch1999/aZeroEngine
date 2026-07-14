@@ -643,37 +643,46 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Material
 		materialData.Name = material.name;
 
 		if (material.pbrData.baseColorTexture.has_value()) {
-			auto imageIndex = asset->textures[material.pbrData.baseColorTexture.value().textureIndex].imageIndex;
-			if (imageIndex.has_value())
-			{
-				Asset::Texture* texture = assetManager.Get<Asset::Texture>(imageIndexToName.at(imageIndex.value()));
-				materialData.Info.AlbedoTexture = texture;
+			auto imageIndex = asset->textures[material.pbrData.baseColorTexture.value().textureIndex].imageIndex.has_value() ? 
+				asset->textures[material.pbrData.baseColorTexture.value().textureIndex].imageIndex.value() : 
+				asset->textures[material.pbrData.baseColorTexture.value().textureIndex].basisuImageIndex.has_value() ? asset->textures[material.pbrData.baseColorTexture.value().textureIndex].basisuImageIndex.value() :
+				std::numeric_limits<uint32_t>::max();
+
+			Asset::Texture* texture = nullptr;
+			if (imageIndexToName.contains(imageIndex)) {
+				texture = assetManager.GetOrDefault<Asset::Texture>(imageIndexToName.at(imageIndex));
 			}
+
+			materialData.Info.AlbedoTexture = texture;
 		}
 
 		if (!materialData.Info.AlbedoTexture) {
-			Asset::Texture* texture = assetManager.Get<Asset::Texture>("Fallback");
+			Asset::Texture* texture = assetManager.GetOrDefault<Asset::Texture>("Fallback");
 			std::cout << "Fallback albedo texture used for material: " << materialData.Name << "\n";
 			materialData.Info.AlbedoTexture = texture;
 		}
 
 		if (material.normalTexture.has_value()) {
-			auto imageIndex = asset->textures[material.normalTexture.value().textureIndex].imageIndex;
-			if (imageIndex.has_value())
-			{
-				Asset::Texture* texture = assetManager.Get<Asset::Texture>(imageIndexToName.at(imageIndex.value()));
-				materialData.Info.NormalTexture = texture;
+			auto imageIndex = asset->textures[material.normalTexture.value().textureIndex].imageIndex.has_value() ?
+				asset->textures[material.normalTexture.value().textureIndex].imageIndex.value() :
+				asset->textures[material.normalTexture.value().textureIndex].basisuImageIndex.has_value() ? asset->textures[material.normalTexture.value().textureIndex].basisuImageIndex.value() :
+				std::numeric_limits<uint32_t>::max();
+
+			Asset::Texture* texture = nullptr;
+			if (imageIndexToName.contains(imageIndex)) {
+				texture = assetManager.GetOrDefault<Asset::Texture>(imageIndexToName.at(imageIndex));
 			}
+			materialData.Info.NormalTexture = texture;
 		}
 
 		if (!materialData.Info.NormalTexture) {
-			Asset::Texture* texture = assetManager.Get<Asset::Texture>("FallbackNormalMap");
+			Asset::Texture* texture = assetManager.GetOrDefault<Asset::Texture>("FallbackNormalMap");
 			std::cout << "Fallback normal map used for material: " << materialData.Name << "\n";
 			materialData.Info.NormalTexture = texture;
 		}
 
 		if (material.pbrData.metallicRoughnessTexture.has_value()) {
-			uint32_t textureIndex = material.pbrData.metallicRoughnessTexture.value().textureIndex;
+			//uint32_t textureIndex = material.pbrData.metallicRoughnessTexture.value().textureIndex;
 			// todo Lookup texture in asset manager and set ptr
 			materialData.Info.MetallicRoughnessTexture = nullptr;
 		}
@@ -683,7 +692,6 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Material
 
 		materialIndexToName[i] = materialData.Name;
 		Asset::Material* mat = assetManager.Create<Asset::Material>(materialIndexToName[i], std::move(materialData));
-		mat->ClearCachedData();
 	}
 
 	return materialIndexToName;
@@ -697,7 +705,7 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Textures
 	{
 		const fastgltf::Image& image = asset->images[i];
 
-		RenderAPI::TextureData textureData;
+		Asset::TextureData textureData;
 		std::visit(fastgltf::visitor{
 			[](const auto& arg) {},
 			[&](const fastgltf::sources::URI& filePath) {
@@ -729,6 +737,8 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Textures
 
 	return imageIndexToName;
 }
+
+#include <chrono>
 
 bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager)
 {
@@ -764,24 +774,54 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 		return false;
 	}
 
+	std::chrono::high_resolution_clock clock;
+
+	auto start = clock.now();
+
 	// ------------------------------------------------------------------------------------------------------------------------------------------------
 	// LOAD TEXTURES
 	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	std::cout << "------------------------------------\nTextures loading... ";
+
 	std::unordered_map<uint32_t, std::string> textureIndexToName = this->LoadGltf_Textures(path, assetManager, asset);
+
+	auto end = clock.now();
+	std::chrono::duration<double> diff = end - start;
+	std::cout << "Completed after: " << diff << "\n";
 
 	// ------------------------------------------------------------------------------------------------------------------------------------------------
 	// LOAD MESHES
 	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	start = clock.now();
+
+	std::cout << "------------------------------------\nMeshes loading... ";
+
 	std::unordered_map<uint32_t, std::string> meshIndexToName = this->LoadGltf_Meshes(path, assetManager, asset);
+
+	end = clock.now();
+	diff = end - start;
+	std::cout << "Completed after: " << diff << "\n";
 
 	// ------------------------------------------------------------------------------------------------------------------------------------------------
 	// LOAD MATERIALS
 	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	start = clock.now();
+
+	std::cout << "------------------------------------\nMaterials loading... ";
+
 	std::unordered_map<uint32_t, std::string> materialIndexToName = this->LoadGltf_Materials(path, assetManager, asset, textureIndexToName);
+
+	end = clock.now();
+	diff = end - start;
+	std::cout << "Completed after: " << diff << "\n";
 
 	// ------------------------------------------------------------------------------------------------------------------------------------------------
 	// LOAD NODES
 	// ------------------------------------------------------------------------------------------------------------------------------------------------
+	start = clock.now();
+
+	std::cout << "------------------------------------\nScene nodes loading... ";
+
 	fastgltf::iterateSceneNodes(*asset, 0, fastgltf::math::fmat4x4(),
 		[&](const fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
 
@@ -803,13 +843,13 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 				}, node.transform);
 
 			if (node.meshIndex.has_value()) {
-				Asset::Mesh* mesh = assetManager.Get<Asset::Mesh>(meshIndexToName[node.meshIndex.value()]);
+				Asset::Mesh* mesh = assetManager.GetOrDefault<Asset::Mesh>(meshIndexToName[node.meshIndex.value()]);
 				if (mesh) {
-					Asset::Material* material = assetManager.Get<Asset::Material>(materialIndexToName[asset->meshes[node.meshIndex.value()].primitives[0].materialIndex.value()]);
+					Asset::Material* material = assetManager.GetOrDefault<Asset::Material>(materialIndexToName[asset->meshes[node.meshIndex.value()].primitives[0].materialIndex.value()]);
 					Component::Mesh meshComponent(*mesh, *material);
 					for (int32_t i = 0; i < meshComponent.m_NumSubmeshes; i++)
 					{
-						meshComponent.SetMaterial(i, *assetManager.Get<Asset::Material>(materialIndexToName[asset->meshes[node.meshIndex.value()].primitives[i].materialIndex.value()]));
+						meshComponent.SetMaterial(i, *assetManager.GetOrDefault<Asset::Material>(materialIndexToName[asset->meshes[node.meshIndex.value()].primitives[i].materialIndex.value()]));
 					}
 					entity.set<Component::Mesh>(meshComponent);
 				}
@@ -869,6 +909,10 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 				}
 			}
 		});
+
+	end = clock.now();
+	diff = end - start;
+	std::cout << "Completed after: " << diff << "\n";
 
 	return true;
 }

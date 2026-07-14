@@ -6,6 +6,7 @@
 #include "render_api/resource/ResourceRecycler.hpp"
 #include "assets/MeshPrimitives.hpp"
 #include "FrameStagingAllocator.hpp"
+#include "assets/TextureData.hpp"
 
 namespace aZero
 {
@@ -84,20 +85,22 @@ namespace aZero
 
 			uint32_t UpdateRenderState(ID3D12DeviceX* device, RenderAPI::CommandList& cmdList,
 				RenderAPI::ResourceRecycler& recycler, RenderAPI::DescriptorHeap& descriptorHeap,
-				const RenderAPI::TextureData& data
+				const Asset::TextureData& data
 			)
 			{
 				auto descriptor = descriptorHeap.CreateDescriptor();
 				uint32_t index = descriptor.GetHeapIndex();
 
-				m_TextureMap[index] = RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(data.Height, data.Height, RenderAPI::ToDX_Format(data.Format), D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS, data.MipPitchData.size(), D3D12_RESOURCE_STATE_COMMON), &recycler, {});
-				m_TextureDescriptorMap[index] = RenderAPI::ShaderResourceView(device, std::move(descriptor), m_TextureMap[index], data.MipPitchData.size());
+				const uint32_t mipLevels = data.MipPitchData.size();
 
-				const uint64_t stagingBufferSize = static_cast<uint64_t>(GetRequiredIntermediateSize(m_TextureMap[index].GetResource(), 0, data.MipPitchData.size()));
+				m_TextureMap[index] = RenderAPI::Texture2D(device, RenderAPI::Texture2D::Desc(data.Width, data.Height, RenderAPI::ToDX_Format(data.Format), D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS, mipLevels, D3D12_RESOURCE_STATE_COMMON), &recycler, {});
+				m_TextureDescriptorMap[index] = RenderAPI::ShaderResourceView(device, std::move(descriptor), m_TextureMap[index], mipLevels);
+
+				const uint64_t stagingBufferSize = static_cast<uint64_t>(GetRequiredIntermediateSize(m_TextureMap[index].GetResource(), 0, mipLevels));
 				RenderAPI::Buffer stagingBuffer(device, RenderAPI::Buffer::Desc(stagingBufferSize, D3D12_HEAP_TYPE_UPLOAD), &recycler);
 
-				std::vector<D3D12_SUBRESOURCE_DATA> subresourceData(data.MipPitchData.size());
-				for (int32_t mip = 0; mip < data.MipPitchData.size(); mip++)
+				std::vector<D3D12_SUBRESOURCE_DATA> subresourceData(mipLevels);
+				for (int32_t mip = 0; mip < mipLevels; mip++)
 				{
 					subresourceData[mip].pData = data.Data.data() + data.MipPitchData[mip].Offset;
 					subresourceData[mip].RowPitch = data.MipPitchData[mip].RowPitch;
@@ -108,7 +111,7 @@ namespace aZero
 					cmdList.Get(),
 					m_TextureMap[index].GetResource(),
 					stagingBuffer.GetResource(),
-					0, 0, data.MipPitchData.size(), subresourceData.data());
+					0, 0, mipLevels, subresourceData.data());
 
 				m_TextureMap[index].CreateTransition(D3D12_RESOURCE_STATE_COPY_DEST);
 				auto barrier = m_TextureMap[index].CreateTransition(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);

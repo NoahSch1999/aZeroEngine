@@ -62,8 +62,8 @@ Output main(RasterVertex pin)
     //output.color = float4(frac(lod / 10.0).xxx, 1.0);
     
     //output.color = float4(pin.UV, 0, 1);
-    //output.color = float4(sampled * fragmentNormal, 1);
-    output.color = float4(fragmentNormal * 0.5 + 0.5, 1);
+    output.color = float4(sampled, 1);
+    //output.color = float4(fragmentNormal * 0.5 + 0.5, 1);
     //output.color = float4(pin.Meshletid, 1);
     
     return output;
