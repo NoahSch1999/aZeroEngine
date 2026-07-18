@@ -353,6 +353,7 @@ namespace aZero
 				auto vertexBuffer = m_MeshletDrawPass.GetBufferBinding("VertexBuffer");
 
 				auto materialBuffer = m_MeshletDrawPass.GetBufferBinding("MaterialBuffer");
+				auto renderModeConstants = m_MeshletDrawPass.GetConstantBinding("RenderMode_CONSTANT");
 
 				m_MeshletDrawPass.Begin(cmdList);
 				cmdList.OMSetRenderTargets({ renderTarget.GetDescriptor() }, depthStencilTarget.GetDescriptor());
@@ -365,6 +366,8 @@ namespace aZero
 				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
 				cmdList.SetGraphicsRootShaderResourceViewSafe(materialBuffer, m_RenderAssetManager.get()->m_MaterialDataBuffer.GetBuffer().GetResource()->GetGPUVirtualAddress());
+
+				cmdList.SetGraphicsRoot32BitConstantsSafe(renderModeConstants, &m_RenderSettings.RenderMode, 0);
 
 				cmdList->RSSetScissorRects(1, &scizzorRect);
 				cmdList->RSSetViewports(1, &viewport);

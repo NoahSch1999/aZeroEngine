@@ -52,8 +52,10 @@ namespace aZero
 
 			bool LoadGltf(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager);
 
-			flecs::world& GetEntityWorld() { return m_World; }
+			flecs::world& GetWorld() { return m_World; }
 			SceneID GetSceneID() const { return m_SceneID; }
+			flecs::query<> GetRootEntityQuery() const { return m_RootEntityQuery; }
+
 			flecs::entity GetStaticMeshPrefab() const { return m_StaticMeshPrefab; }
 			flecs::entity GetCameraPrefab() const { return m_CameraPrefab; }
 			flecs::query<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale> GetStaticMeshQuery() const { return m_Static_Mesh_Query; }
@@ -101,6 +103,8 @@ namespace aZero
 			flecs::observer m_Rigidbody_OnRemove_Observer;
 			flecs::observer m_Triggerbody_OnSet_Observer;
 			flecs::observer m_Triggerbody_OnRemove_Observer;
+
+			flecs::query<> m_RootEntityQuery;
 
 			flecs::query<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale> m_Static_Mesh_Query;
 			flecs::query<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale> m_Dynamic_Mesh_Query;

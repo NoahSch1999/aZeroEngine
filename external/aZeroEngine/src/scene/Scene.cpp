@@ -58,6 +58,7 @@ aZero::Scene::Scene::~Scene()
 	m_CameraQuery = {};
 	m_ApplyPhysicsQuery = {};
 	m_TriggerbodyQuery = {};
+	m_RootEntityQuery = {};
 
 	if (m_PhysicsWorld.get())
 	{
@@ -85,6 +86,21 @@ void aZero::Scene::Scene::Init()
 	m_World.component<Component::Rigidbody>();
 	m_World.component<Component::Triggerbody>();
 	m_World.component<Component::Static>();
+
+	m_RootEntityQuery = m_World.query_builder<>()
+		.with<Component::Position>().oper(flecs::Or)
+		.with<Component::Rotation>().oper(flecs::Or)
+		.with<Component::Scale>().oper(flecs::Or)
+		.with<Component::Camera>().oper(flecs::Or)
+		.with<Component::Mesh>().oper(flecs::Or)
+		.with<Component::PointLight>().oper(flecs::Or)
+		.with<Component::SpotLight>().oper(flecs::Or)
+		.with<Component::DirectionalLight>().oper(flecs::Or)
+		.with<Component::Rigidbody>().oper(flecs::Or)
+		.with<Component::Triggerbody>().oper(flecs::Or)
+		.with<Component::Static>()
+		.without(flecs::ChildOf)
+		.build();
 
 	m_Static_Mesh_Query = m_World.query_builder<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale>().with<Component::Static>().build();
 	m_Dynamic_Mesh_Query = m_World.query_builder<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale>().without<Component::Static>().cached().build();

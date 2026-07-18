@@ -65,9 +65,6 @@ struct IndirectArgumentConstantData
     uint GlobalVertexOffset;
     uint MaterialIndex;
     uint MeshletCount;
-    uint3 Pad;
-    // This will waste 3xuint...
-    // Maybe move the material index into the pixel shader constant data struct?
 };
 
 struct ObjectCullData
@@ -102,6 +99,23 @@ struct PhongPixelConstantData
     uint SpotLightBuffer;
     uint DirectionalLightBuffer;
     float Time;
+};
+
+//
+
+#define RENDER_MODE_LIT 0
+#define RENDER_MODE_UNLIT 1
+#define RENDER_MODE_NORMAL_MAP 2
+#define RENDER_MODE_GEOMETRY_NORMALS 3
+#define RENDER_MODE_NORMAL_MAP_NORMALS 4
+#define RENDER_MODE_MESHLET_IDS 5
+#define RENDER_MODE_UVS 6
+#define RENDER_MODE_MIP_LEVEL 7
+
+struct RenderMode
+{
+    uint Mode;
+    uint3 Pad;
 };
 
 #endif

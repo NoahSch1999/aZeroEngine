@@ -85,8 +85,6 @@ namespace aZero::Rendering::GPU_Struct
         uint32_t GlobalVertexOffset;
         uint32_t MaterialIndex;
         uint32_t MeshletCount;
-        uint32_t Pad[3];
-        // This will waste 3xuint...
     };
 
     // TODO: Replace GlobalMeshletOffset, GlobalVertexOffset, MeshletCount with a LOD-info index that is used in the object-cull shader to find the LOD that contains them

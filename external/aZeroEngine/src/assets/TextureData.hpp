@@ -70,20 +70,6 @@ namespace aZero::Asset
 				else {
 					Format = aZero::RenderAPI::FromVK_Format(ktxTex->vkFormat);
 				}
-				const uint8_t* p = ktxTex->pData;
-
-				if (path.generic_string().ends_with("_Normal.ktx2"))
-				{
-					for (int i = 0; i < 16; ++i)
-					{
-						printf("%3u %3u %3u %3u\n",
-							p[i * 4 + 0],
-							p[i * 4 + 1],
-							p[i * 4 + 2],
-							p[i * 4 + 3]);
-					}
-				}
-				
 
 				if (ktxTex->isCubemap) {
 					Type = ktxTex->isArray ? TextureType::TextureCubeArray : TextureType::TextureCube;

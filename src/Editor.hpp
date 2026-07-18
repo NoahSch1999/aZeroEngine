@@ -49,7 +49,7 @@ namespace aZero::Editor
 					{
 						if (event.key.key == SDLK_R)
 						{
-							flecs::entity ent = m_CurrentScene->GetEntityWorld().lookup("Mesh");
+							flecs::entity ent = m_CurrentScene->GetWorld().lookup("Mesh");
 							ent.get_mut<Component::Rigidbody>().GetBody().SetPosition(Math::Convert(DXM::Vector3(0, 100, 0)), JPH::EActivation::Activate);
 						}
 					}
@@ -104,7 +104,7 @@ namespace aZero::Editor
 		{
 			m_MainWindow->Update();
 
-			m_CurrentScene->GetEntityWorld().progress();
+			m_CurrentScene->GetWorld().progress();
 
 			while (!m_Engine->GetRenderer().TryBeginFrame())
 			{
@@ -118,8 +118,8 @@ namespace aZero::Editor
 				m_CurrentScene->UpdatePhysics(true);
 			}
 
-			if (m_CurrentScene->GetEntityWorld().has<flecs::Rest>()) {
-				m_CurrentScene->GetEntityWorld().progress();
+			if (m_CurrentScene->GetWorld().has<flecs::Rest>()) {
+				m_CurrentScene->GetWorld().progress();
 			}
 
 			m_Gui.Update(*m_CurrentScene.get(), m_Engine->GetRenderer());
@@ -128,7 +128,7 @@ namespace aZero::Editor
 
 			m_Engine->GetRenderer().Render(*m_CurrentScene.get(), m_FrameRtv, m_FrameDsv);
 
-			flecs::entity camEnt = m_CurrentScene->GetEntityWorld().lookup("EditorCamera");
+			flecs::entity camEnt = m_CurrentScene->GetWorld().lookup("EditorCamera");
 			m_Engine->GetRenderer().GetWireframeRenderer().Render(camEnt.get<Component::Camera>(), camEnt.get<Component::Position>(), camEnt.get<Component::Rotation>(), m_FrameRtv, m_FrameDsv);
 
 			m_Gui.Render(m_Engine->GetRenderer(), m_FrameRtv);
@@ -144,7 +144,7 @@ namespace aZero::Editor
 	private:
 		void CameraUpdate()
 		{
-			flecs::entity ent = m_CurrentScene->GetEntityWorld().lookup("EditorCamera");
+			flecs::entity ent = m_CurrentScene->GetWorld().lookup("EditorCamera");
 
 			if (m_KeyboardListener.GetDevice()->IsKeyDown(SDL_SCANCODE_0))
 			{
@@ -229,7 +229,7 @@ namespace aZero::Editor
 		{
 			m_CurrentScene = std::make_unique<Scene::Scene>(m_Engine->GetPhysicsEngine());
 
-			flecs::entity entCam = m_CurrentScene->GetEntityWorld().entity().is_a(m_CurrentScene->GetCameraPrefab());
+			flecs::entity entCam = m_CurrentScene->GetWorld().entity().is_a(m_CurrentScene->GetCameraPrefab());
 			entCam.set_name("EditorCamera");
 			auto [xWin, yWin] = m_MainWindow->GetClientDimensions();
 			entCam.set<Component::Position>({ 0,0,-2 });
@@ -239,13 +239,16 @@ namespace aZero::Editor
 			auto loadedGltf = m_CurrentScene->LoadGltf(
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.glb",
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
-				m_Engine->GetProjectRootDirectory() + "scenes/TEST2.gltf",
-				//m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
+				//m_Engine->GetProjectRootDirectory() + "scenes/TEST2.gltf",
+				m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
 				m_Engine->GetAssetManager()
 			);
 			if (!loadedGltf) {
 				throw std::runtime_error("No default scene loaded.");
 			}
+
+			flecs::entity lightEnt = m_CurrentScene->GetWorld().lookup("Light");
+			lightEnt.child_of(entCam);
 		}
 
 		std::unique_ptr<Engine> m_Engine;

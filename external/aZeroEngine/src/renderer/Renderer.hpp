@@ -26,6 +26,64 @@ namespace aZero::Rendering
 		struct RenderSettings
 		{
 			bool EnableDepthPrepass = false;
+			
+			enum ERenderMode {
+				ELit = 0,
+				EUnlit = 1,
+				ENormalMap = 2,
+				EGeometryNormal = 3,
+				ENormalMapNormal = 4,
+				EMeshletID = 5,
+				EUVs = 6,
+				EMipLevel = 7,
+				RENDER_MODE_COUNT
+			};
+
+			static std::string RenderModeToString(ERenderMode mode)
+			{
+				switch (mode)
+				{
+					case ERenderMode::ELit:
+					{
+						return "Lit";
+					}
+					case ERenderMode::EUnlit:
+					{
+						return "Unlit";
+					}
+					case ERenderMode::ENormalMap:
+					{
+						return "Normal Map";
+					}
+					case ERenderMode::EGeometryNormal:
+					{
+						return "Geometry Normal";
+					}
+					case ERenderMode::ENormalMapNormal:
+					{
+						return "Normal Map Normal";
+					}
+					case ERenderMode::EMeshletID:
+					{
+						return "Meshlet ID";
+					}
+					case ERenderMode::EUVs:
+					{
+						return "UV";
+					}
+					case ERenderMode::EMipLevel:
+					{
+						return "Mip Level";
+					}
+					default:
+					{
+						throw std::runtime_error("Invalid render mode.");
+					}
+				}
+				throw std::runtime_error("Invalid render mode.");
+			}
+
+			ERenderMode RenderMode = ERenderMode::ELit;
 		};
 
 		Renderer() = default;
@@ -79,6 +137,8 @@ namespace aZero::Rendering
 		void CompilePipeline();
 
 		RenderSettings GetRenderSettings() const { return m_RenderSettings; }
+
+		void SetRenderMode(RenderSettings::ERenderMode mode) { m_RenderSettings.RenderMode = mode; }
 
 		void ToggleDepthPrepass(bool on) {
 			if (on && !m_RenderSettings.EnableDepthPrepass) {

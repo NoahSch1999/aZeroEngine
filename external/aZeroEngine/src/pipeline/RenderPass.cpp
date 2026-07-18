@@ -195,7 +195,7 @@ void aZero::Pipeline::RenderPass::ExtractRootParameters(const Shader& shader, D3
 				Num32Bit += Desc.Size / sizeof(uint32_t);
 			}
 
-			D3D12_ROOT_PARAMETER param;
+			D3D12_ROOT_PARAMETER param{};
 			param.Constants.Num32BitValues = Num32Bit;
 			param.Constants.ShaderRegister = shaderInputBindDesc.BindPoint;
 			param.Constants.RegisterSpace = shaderInputBindDesc.Space;
@@ -228,7 +228,7 @@ void aZero::Pipeline::RenderPass::ExtractRootParameters(const Shader& shader, D3
 			}
 		}
 
-		D3D12_ROOT_PARAMETER param;
+		D3D12_ROOT_PARAMETER param{};
 		param.ShaderVisibility = shaderVisType;
 		param.Descriptor.ShaderRegister = shaderInputBindDesc.BindPoint;
 		param.Descriptor.RegisterSpace = shaderInputBindDesc.Space;
@@ -275,7 +275,8 @@ bool aZero::Pipeline::RenderPass::CreateRootSignature(ID3D12DeviceX* device, con
 	const HRESULT rsSerializeRes = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializeBlob.GetAddressOf(), errorBlob.GetAddressOf());
 	if (FAILED(rsSerializeRes))
 	{
-		DEBUG_PRINT("Failed to serialize root signature");
+		DEBUG_PRINT("Failed to serialize root signature:");
+		printf("%s\n", (char*)errorBlob->GetBufferPointer());
 		return false;
 	}
 
