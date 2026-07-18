@@ -239,8 +239,8 @@ namespace aZero::Editor
 			auto loadedGltf = m_CurrentScene->LoadGltf(
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.glb",
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
-				//m_Engine->GetProjectRootDirectory() + "scenes/TEST2.gltf",
-				m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
+				m_Engine->GetProjectRootDirectory() + "scenes/TEST2.gltf",
+				//m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
 				m_Engine->GetAssetManager()
 			);
 			if (!loadedGltf) {

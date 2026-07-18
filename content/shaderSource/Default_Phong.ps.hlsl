@@ -42,29 +42,37 @@ Output main(RasterVertex pin)
         float3x3 TBN = float3x3(tangent, bitangent, normal);
         fragmentNormal = normalize(sampledNormal * 2.f - 1.f);
         fragmentNormal = normalize(mul(fragmentNormal, TBN));
+        
+        // -------------------------------   DEBUG NORMAL MAP   -----------------------------------
+        output.color = float4(sampledNormal * 0.5 + 0.5, 1);
+        // ----------------------------------------------------------------------------------------
     }
     
-    //float idk = 0.f;
-    //for (int i = 0; i < (int) pin.UV.x; i++)
-    //{
-    //    idk += sin(pin.Position.x);
-    //}
-    
-    //float2 uv = pin.UV;
-
-    //float2 dx = ddx(uv);
-    //float2 dy = ddy(uv);
-
-    //float texelSize = max(length(dx), length(dy));
-
-    //float lod = log2(texelSize * 2048); // TextureWidth = texture width in pixels
-
-    //output.color = float4(frac(lod / 10.0).xxx, 1.0);
-    
+    // -------------------------------   DEBUG UV   -----------------------------------------------
     //output.color = float4(pin.UV, 0, 1);
-    output.color = float4(sampled, 1);
+    // --------------------------------------------------------------------------------------------
+    
+    // -------------------------------   DEBUG ALBEDO   -------------------------------------------
+    //output.color = float4(sampled, 1);
+    // --------------------------------------------------------------------------------------------
+    
+    // -------------------------------   DEBUG NORMALS WITH MAPS   --------------------------------
     //output.color = float4(fragmentNormal * 0.5 + 0.5, 1);
+    // --------------------------------------------------------------------------------------------
+    
+    // -------------------------------   DEBUG NORMALS  -------------------------------------------
+    //output.color = float4(pin.Normal * 0.5 + 0.5, 1);
+    // --------------------------------------------------------------------------------------------
+    
+    // -------------------------------   DEBUG MESHLETS   -----------------------------------------
     //output.color = float4(pin.Meshletid, 1);
+    // --------------------------------------------------------------------------------------------
+    
+    // -------------------------------   DEBUG MIP LEVEL   ----------------------------------------
+    //float lod = albedoTexture.CalculateLevelOfDetail(samplerState, pin.UV);
+    //float t = saturate(lod / 13.f);
+    //output.color = float4(1.f - t, 1.f - t, 1.f - t, 1.f);
+    // --------------------------------------------------------------------------------------------
     
     return output;
 }

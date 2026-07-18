@@ -50,29 +50,50 @@ namespace aZero::Asset
 					return false;
 				}
 
-				Format = aZero::RenderAPI::FromVK_Format(ktxTex->vkFormat);
-				if (Format == aZero::RenderAPI::TEXTURE_FORMAT::UNKNOWN)
-				{
-					std::cout << "Texture at path '" << path << "' had an unsupported format.\n";
-					return false;
-				}
-
 				if (ktxTexture2_NeedsTranscoding(ktxTex)) {
-					ktxTexture2_TranscodeBasis( // todo Maybe we need to know if its srgb or not...?
+
+					const bool isSRGB = ktxTexture2_GetTransferFunction_e(ktxTex) == khr_df_transfer_e::KHR_DF_TRANSFER_SRGB;
+
+					result = ktxTexture2_TranscodeBasis( // todo Maybe we need to know if its srgb or not...?
 						ktxTex,
 						KTX_TTF_BC7_RGBA,
-						0);
+						KTX_TF_HIGH_QUALITY);
+
+					if (result != KTX_SUCCESS)
+					{
+						ktxTexture2_Destroy(ktxTex);
+						return false;
+					}
+
+					Format = isSRGB ? aZero::RenderAPI::TEXTURE_FORMAT::BC7_UNORM_SRGB : aZero::RenderAPI::TEXTURE_FORMAT::BC7_UNORM;
 				}
+				else {
+					Format = aZero::RenderAPI::FromVK_Format(ktxTex->vkFormat);
+				}
+				const uint8_t* p = ktxTex->pData;
+
+				if (path.generic_string().ends_with("_Normal.ktx2"))
+				{
+					for (int i = 0; i < 16; ++i)
+					{
+						printf("%3u %3u %3u %3u\n",
+							p[i * 4 + 0],
+							p[i * 4 + 1],
+							p[i * 4 + 2],
+							p[i * 4 + 3]);
+					}
+				}
+				
 
 				if (ktxTex->isCubemap) {
 					Type = ktxTex->isArray ? TextureType::TextureCubeArray : TextureType::TextureCube;
 				}
 				else
 				{
-					if (ktxTex->baseDepth > 0) {
+					if (ktxTex->baseDepth > 1) {
 						Type = TextureType::Texture3D;
 					}
-					else if (ktxTex->baseHeight > 0) {
+					else if (ktxTex->baseHeight > 1) {
 						Type = ktxTex->isArray ? TextureType::Texture2DArray : TextureType::Texture2D;
 					}
 					else {
@@ -111,8 +132,8 @@ namespace aZero::Asset
 					MipPitchData[mip].Offset = offset;
 					MipPitchData[mip].SlicePitch = size;
 
-					if (aZero::RenderAPI::FromVK_Format(ktxTex->vkFormat) == aZero::RenderAPI::TEXTURE_FORMAT::BC7_UNORM ||
-						aZero::RenderAPI::FromVK_Format(ktxTex->vkFormat) == aZero::RenderAPI::TEXTURE_FORMAT::BC7_UNORM_SRGB)
+					if (Format == aZero::RenderAPI::TEXTURE_FORMAT::BC7_UNORM ||
+						Format == aZero::RenderAPI::TEXTURE_FORMAT::BC7_UNORM_SRGB)
 					{
 						// BC7 - Stores the texture in blocks of 16 bytes.
 						// We calculate the number of blocks and multiply by 16 to get the width.
