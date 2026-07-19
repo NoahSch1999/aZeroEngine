@@ -2,7 +2,7 @@
 #include "Engine.hpp"
 #include <aZeroInput.hpp>
 #include "ImguiInclude.hpp"
-#include <chrono>
+#include "Statistics.hpp"
 
 #include "misc/Flecs_Helpers.hpp"
 
@@ -14,6 +14,7 @@ namespace aZero::Editor::GUI
 		{
 			flecs::entity LastSelectedEntity;
 			bool RefreshEntityData = false;
+			uint32_t SelectedSubmesh = 0;
 		};
 
 		struct DialogueSettings
@@ -29,63 +30,57 @@ namespace aZero::Editor::GUI
 	public:
 		EditorGUI() = default;
 		EditorGUI(Input::DeviceManager& deviceManager,
-			Rendering::WireframeRenderer& wireframeRenderer
+			Rendering::WireframeRenderer& wireframeRenderer,
+			Asset::AssetManager<std::string>& assetManager
 		)
-			:m_diWireframeRenderer(&wireframeRenderer) { }
+			:m_diWireframeRenderer(&wireframeRenderer),
+			m_diAssetManager(&assetManager)
+		{ }
 
 		
 
-		void Update(Scene::Scene& scene, Rendering::Renderer& renderer)
+		void Update(Scene::Scene& scene, Rendering::Renderer& renderer, Statistics& stats)
 		{
-			m_FrameCount++;
-			auto now = std::chrono::high_resolution_clock::now();
-			float elapsed =
-				std::chrono::duration<float>(now - m_LastTime).count();
-
-			if (elapsed >= 1.0f)
+			if (m_ShowEditorGUI)
 			{
-				m_FPS = m_FrameCount / elapsed;
-				m_FrameCount = 0;
-				m_LastTime = now;
-			}
+				ImGui::Begin("Dialogue Settings");
+				ImGui::Checkbox("Show editor settings", &m_DialogueSettings.ShowEditorSettings);
+				ImGui::Checkbox("Show render settings", &m_DialogueSettings.ShowRenderSettings);
+				ImGui::Checkbox("Show debug settings", &m_DialogueSettings.ShowDebugSettings);
+				ImGui::Checkbox("Show scene editor", &m_DialogueSettings.ShowSceneEditor);
+				ImGui::Checkbox("Show stats", &m_DialogueSettings.ShowStats);
+				ImGui::Checkbox("Show misc", &m_DialogueSettings.ShowMisc);
+				ImGui::End();
 
-			ImGui::Begin("Dialogue Settings");
-			ImGui::Checkbox("Show editor settings", &m_DialogueSettings.ShowEditorSettings);
-			ImGui::Checkbox("Show render settings", &m_DialogueSettings.ShowRenderSettings);
-			ImGui::Checkbox("Show debug settings", &m_DialogueSettings.ShowDebugSettings);
-			ImGui::Checkbox("Show scene editor", &m_DialogueSettings.ShowSceneEditor);
-			ImGui::Checkbox("Show stats", &m_DialogueSettings.ShowStats);
-			ImGui::Checkbox("Show misc", &m_DialogueSettings.ShowMisc);
-			ImGui::End();
+				if (m_DialogueSettings.ShowStats)
+				{
+					this->ShowStats(stats);
+				}
 
-			if (m_DialogueSettings.ShowStats)
-			{
-				this->ShowStats();
-			}
+				if (m_DialogueSettings.ShowSceneEditor)
+				{
+					this->ShowEditor(scene);
+				}
 
-			if (m_DialogueSettings.ShowSceneEditor)
-			{
-				this->ShowEditor(scene);
-			}
+				if (m_DialogueSettings.ShowRenderSettings)
+				{
+					this->ShowRenderSettings(renderer);
+				}
 
-			if (m_DialogueSettings.ShowRenderSettings)
-			{
-				this->ShowRenderSettings(renderer);
-			}
+				if (m_DialogueSettings.ShowDebugSettings)
+				{
+					this->ShowDebugSettings(scene, renderer);
+				}
 
-			if (m_DialogueSettings.ShowDebugSettings)
-			{
-				this->ShowDebugSettings(scene, renderer);
-			}
+				if (m_DialogueSettings.ShowEditorSettings)
+				{
+					this->ShowEditorSettings();
+				}
 
-			if (m_DialogueSettings.ShowEditorSettings)
-			{
-				this->ShowEditorSettings();
-			}
-
-			if (m_DialogueSettings.ShowMisc)
-			{
-				this->ShowMisc(scene);
+				if (m_DialogueSettings.ShowMisc)
+				{
+					this->ShowMisc(scene);
+				}
 			}
 		}
 
@@ -105,12 +100,13 @@ namespace aZero::Editor::GUI
 				ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.Get());
 
 				renderer.GetGraphicsCommandQueue().ExecuteCommandList(cmdList, true);
-
 			}
 			else
 			{
 				aZero::ImGui_Wrapper::EndFrame();
 			}
+
+			// todo Fix crash if a viewport is open but m_ShowEditorGUI is false
 			aZero::ImGui_Wrapper::HandleMultiViewport();
 		}
 		bool m_ShowEditorGUI = true;
@@ -167,11 +163,10 @@ namespace aZero::Editor::GUI
 
 			if (ImGui::IsItemClicked())
 			{
-				std::cout << "Opened: " << e.name() << "\n";
 				if (e != m_SceneHierarchyEditing.LastSelectedEntity)
 				{
-					m_SceneHierarchyEditing.RefreshEntityData = true;
 					m_SceneHierarchyEditing.LastSelectedEntity = e;
+					m_SceneHierarchyEditing.SelectedSubmesh = 0;
 				}
 			}
 
@@ -193,13 +188,212 @@ namespace aZero::Editor::GUI
 			ImGui::End();
 		}
 
+		void ShowEntityComponents(flecs::entity e, Scene::Scene& scene)
+		{
+			bool shouldUpdateStatics = false;
+			{
+				ImGui::SeparatorText("Entity Settings");
+				ImGui::Text("Name: %s", m_SceneHierarchyEditing.LastSelectedEntity.name().c_str());
+				std::array<std::string, 2> entityTypesStr = { "Static", "Dynamic" };
+				std::string staticType = e.has<Component::Static>() ? entityTypesStr[0] : entityTypesStr[1];
+
+				if (ImGui::BeginCombo("Entity Update Type", staticType.c_str())) {
+					for (uint32_t i = 0; i < entityTypesStr.size(); i++) {
+						const bool is_selected = entityTypesStr[i] == staticType;
+						if (ImGui::Selectable(entityTypesStr[i].c_str(), is_selected)) {
+							if (e.has<Component::Static>() && entityTypesStr[i] == "Dynamic") {
+								e.remove<Component::Static>();
+								shouldUpdateStatics = true;
+							}
+							else if (!e.has<Component::Static>() && entityTypesStr[i] == "Static") {
+								e.add<Component::Static>();
+								shouldUpdateStatics = true;
+							}
+						}
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+			}
+
+			{
+				ImGui::SeparatorText("Transform");
+
+				if (Component::Position* pComp = e.try_get_mut<Component::Position>(); pComp != nullptr)
+				{
+					ImGui::TextColored(
+						ImVec4(0.f, 1.f, 0.f, 1.0f),
+						"Position"
+					);
+
+					if (ImGui::DragFloat3("##Position", &pComp->x, 0.1f) && e.has<Component::Static>())
+					{
+						shouldUpdateStatics = true;
+					}
+				}
+
+				if (Component::Rotation* pComp = e.try_get_mut<Component::Rotation>(); pComp != nullptr)
+				{
+					ImGui::TextColored(
+						ImVec4(1.0f, 0.f, 0.f, 1.0f),
+						"Rotation"
+					);
+
+					if (ImGui::DragFloat3("##Rotation", &pComp->x, 0.1f) && e.has<Component::Static>())
+					{
+						shouldUpdateStatics = true;
+					}
+				}
+
+				if (Component::Scale* pComp = e.try_get_mut<Component::Scale>(); pComp != nullptr)
+				{
+					ImGui::TextColored(
+						ImVec4(0.2f, 0.6f, 1.0f, 1.0f),
+						"Scale"
+					);
+
+					if (ImGui::DragFloat3("##Scale", &pComp->x, 0.1f) && e.has<Component::Static>())
+					{
+						shouldUpdateStatics = true;
+					}
+				}
+			}
+
+			{
+				if (Component::Mesh* pComp = e.try_get_mut<Component::Mesh>(); pComp != nullptr)
+				{
+					ImGui::SeparatorText("Mesh");
+					/*ImGui::TextColored(
+						ImVec4(0.2f, 0.6f, 1.0f, 1.0f),
+						"Scale"
+					);
+					ImGui::DragFloat3("##Scale", &pComp->x, 0.1f);*/
+					
+
+					const Asset::Mesh* meshAsset = nullptr;
+
+					{
+						const auto& assetContainer = m_diAssetManager->GetContainer<Asset::Mesh>();
+						for (const auto& asset : assetContainer)
+						{
+							if (asset.second->GetRenderRef().m_MeshletGlobalOffset == pComp->m_MeshID)
+							{
+								meshAsset = asset.second.get();
+								break;
+							}
+						}
+					}
+
+					if (meshAsset)
+					{
+						ImGui::Text(("Name: " + meshAsset->GetCachedData().Name).c_str());
+						ImGui::Text(("Submesh Count: " + std::to_string(pComp->m_NumSubmeshes)).c_str());
+
+						if (pComp->m_NumSubmeshes > 0)
+						{
+							ImGui::SeparatorText("Submesh");
+
+							ImGui::SetNextItemWidth(50.f);
+							if (ImGui::BeginCombo("Submesh", std::to_string(m_SceneHierarchyEditing.SelectedSubmesh).c_str()))
+							{
+								for (uint32_t i = 0; i < pComp->m_NumSubmeshes; i++) 
+								{
+									const bool is_selected = (m_SceneHierarchyEditing.SelectedSubmesh == i);
+									if (ImGui::Selectable(std::to_string(i).c_str(), is_selected))
+										m_SceneHierarchyEditing.SelectedSubmesh = i;
+
+									// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+									if (is_selected)
+										ImGui::SetItemDefaultFocus();
+								}
+								ImGui::EndCombo();
+							}
+
+							if (m_SceneHierarchyEditing.SelectedSubmesh < pComp->m_NumSubmeshes)
+							{
+								ImGui::BeginGroup();
+
+								ImGui::Text(("Meshlet Count: " + std::to_string(pComp->m_Submeshes[m_SceneHierarchyEditing.SelectedSubmesh].MeshletCount)).c_str());
+								ImGui::Text(("Bounding Radius: " + std::to_string(pComp->m_Submeshes[m_SceneHierarchyEditing.SelectedSubmesh].m_Bounds.Radius)).c_str());
+
+								const auto& assetContainer = m_diAssetManager->GetContainer<Asset::Material>();
+								Asset::Material* materialAsset = nullptr;
+								for (const auto& asset : assetContainer)
+								{
+									if (asset.second->GetRenderRef().MaterialIndex == pComp->m_Submeshes[m_SceneHierarchyEditing.SelectedSubmesh].m_MaterialID)
+									{
+										materialAsset = asset.second.get();
+										break;
+									}
+								}
+
+								if (!materialAsset) {
+									materialAsset = m_diAssetManager->Get<Asset::Material>("Fallback");
+								}
+
+								ImGui::Text("Material:");
+								ImGui::SameLine();
+								if (ImGui::BeginCombo("##MaterialSelect", materialAsset->GetCachedData().Name.c_str()))
+								{
+									std::string materialSelected = materialAsset->GetCachedData().Name;
+									for (const auto& [name, asset] : assetContainer)
+									{
+										const bool is_selected = (materialSelected == name);
+										if (ImGui::Selectable(name.c_str(), is_selected))
+										{
+											materialSelected = name;
+											pComp->SetMaterial(m_SceneHierarchyEditing.SelectedSubmesh, *asset);
+											if (e.has<Component::Static>()) {
+												shouldUpdateStatics = true;
+											}
+										}
+
+										// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();
+									}
+									ImGui::EndCombo();
+								}
+
+								/*
+								materialAsset->GetAlbedoPtr();
+										materialAsset->GetNormalMapPtr();
+										materialAsset->GetMetallicRoughnessTexturePtr();
+										materialAsset->GetCachedData().Name;
+										materialAsset->GetCachedData().Info.MetallicFactor;
+										materialAsset->GetCachedData().Info.RoughnessFactor;
+										materialAsset->GetCachedData().FilePath;
+								*/
+
+								ImGui::EndGroup();
+							}
+						}
+					}
+					else
+					{
+						ImGui::TextColored(
+							ImVec4(1.f, 0.f, 0.f, 1.0f),
+							"ERROR - Mesh component references an invalid mesh asset!"
+						);
+					}
+				}
+			}
+
+			if (shouldUpdateStatics)
+			{
+				scene.MarkStaticMeshesDirty();
+				scene.MarkStaticLightsDirty();
+			}
+		}
+
 		void ShowEntityEditor(Scene::Scene& scene)
 		{
 			ImGui::Begin("Entity Editor");
 
 			if (m_SceneHierarchyEditing.LastSelectedEntity.is_valid())
 			{
-				ImGui::Text("Name: %s", m_SceneHierarchyEditing.LastSelectedEntity.name().c_str());
+				this->ShowEntityComponents(m_SceneHierarchyEditing.LastSelectedEntity, scene);
 			}
 
 			ImGui::End();
@@ -228,11 +422,16 @@ namespace aZero::Editor::GUI
 			ImGui::End();
 		}
 
-		void ShowStats()
+		void ShowStats(Statistics& stats)
 		{
 			ImGui::Begin("Statistics");
 
-			ImGui::Text(("FPS: " + std::to_string(m_FPS)).c_str());
+			ImGui::Text(("FPS: " + std::to_string(stats.FPS.Value)).c_str());
+			ImGui::Text(("Scene Render (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::Scene))).c_str());
+			ImGui::Text(("Scene Wireframe (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::Wireframe))).c_str());
+			ImGui::Text(("Editor GUI (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::EditorGUI))).c_str());
+			ImGui::Text(("Resolve SwapChain (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::ResolveSwapChain))).c_str());
+			ImGui::Text(("Present (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::Present))).c_str());
 
 			ImGui::End();
 		}
@@ -361,10 +560,7 @@ namespace aZero::Editor::GUI
 			ImGui::End();
 		}
 
-		uint64_t m_FrameCount = 0;
-		float m_FPS = 0.f;
-		std::chrono::high_resolution_clock::time_point m_LastTime =
-			std::chrono::high_resolution_clock::now();
+		
 
 		bool m_EnableFlecsExplorer = false;
 		bool m_ShowRigidbodyColliders = false;
@@ -374,6 +570,7 @@ namespace aZero::Editor::GUI
 		bool m_PhysicsCamera = false;
 		bool m_Show_demo_window = false;
 		Rendering::WireframeRenderer* m_diWireframeRenderer;
+		Asset::AssetManager<std::string>* m_diAssetManager;
 		SceneHierarchyEditing m_SceneHierarchyEditing;
 		DialogueSettings m_DialogueSettings;
 	};

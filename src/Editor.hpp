@@ -32,6 +32,8 @@ namespace aZero::Editor
 {
 	class Editor
 	{
+		
+
 	public:
 		Editor()
 		{
@@ -42,9 +44,6 @@ namespace aZero::Editor
 				[this](const SDL_Event& event, Input::Keyboard& keyboard) {
 				if (event.type == SDL_EVENT_KEY_DOWN)
 				{
-					if (event.key.key == SDLK_RETURN)
-						m_MainWindow->Close();
-
 					if (m_CurrentScene->HasPhysics())
 					{
 						if (event.key.key == SDLK_R)
@@ -71,7 +70,7 @@ namespace aZero::Editor
 			m_FrameDsv = m_Engine->GetRenderer().CreateDepthStencilTarget(Rendering::DepthStencilTarget::Desc(1920, 1080, 1, 0, true, true));
 
 			aZero::ImGui_Wrapper::Init(m_Engine->GetRenderer(), m_MainWindow->GetSDLWindow());
-			m_Gui = aZero::Editor::GUI::EditorGUI(m_MainWindow->GetDeviceManager(), m_Engine->GetRenderer().GetWireframeRenderer());
+			m_Gui = aZero::Editor::GUI::EditorGUI(m_MainWindow->GetDeviceManager(), m_Engine->GetRenderer().GetWireframeRenderer(), m_Engine->GetAssetManager());
 
 			this->SetupSceneTest();
 
@@ -102,6 +101,8 @@ namespace aZero::Editor
 
 		void Update()
 		{
+			m_Statistics.CalcFPS();
+
 			m_MainWindow->Update();
 
 			m_CurrentScene->GetWorld().progress();
@@ -122,26 +123,37 @@ namespace aZero::Editor
 				m_CurrentScene->GetWorld().progress();
 			}
 
-			m_Gui.Update(*m_CurrentScene.get(), m_Engine->GetRenderer());
+			m_Gui.Update(*m_CurrentScene.get(), m_Engine->GetRenderer(), m_Statistics);
 
 			this->CameraUpdate();
 
+			m_Statistics.PreRenderCalc(Statistics::ERenderStat::Scene);
 			m_Engine->GetRenderer().Render(*m_CurrentScene.get(), m_FrameRtv, m_FrameDsv);
+			m_Statistics.PostRenderCalc(Statistics::ERenderStat::Scene);
 
 			flecs::entity camEnt = m_CurrentScene->GetWorld().lookup("EditorCamera");
+			m_Statistics.PreRenderCalc(Statistics::ERenderStat::Wireframe);
 			m_Engine->GetRenderer().GetWireframeRenderer().Render(camEnt.get<Component::Camera>(), camEnt.get<Component::Position>(), camEnt.get<Component::Rotation>(), m_FrameRtv, m_FrameDsv);
+			m_Statistics.PostRenderCalc(Statistics::ERenderStat::Wireframe);
 
+			m_Statistics.PreRenderCalc(Statistics::ERenderStat::EditorGUI);
 			m_Gui.Render(m_Engine->GetRenderer(), m_FrameRtv);
+			m_Statistics.PostRenderCalc(Statistics::ERenderStat::EditorGUI);
 
+			m_Statistics.PreRenderCalc(Statistics::ERenderStat::ResolveSwapChain);
 			m_Engine->GetRenderer().CopyRenderTargetToSwapChain(m_MainWindow->GetSwapChain(), m_FrameRtv);
+			m_Statistics.PostRenderCalc(Statistics::ERenderStat::ResolveSwapChain);
 
 			m_Engine->GetRenderer().EndFrame();
 
+			m_Statistics.PreRenderCalc(Statistics::ERenderStat::Present);
 			m_MainWindow->Present();
+			m_Statistics.PostRenderCalc(Statistics::ERenderStat::Present);
 			m_Frame++;
 		}
 
 	private:
+
 		void CameraUpdate()
 		{
 			flecs::entity ent = m_CurrentScene->GetWorld().lookup("EditorCamera");
@@ -240,15 +252,16 @@ namespace aZero::Editor
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.glb",
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
 				//m_Engine->GetProjectRootDirectory() + "scenes/TEST2.gltf",
-				m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
+				//m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
+				"C:/Users/Noah Schierenbeck/Desktop/deccer-cubes/SM_Deccer_Cubes_Textured_Complex.gltf",
 				m_Engine->GetAssetManager()
 			);
 			if (!loadedGltf) {
 				throw std::runtime_error("No default scene loaded.");
 			}
 
-			flecs::entity lightEnt = m_CurrentScene->GetWorld().lookup("Light");
-			lightEnt.child_of(entCam);
+			/*flecs::entity lightEnt = m_CurrentScene->GetWorld().lookup("Light");
+			lightEnt.child_of(entCam);*/
 		}
 
 		std::unique_ptr<Engine> m_Engine;
@@ -259,5 +272,6 @@ namespace aZero::Editor
 		std::unique_ptr<Scene::Scene> m_CurrentScene;
 		uint64_t m_Frame = 0;
 		Input::KeyboardListener m_KeyboardListener;
+		Statistics m_Statistics;
 	};
 }

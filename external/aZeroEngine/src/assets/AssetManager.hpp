@@ -170,6 +170,9 @@ namespace aZero::Asset
 			}
 		}
 
+		template<typename AssetType>
+		const AssetContainer<AssetType>& GetContainer() const { return std::get<AssetContainer<AssetType>>(m_AssetContainer); }
+
 	private:
 		template<typename AssetType>
 		bool EraseFromReferences(AssetType& asset)

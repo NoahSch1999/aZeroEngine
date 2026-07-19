@@ -5,6 +5,8 @@
 #include "misc/HelperFunctions.hpp"
 #include "assets/AssetManager.hpp"
 
+#include "misc/ThreadPool.hpp"
+
 // todo Test so that submeshes work as expected
 void WriteRenderFormat(aZero::Rendering::GPU_Struct::ObjectCullData* pObjCull, aZero::Rendering::GPU_Struct::InstanceData* pInstance,
 	const aZero::Component::Mesh& mesh, const aZero::Component::Position& position, const aZero::Component::Rotation& rotation, const aZero::Component::Scale& scale, uint32_t& perObjectIndex, uint32_t& instanceDataIndex, uint32_t baseOffsetInstanceIndex)
@@ -542,104 +544,124 @@ void aZero::Scene::Scene::ResolveCollisionEvents()
 
 std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Meshes(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset)
 {
+	// todo Lazy :)))) Fix this
+	aZero::ThreadPool tp(std::thread::hardware_concurrency());
+
 	std::unordered_map<uint32_t, std::string> meshIndexToName;
+
+	std::vector<std::future<void>> handles(asset->meshes.size());
+	std::vector<Asset::MeshData> meshDataVec(asset->meshes.size());
+
 	for (int c = 0; c < asset->meshes.size(); c++)
 	{
-		const fastgltf::Mesh& mesh = asset->meshes[c];
-		const uint32_t numPrimitives = std::clamp((uint32_t)mesh.primitives.size(), 0u, Component::Mesh::s_MaxNumberOfSubmeshes); // Currently only supports atmost 10 submeshes
-		Asset::MeshData meshData;
-		meshData.FilePath = path.string();
-		meshData.Name = mesh.name.c_str();
-		meshData.m_Submeshes.resize(numPrimitives);
+		handles[c] = tp.AddJobA([c, asset, &meshDataVec, &path] {
+			const fastgltf::Mesh& mesh = asset->meshes[c];
+			const uint32_t numPrimitives = std::clamp((uint32_t)mesh.primitives.size(), 0u, Component::Mesh::s_MaxNumberOfSubmeshes); // Currently only supports atmost 10 submeshes
+			Asset::MeshData& meshData = meshDataVec[c];
+			meshData.FilePath = path.string();
+			meshData.Name = mesh.name.c_str();
+			meshData.m_Submeshes.resize(numPrimitives);
 
-		uint32_t vertexOffset = 0;
-		for (int i = 0; i < numPrimitives; i++)
-		{
-			const auto& primitive = mesh.primitives[i];
-			size_t baseColorTexcoordIndex = 0;
-
-			if (primitive.materialIndex.has_value())
+			uint32_t vertexOffset = 0;
+			for (int i = 0; i < numPrimitives; i++)
 			{
-				const fastgltf::Material& material = asset->materials[primitive.materialIndex.value()];
-				if (material.pbrData.baseColorTexture.has_value())
+				const auto& primitive = mesh.primitives[i];
+				size_t baseColorTexcoordIndex = 0;
+
+				if (primitive.materialIndex.has_value())
 				{
-					if (material.pbrData.baseColorTexture->transform && material.pbrData.baseColorTexture->transform->texCoordIndex.has_value()) {
-						baseColorTexcoordIndex = material.pbrData.baseColorTexture->transform->texCoordIndex.value();
-					}
-					else {
-						baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
+					const fastgltf::Material& material = asset->materials[primitive.materialIndex.value()];
+					if (material.pbrData.baseColorTexture.has_value())
+					{
+						if (material.pbrData.baseColorTexture->transform && material.pbrData.baseColorTexture->transform->texCoordIndex.has_value()) {
+							baseColorTexcoordIndex = material.pbrData.baseColorTexture->transform->texCoordIndex.value();
+						}
+						else {
+							baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
+						}
 					}
 				}
-			}
 
-			auto& positionAccessor = asset->accessors[primitive.findAttribute("POSITION")->accessorIndex];
-			/*if (!positionAccessor.bufferViewIndex.has_value())
-				continue;*/
-
-			std::vector<Asset::Vertex> vertexData(positionAccessor.count);
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, positionAccessor, [&vertexData](fastgltf::math::fvec3 pos, std::size_t idx) {
-				auto position = fastgltf::math::fvec3(pos.x(), pos.y(), pos.z());
-				vertexData[idx].Position = { position.x(), position.y(), position.z() };
-				});
-
-			auto& normalAccessor = asset->accessors[primitive.findAttribute("NORMAL")->accessorIndex];
-			/*if (!normalAccessor.bufferViewIndex.has_value())
-				continue;*/
-
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, normalAccessor, [&vertexData](fastgltf::math::fvec3 n, std::size_t idx) {
-				const auto normal = Asset::PackNormal(Helper::EncodeNormalOctahedral({ n.x(), n.y(), n.z() }));
-				std::copy(normal.begin(), normal.end(), vertexData[idx].Normal);
-				});
-
-			const std::string texcoordAttribute = std::string("TEXCOORD_") + std::to_string(baseColorTexcoordIndex);
-			if (const auto* texcoord = primitive.findAttribute(texcoordAttribute); texcoord != primitive.attributes.end()) {
-				// Tex coord
-				auto& texCoordAccessor = asset->accessors[texcoord->accessorIndex];
-				/*if (!texCoordAccessor.bufferViewIndex.has_value())
+				auto& positionAccessor = asset->accessors[primitive.findAttribute("POSITION")->accessorIndex];
+				/*if (!positionAccessor.bufferViewIndex.has_value())
 					continue;*/
 
-				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(*asset, texCoordAccessor, [&](fastgltf::math::fvec2 uv, std::size_t idx) {
-					const auto& u = Asset::PackUV({ uv.x(), uv.y() });
-					std::copy(u.begin(), u.end(), vertexData[idx].UV);
+				std::vector<Asset::Vertex> vertexData(positionAccessor.count);
+				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, positionAccessor, [&vertexData](fastgltf::math::fvec3 pos, std::size_t idx) {
+					auto position = fastgltf::math::fvec3(pos.x(), pos.y(), pos.z());
+					vertexData[idx].Position = { position.x(), position.y(), position.z() };
 					});
-			}
 
-			auto& indexAccessor = asset->accessors[primitive.indicesAccessor.value()];
-			/*if (!indexAccessor.bufferViewIndex.has_value())
-				return false;*/
+				auto& normalAccessor = asset->accessors[primitive.findAttribute("NORMAL")->accessorIndex];
+				/*if (!normalAccessor.bufferViewIndex.has_value())
+					continue;*/
 
+				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(*asset, normalAccessor, [&vertexData](fastgltf::math::fvec3 n, std::size_t idx) {
+					const auto normal = Asset::PackNormal(Helper::EncodeNormalOctahedral({ n.x(), n.y(), n.z() }));
+					std::copy(normal.begin(), normal.end(), vertexData[idx].Normal);
+					});
 
-			std::vector<uint32_t> indices(indexAccessor.count);
-			if (indexAccessor.componentType == fastgltf::ComponentType::UnsignedByte || indexAccessor.componentType == fastgltf::ComponentType::UnsignedShort)
-			{
-				// Only 32bit indices are supported. With mesh shaders its not gonna matter anyways since the indices will be remapped to 8bits.
-				std::vector<uint16_t> tempIndices(indexAccessor.count);
-				fastgltf::copyFromAccessor<uint16_t>(*asset, indexAccessor, tempIndices.data());
-				for (int j = 0; j < tempIndices.size(); j++) {
-					indices[j] = tempIndices[j];
+				const std::string texcoordAttribute = std::string("TEXCOORD_") + std::to_string(baseColorTexcoordIndex);
+				if (const auto* texcoord = primitive.findAttribute(texcoordAttribute); texcoord != primitive.attributes.end()) {
+					// Tex coord
+					auto& texCoordAccessor = asset->accessors[texcoord->accessorIndex];
+					/*if (!texCoordAccessor.bufferViewIndex.has_value())
+						continue;*/
+
+					fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(*asset, texCoordAccessor, [&](fastgltf::math::fvec2 uv, std::size_t idx) {
+						const auto& u = Asset::PackUV({ uv.x(), uv.y() });
+						std::copy(u.begin(), u.end(), vertexData[idx].UV);
+						});
 				}
+
+				auto& indexAccessor = asset->accessors[primitive.indicesAccessor.value()];
+				/*if (!indexAccessor.bufferViewIndex.has_value())
+					return false;*/
+
+
+				std::vector<uint32_t> indices(indexAccessor.count);
+				if (indexAccessor.componentType == fastgltf::ComponentType::UnsignedByte || indexAccessor.componentType == fastgltf::ComponentType::UnsignedShort)
+				{
+					// Only 32bit indices are supported. With mesh shaders its not gonna matter anyways since the indices will be remapped to 8bits.
+					std::vector<uint16_t> tempIndices(indexAccessor.count);
+					fastgltf::copyFromAccessor<uint16_t>(*asset, indexAccessor, tempIndices.data());
+					for (int j = 0; j < tempIndices.size(); j++) {
+						indices[j] = tempIndices[j];
+					}
+				}
+				else
+				{
+					fastgltf::copyFromAccessor<uint32_t>(*asset, indexAccessor, indices.data());
+				}
+
+				std::vector<Asset::Meshlet> meshlets;
+				std::vector<DirectX::BoundingSphere> meshletBounds;
+				Asset::Meshletize(vertexData, indices, meshlets, meshletBounds, vertexOffset);
+
+				Asset::SubmeshData newSubmesh;
+				newSubmesh.Bounds = Asset::ComputeBoundingSphere(vertexData);
+				newSubmesh.MeshletOffset = meshData.m_VertexData.Meshlets.size();
+				newSubmesh.MeshletCount = meshlets.size();
+				vertexOffset += vertexData.size();
+				meshData.m_Submeshes[i] = newSubmesh;
+
+				meshData.m_VertexData.Vertices.insert(meshData.m_VertexData.Vertices.end(), vertexData.begin(), vertexData.end());
+				meshData.m_VertexData.Meshlets.insert(meshData.m_VertexData.Meshlets.end(), meshlets.begin(), meshlets.end());
+				meshData.m_VertexData.MeshletBounds.insert(meshData.m_VertexData.MeshletBounds.end(), meshletBounds.begin(), meshletBounds.end());
 			}
-			else
-			{
-				fastgltf::copyFromAccessor<uint32_t>(*asset, indexAccessor, indices.data());
-			}
+		});
+	}
 
-			std::vector<Asset::Meshlet> meshlets;
-			std::vector<DirectX::BoundingSphere> meshletBounds;
-			Asset::Meshletize(vertexData, indices, meshlets, meshletBounds, vertexOffset);
+	std::cout << "Waiting on mesh loading + meshlet generation...\n";
+	for (auto& handle : handles)
+	{
+		handle.wait();
+	}
+	std::cout << "Creating mesh resources...\n";
 
-			Asset::SubmeshData newSubmesh;
-			newSubmesh.Bounds = Asset::ComputeBoundingSphere(vertexData);
-			newSubmesh.MeshletOffset = meshData.m_VertexData.Meshlets.size();
-			newSubmesh.MeshletCount = meshlets.size();
-			vertexOffset += vertexData.size();
-			meshData.m_Submeshes[i] = newSubmesh;
-
-			meshData.m_VertexData.Vertices.insert(meshData.m_VertexData.Vertices.end(), vertexData.begin(), vertexData.end());
-			meshData.m_VertexData.Meshlets.insert(meshData.m_VertexData.Meshlets.end(), meshlets.begin(), meshlets.end());
-			meshData.m_VertexData.MeshletBounds.insert(meshData.m_VertexData.MeshletBounds.end(), meshletBounds.begin(), meshletBounds.end());
-		}
-
+	for (int c = 0; c < asset->meshes.size(); c++)
+	{
+		Asset::MeshData& meshData = meshDataVec[c];
 		meshIndexToName[c] = meshData.Name;
 		Asset::Mesh* m = assetManager.Create<Asset::Mesh>(meshIndexToName[c], std::move(meshData));
 		m->ClearCachedData();
@@ -715,35 +737,54 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Material
 
 std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Textures(const std::filesystem::path& path, Asset::AssetManager<std::string>& assetManager, fastgltf::Asset* asset)
 {
+	// todo Lazy :)))) Fix this
+	aZero::ThreadPool tp(std::thread::hardware_concurrency());
+
 	std::unordered_map<uint32_t, std::string> imageIndexToName;
+
+	std::vector<std::future<void>> handles(asset->images.size());
+
+	std::vector<Asset::TextureData> textureDataVec(asset->images.size());
+	for (int i = 0; i < asset->images.size(); i++)
+	{
+		handles[i] = tp.AddJobA([i, asset, &textureDataVec, &path] {
+			Asset::TextureData& textureData = textureDataVec[i];
+			const fastgltf::Image& image = asset->images[i];
+
+			std::visit(fastgltf::visitor{
+				[](const auto& arg) {},
+				[&textureData, &path](const fastgltf::sources::URI& filePath) {
+					// todo Figure out how to handle formatting
+					textureData.CreateFromFile(path.parent_path() / std::filesystem::path(filePath.uri.path()));
+
+				},
+				[&textureData, &image](const fastgltf::sources::Array& vector) {
+					textureData.LoadFromMemory(image.name.c_str(), vector.bytes.data(), vector.bytes.size(), 0);
+				},
+				[asset, &textureData, &image](const fastgltf::sources::BufferView& view) {
+					auto& bufferView = asset->bufferViews[view.bufferViewIndex];
+					auto& buffer = asset->buffers[bufferView.bufferIndex];
+					std::visit(fastgltf::visitor{
+						[](const auto& arg) {},
+						[&](const fastgltf::sources::Array& vector) {
+							textureData.LoadFromMemory(image.name.c_str(), vector.bytes.data(), bufferView.byteLength, bufferView.byteOffset);
+						}
+					}, buffer.data);
+				}
+				}, image.data);
+		});
+	}
+
+	std::cout << "Waiting on texture loading + decoding...\n";
+	for (auto& handle : handles)
+	{
+		handle.wait();
+	}
+	std::cout << "Creating texture resources...\n";
 
 	for (int i = 0; i < asset->images.size(); i++)
 	{
-		const fastgltf::Image& image = asset->images[i];
-
-		Asset::TextureData textureData;
-		std::visit(fastgltf::visitor{
-			[](const auto& arg) {},
-			[&](const fastgltf::sources::URI& filePath) {
-				// todo Figure out how to handle formatting
-				textureData.CreateFromFile(path.parent_path() / std::filesystem::path(filePath.uri.path()));
-
-			},
-			[&](const fastgltf::sources::Array& vector) {
-				textureData.LoadFromMemory(image.name.c_str(), vector.bytes.data(), vector.bytes.size(), 0);
-			},
-			[&](const fastgltf::sources::BufferView& view) {
-				auto& bufferView = asset->bufferViews[view.bufferViewIndex];
-				auto& buffer = asset->buffers[bufferView.bufferIndex];
-				std::visit(fastgltf::visitor{
-					[](const auto& arg) {},
-					[&](const fastgltf::sources::Array& vector) {
-						textureData.LoadFromMemory(image.name.c_str(), vector.bytes.data(), bufferView.byteLength, bufferView.byteOffset);
-					}
-				}, buffer.data);
-			}
-			}, image.data);
-
+		Asset::TextureData& textureData = textureDataVec[i];
 		if (textureData.Data.size()) {
 			imageIndexToName[i] = textureData.FilePath.generic_string();
 			Asset::Texture* tex = assetManager.Create<Asset::Texture>(imageIndexToName[i], std::move(textureData));
