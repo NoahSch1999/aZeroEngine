@@ -118,4 +118,13 @@ struct RenderMode
     uint3 Pad;
 };
 
+struct PixelConstants
+{
+    uint NumPointLights;
+    uint NumSpotLights;
+    uint NumDirectionalLights;
+    float3 CameraDirection;
+    float3 CameraPosition;
+};
+
 #endif

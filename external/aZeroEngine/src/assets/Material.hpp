@@ -34,9 +34,11 @@ namespace aZero::Asset
 			:RenderAssetBase(std::move(data)) {
 		}
 
-		void SetAlbedo(Asset::Texture& texture) { m_CachedData.Info.AlbedoTexture = &texture; }
-		void SetNormalMap(Asset::Texture& texture) { m_CachedData.Info.NormalTexture = &texture; }
-		void SetMetallicRoughnessTexture(Asset::Texture& texture) { m_CachedData.Info.MetallicRoughnessTexture = &texture; }
+		void SetAlbedo(Asset::Texture* texture) { m_CachedData.Info.AlbedoTexture = texture; }
+		void SetNormalMap(Asset::Texture* texture) { m_CachedData.Info.NormalTexture = texture; }
+		void SetMetallicRoughnessTexture(Asset::Texture* texture) { m_CachedData.Info.MetallicRoughnessTexture = texture; }
+		void SetMetallicFactor(float value) { m_CachedData.Info.MetallicFactor = value; }
+		void SetRoughnessFactor(float value) { m_CachedData.Info.RoughnessFactor = value; }
 
 		Asset::Texture* GetAlbedoPtr() const { return m_CachedData.Info.AlbedoTexture; }
 		Asset::Texture* GetNormalMapPtr() const { return m_CachedData.Info.NormalTexture; }

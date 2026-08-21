@@ -24,7 +24,6 @@ for /R %%F in (*.png *.jpg *.jpeg *.tga *.bmp) do (
         toktx ^
             --t2 ^
             --genmipmap ^
-            --normal_mode ^
             --encode uastc ^
             --uastc_quality 2 ^
             --uastc_rdo_l 1 ^

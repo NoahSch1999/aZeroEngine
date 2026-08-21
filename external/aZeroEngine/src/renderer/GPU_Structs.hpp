@@ -10,8 +10,8 @@ namespace aZero::Rendering::GPU_Struct
         DXM::Vector3 Position;
         DXM::Vector3 Color;
         float Intensity;
-        float Attenuation;
-        float BoundsRadius;
+        float FalloffStart;
+        float FalloffEnd;
 
         PointLight() = default;
         PointLight(const Component::PointLight& other, const Component::Position& position)
@@ -19,6 +19,8 @@ namespace aZero::Rendering::GPU_Struct
             Position = position;
             Color = other.color;
             Intensity = other.intensity;
+            FalloffStart = other.falloffStart;
+            FalloffEnd = other.falloffEnd;
             // todo Init rest
         }
     };
@@ -30,17 +32,33 @@ namespace aZero::Rendering::GPU_Struct
         DXM::Vector3 Rotation;
         DXM::Vector3 Color;
         float Intensity;
-        float BoundsRadius;
-        float ConeAngle;
+        float FalloffStart;
+        float FalloffEnd;
+
+        float SpotPower;
 
         SpotLight() = default;
         SpotLight(const Component::SpotLight& other, const Component::Position& position, const Component::Rotation& rotation)
         {
+            DXM::Matrix rotationMatrix =
+                DXM::Matrix::CreateFromYawPitchRoll(
+                    rotation.x,
+                    rotation.y,
+                    rotation.z
+                );
+
+            Rotation = DXM::Vector3::TransformNormal(
+                DXM::Vector3(0, 0, 1),
+                rotationMatrix
+            );
+            Rotation.Normalize();
+
             Position = position;
-            Rotation = rotation;
             Color = other.color;
             Intensity = other.intensity;
-            ConeAngle = other.coneAngle;
+            FalloffStart = other.falloffStart;
+            FalloffEnd = other.falloffEnd;
+            SpotPower = other.spotPower;
             // todo Init rest
         }
     };
@@ -55,7 +73,19 @@ namespace aZero::Rendering::GPU_Struct
         DirectionalLight() = default;
         DirectionalLight(const Component::DirectionalLight& other, const Component::Rotation& rotation)
         {
-            Rotation = rotation;
+            DXM::Matrix rotationMatrix =
+                DXM::Matrix::CreateFromYawPitchRoll(
+                    rotation.x,
+                    rotation.y,
+                    rotation.z
+                );
+
+            Rotation = DXM::Vector3::TransformNormal(
+                DXM::Vector3(0, 0, 1),
+                rotationMatrix
+            );
+            Rotation.Normalize();
+
             Color = other.color;
             Intensity = other.intensity;
         }
@@ -66,6 +96,15 @@ namespace aZero::Rendering::GPU_Struct
         DXM::Matrix ViewMatrix;
         DXM::Matrix ViewProjectionMatrix;
         Component::Camera::BoundingFrustum Frustum;
+    };
+
+    struct PixelConstants
+    {
+        uint32_t NumPointLights;
+        uint32_t NumSpotLights;
+        uint32_t NumDirectionalLights;
+        DXM::Vector3 CameraDirection;
+        DXM::Vector3 CameraPosition;
     };
 
     struct IndirectArgumentCounter

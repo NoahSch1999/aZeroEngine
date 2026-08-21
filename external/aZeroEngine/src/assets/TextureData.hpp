@@ -29,6 +29,7 @@ namespace aZero::Asset
 		uint32_t Width = 0u, Height = 0u, DepthOrArrayCount = 0u, Faces = 0u;
 		std::vector<MipLevel> MipPitchData;
 		std::vector<uint8_t> Data;
+		std::string Name;
 
 		TextureData() = default;
 
@@ -148,11 +149,7 @@ namespace aZero::Asset
 				Data.resize(ktxTex->dataSize);
 				std::memcpy(Data.data(), ktxTex->pData, ktxTex->dataSize);
 
-				FilePath = path;
-
 				ktxTexture2_Destroy(ktxTex);
-
-				return true;
 			}
 			else if (path.extension() == ".png" || path.extension() == ".jpg" || path.extension() == ".jpeg")
 			{
@@ -184,11 +181,12 @@ namespace aZero::Asset
 
 				stbi_image_free(loadedImage);
 
-				FilePath = path;
-				return true;
 			}
 
-			return false;
+			FilePath = path;
+			Name = path.extension().generic_string();
+
+			return true;
 		}
 
 		bool LoadFromMemory(const std::filesystem::path& path, const std::byte* memoryPtr, std::size_t numBytes, std::size_t offsetIntoMemoryPtr = 0)
@@ -219,6 +217,7 @@ namespace aZero::Asset
 			stbi_image_free(loadedImage);
 
 			FilePath = path;
+			Name = path.extension().generic_string();
 
 			return true;
 		}

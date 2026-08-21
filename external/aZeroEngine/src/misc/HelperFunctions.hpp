@@ -6,6 +6,16 @@ namespace aZero
 {
 	namespace Helper
 	{
+		struct Rectangle
+		{
+			int32_t TopX; int32_t TopY;
+			int32_t Width; int32_t Height;
+
+			Rectangle() = default;
+			Rectangle(int32_t topX, int32_t topY, int32_t width, int32_t height)
+				:TopX(topX), TopY(topY), Width(width), Height(height) { }
+		};
+
 		template<typename ValueType>
 		std::string HandleNameCollision(const std::string& name, const std::unordered_map<std::string, ValueType>& map)
 		{

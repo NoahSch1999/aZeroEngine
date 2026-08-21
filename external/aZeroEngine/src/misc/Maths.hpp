@@ -6,6 +6,50 @@ namespace aZero
 {
 	namespace Math
 	{
+		static inline float ToDegree(float radian)
+		{
+			float degree = radian * (180.f / 3.1415f); 
+			degree = fmodf(degree, 360.0f); // Calculate remainder when dividing degree by 360. Ex: degree = 370 -> remainder is 10 which means we actually have rotated by +10 which is the same as +370 visually.
+			if (degree < 0.0f) // If negative we add a "lap" so it stays positive.
+				degree += 360.0f;
+			return degree;
+		}
+
+		static inline float ToRadian(float degree)
+		{
+			return  degree * (3.1415f / 180.f);
+		}
+
+		static inline DXM::Vector3 PositiveZero(const DXM::Vector3& v)
+		{
+			DXM::Vector3 ret = v;
+			if (ret.x == 0.f) {
+				ret.x = 0.f;
+			}
+			if (ret.y == 0.f) {
+				ret.y = 0.f;
+			}
+			if (ret.z == 0.f) {
+				ret.z = 0.f;
+			}
+			return ret;
+		}
+
+		static inline DXM::Vector3 PositiveZero(float x, float y, float z)
+		{
+			return Math::PositiveZero(DXM::Vector3(x, y, z));
+		}
+
+		static inline DXM::Vector3 ToDegree(const DXM::Vector3& radians)
+		{
+			return DXM::Vector3(Math::ToDegree(radians.x), Math::ToDegree(radians.y), Math::ToDegree(radians.z));
+		}
+
+		static inline DXM::Vector3 ToRadian(const DXM::Vector3& degrees)
+		{
+			return DXM::Vector3(Math::ToRadian(degrees.x), Math::ToRadian(degrees.y), Math::ToRadian(degrees.z));
+		}
+
 		struct Matrix4x3
 		{
 			float m[4][3];

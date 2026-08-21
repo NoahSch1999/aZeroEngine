@@ -1,8 +1,9 @@
 #include "GPU_Structs.hlsli"
-#include "Materials.hlsli"
+#include "Lights.hlsli"
 
 ConstantBuffer<IndirectArgumentConstantData> Input_CONSTANT : register(b0);
 ConstantBuffer<RenderMode> RenderMode_CONSTANT : register(b2);
+ConstantBuffer<PixelConstants> PixelConstants_CONSTANT : register(b3);
 
 struct Output
 {
@@ -10,6 +11,9 @@ struct Output
 };
 
 StructuredBuffer<PBRMaterial> MaterialBuffer : register(t0);
+StructuredBuffer<PointLight> PointLightBuffer : register(t1);
+StructuredBuffer<SpotLight> SpotLightBuffer : register(t2);
+StructuredBuffer<DirectionalLight> DirectionalLightBuffer : register(t3);
 
 Output main(RasterVertex pin)
 {
@@ -47,8 +51,37 @@ Output main(RasterVertex pin)
     
     if (RenderMode_CONSTANT.Mode == RENDER_MODE_LIT)
     {
-        // todo Normal pass calculations
-        output.color = float4(sampledAlbedo, 1.f);
+        //float3 toEyeW = PixelConstants_CONSTANT.CameraPosition - pin.WorldPosition;
+        //float distToEye = length(toEyeW);
+        //toEyeW /= distToEye; // normalize
+        
+        float3 ambient = 0.2f * sampledAlbedo;
+        float shininess = 1.0f - 0.f; // roughness
+        
+        float4 outputColor = float4(0, 0, 0, 0);
+        for (int i = 0; i < PixelConstants_CONSTANT.NumPointLights; i++)
+        {
+            outputColor.xyz += PointLightBuffer[i].CalculateLighting_BlinnPhong(pin.WorldPosition, fragmentNormal, float3(1, 1, 1), float3(1, 1, 1), shininess, 0.f, sampledAlbedo);
+        }
+        
+        for (int i = 0; i < PixelConstants_CONSTANT.NumSpotLights; i++)
+        {
+            outputColor.xyz += SpotLightBuffer[i].CalculateLighting_BlinnPhong(pin.WorldPosition, fragmentNormal, float3(1, 1, 1), float3(1, 1, 1), shininess, 0.f, sampledAlbedo);
+        }
+        
+        for (int i = 0; i < PixelConstants_CONSTANT.NumDirectionalLights; i++)
+        {
+            outputColor.xyz += DirectionalLightBuffer[i].CalculateLighting_BlinnPhong(fragmentNormal, float3(1, 1, 1), float3(1, 1, 1), shininess, 0.f, sampledAlbedo);
+        }
+        
+        outputColor = float4(ambient, 0.f) + outputColor;
+        
+        float3 mapped = outputColor.xyz / (outputColor.xyz + 1.0);
+        mapped = pow(mapped, 1.0 / 2.2);
+        
+        //float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
+        //litColor = lerp(litColor, gFogColor, fogAmount);
+        output.color = float4(mapped.xyz, 1.f);
         return output;
     }
     else

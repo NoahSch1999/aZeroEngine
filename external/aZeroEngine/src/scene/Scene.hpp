@@ -58,6 +58,7 @@ namespace aZero
 
 			flecs::entity GetStaticMeshPrefab() const { return m_StaticMeshPrefab; }
 			flecs::entity GetCameraPrefab() const { return m_CameraPrefab; }
+			flecs::query<Component::Camera, Component::Position, Component::Rotation> GetCameraQuery() const { return m_CameraQuery; }
 			flecs::query<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale> GetStaticMeshQuery() const { return m_Static_Mesh_Query; }
 			flecs::query<const Component::Mesh, const Component::Position, const Component::Rotation, const Component::Scale> GetDynamicMeshQuery() const { return m_Dynamic_Mesh_Query; }
 			flecs::query<Component::Rigidbody, Component::Position, Component::Rotation> GetRigidbodyQuery() const { return m_ApplyPhysicsQuery; }
@@ -103,6 +104,7 @@ namespace aZero
 			flecs::observer m_Rigidbody_OnRemove_Observer;
 			flecs::observer m_Triggerbody_OnSet_Observer;
 			flecs::observer m_Triggerbody_OnRemove_Observer;
+			flecs::observer m_ParentTransform_Observer;
 
 			flecs::query<> m_RootEntityQuery;
 

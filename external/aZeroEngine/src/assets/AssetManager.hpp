@@ -33,13 +33,21 @@ namespace aZero::Asset
 			fallbackNormalMapData.MipPitchData.emplace_back(mip);
 			Asset::Texture* fallbackNormalMap = this->Create<Asset::Texture>("FallbackNormalMap", std::move(fallbackNormalMapData));
 
+			Asset::TextureData fallbackMetallicRoughnessMapData;
+			fallbackMetallicRoughnessMapData.Data = { 0,0,0,1 };
+			fallbackMetallicRoughnessMapData.Format = RenderAPI::TEXTURE_FORMAT::RGBA8_UNORM;
+			fallbackMetallicRoughnessMapData.Height = 1;
+			fallbackMetallicRoughnessMapData.Width = 1;
+			fallbackMetallicRoughnessMapData.MipPitchData.emplace_back(mip);
+			Asset::Texture* fallbackMetallicRoughnessMap = this->Create<Asset::Texture>("FallbackMetallicRoughnessMap", std::move(fallbackMetallicRoughnessMapData));
+
 			Asset::MaterialData fallbackMaterialData;
 			fallbackMaterialData.Name = "Fallback";
 			fallbackMaterialData.Info.AlbedoTexture = fallbackTexture;
 			fallbackMaterialData.Info.NormalTexture = fallbackNormalMap;
+			fallbackMaterialData.Info.MetallicRoughnessTexture = fallbackMetallicRoughnessMap;
 			this->Create<Asset::Material>("Fallback", std::move(fallbackMaterialData));
 
-			// todo Test
 			Asset::MeshData fallbackMeshData;
 			fallbackMeshData.Name = "Fallback";
 			fallbackMeshData.m_Submeshes.resize(1);
@@ -53,6 +61,7 @@ namespace aZero::Asset
 			fallbackMeshData.m_VertexData.MeshletBounds.resize(1);
 			memset(&fallbackMeshData.m_VertexData.MeshletBounds[0], 0, sizeof(fallbackMeshData.m_VertexData.MeshletBounds[0]));
 			fallbackMeshData.m_VertexData.MeshletBounds[0].Radius = 1.f;
+
 			this->Create<Asset::Mesh>("Fallback", std::move(fallbackMeshData));
 		}
 

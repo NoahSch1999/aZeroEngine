@@ -6,6 +6,7 @@
 #include "pipeline/RenderPass.hpp"
 #include "assets/FBX_Loading.hpp"
 #include "assets/MeshPrimitives.hpp"
+#include "ecs/Components.hpp"
 
 #include "WinPixEventRuntime/pix3.h"
 
@@ -240,140 +241,172 @@ namespace aZero
 			
 		}
 
-		void Renderer::RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, Scene::Scene& scene)
+		void Renderer::RecordGPUDrivenRenderPipeline(Scene::Scene& scene)
 		{
 			FrameContext& frameContext = this->GetCurrentContext();
 			RenderAPI::CommandList& cmdList = frameContext.GetCommandList();
-			std::array<D3D12_RESOURCE_BARRIER, 2> barriers;
-
 			auto [renderDataFrameInfo, renderData] = scene.GetRenderData(frameContext.GetFrameUploadAllocator(), frameContext.GetFrameUploadBuffer(), cmdList);
 
-			this->ClearRenderTarget(renderTarget);
-			this->ClearDepthStencilTarget(depthStencilTarget);
+			scene.GetCameraQuery().each([this, &frameContext, &cmdList, &renderDataFrameInfo, &renderData](const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
+				{
+					if (!camera.Active)
+					{
+						return;
+					}
 
-			// TODO: Use the scene camera buffer and render for each camera
-			D3D12_VIEWPORT viewport = renderData.get().CameraRSData[0];
-			D3D12_RECT scizzorRect{
-				.left = (LONG)viewport.TopLeftX,
-				.top = (LONG)viewport.TopLeftY,
-				.right = (LONG)viewport.TopLeftX + (LONG)viewport.Width,
-				.bottom = (LONG)viewport.TopLeftY + (LONG)viewport.Height
-			};
+					GPU_Struct::CameraData cameraGpuData;
+					cameraGpuData.ViewMatrix = camera.GetViewMatrix(position, rotation);
+					cameraGpuData.ViewProjectionMatrix = camera.GetViewProjectionMatrix(position, rotation);
+					cameraGpuData.Frustum = camera.GetFrustum();
 
-			{
-				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Frame setup");
+					frameContext.AddAllocation(cameraGpuData, renderData.get().CameraBuffer, 0);
 
-				// Pre-pass setup
-				cmdList.SetDescriptorHeaps(m_ResourceHeap, m_SamplerHeap);
+					D3D12_VIEWPORT viewport = camera.GetViewport();
+					D3D12_RECT scizzorRect = camera.GetScizzorRect();
 
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArgumentCounter.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_COPY_DEST);
-				cmdList->ResourceBarrier(1, barriers.data());
+					std::array<D3D12_RESOURCE_BARRIER, 2> barriers;
 
-				// Reset the counting buffer used in the MeshCull pass
-				uint32_t count = 0;
-				frameContext.AddAllocation(count, m_IndirectArgumentCounter, 0);
-				frameContext.GetFrameStagingAllocator().RecordAllocations(cmdList);
-			}
+					{
+						PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Frame setup");
 
-			{
-				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Mesh culling pass");
+						// Pre-pass setup
+						cmdList.SetDescriptorHeaps(m_ResourceHeap, m_SamplerHeap);
 
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArguments.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArgumentCounter.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				cmdList->ResourceBarrier(2, barriers.data());
+						barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArgumentCounter.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_COPY_DEST);
+						cmdList->ResourceBarrier(1, barriers.data());
 
-				auto meshCullConstants = m_MeshCullPass.GetConstantBinding("MeshCull_CONSTANT");
-				auto cameraBuffer = m_MeshCullPass.GetBufferBinding("CameraDataBuffer");
-				auto objectCullDataBuffer = m_MeshCullPass.GetBufferBinding("ObjectCullDataBuffer");
-				auto indirectArgCounter = m_MeshCullPass.GetBufferBinding("IndirectArgumentCounterBuffer");
-				auto indirectArgBuffer = m_MeshCullPass.GetBufferBinding("IndirectArgumentsBuffer");
-				auto instanceDataBufferMS = m_MeshCullPass.GetBufferBinding("InstanceDataBufferMS");
+						// Reset the counting buffer used in the MeshCull pass
+						uint32_t count = 0;
+						frameContext.AddAllocation(count, m_IndirectArgumentCounter, 0);
+						frameContext.GetFrameStagingAllocator().RecordAllocations(cmdList);
+					}
 
-				cmdList.SetDescriptorHeaps(m_ResourceHeap, m_SamplerHeap);
+					{
+						PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Mesh culling pass");
 
-				m_MeshCullPass.Begin(cmdList);
+						barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArguments.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+						barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArgumentCounter.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+						cmdList->ResourceBarrier(2, barriers.data());
 
-				aZero::Rendering::GPU_Struct::MeshCullConstantsData meshletCullConstantsData;
-				meshletCullConstantsData.MeshInstanceCount = renderDataFrameInfo.MeshCount;
-				cmdList.SetComputeRoot32BitConstantsSafe(meshCullConstants, &meshletCullConstantsData, 0);
-				cmdList.SetComputeRootUnorderedAccessViewSafe(indirectArgCounter, m_IndirectArgumentCounter.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetComputeRootUnorderedAccessViewSafe(indirectArgBuffer, m_IndirectArguments.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetComputeConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetComputeRootShaderResourceViewSafe(objectCullDataBuffer, renderData.get().ObjectCullDataBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetComputeRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
+						auto meshCullConstants = m_MeshCullPass.GetConstantBinding("MeshCull_CONSTANT");
+						auto cameraBuffer = m_MeshCullPass.GetBufferBinding("CameraDataBuffer");
+						auto objectCullDataBuffer = m_MeshCullPass.GetBufferBinding("ObjectCullDataBuffer");
+						auto indirectArgCounter = m_MeshCullPass.GetBufferBinding("IndirectArgumentCounterBuffer");
+						auto indirectArgBuffer = m_MeshCullPass.GetBufferBinding("IndirectArgumentsBuffer");
+						auto instanceDataBufferMS = m_MeshCullPass.GetBufferBinding("InstanceDataBufferMS");
 
-				cmdList->Dispatch(std::ceil(renderDataFrameInfo.MeshCount / 32.f), 1, 1);
+						cmdList.SetDescriptorHeaps(m_ResourceHeap, m_SamplerHeap);
 
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::UAV(m_IndirectArguments.GetResource());
-				barriers[1] = CD3DX12_RESOURCE_BARRIER::UAV(m_IndirectArgumentCounter.GetResource());
-				cmdList->ResourceBarrier(2, barriers.data());
+						m_MeshCullPass.Begin(cmdList);
 
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArguments.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArgumentCounter.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-				cmdList->ResourceBarrier(2, barriers.data());
-			}
+						aZero::Rendering::GPU_Struct::MeshCullConstantsData meshletCullConstantsData;
+						meshletCullConstantsData.MeshInstanceCount = renderDataFrameInfo.MeshCount;
+						cmdList.SetComputeRoot32BitConstantsSafe(meshCullConstants, &meshletCullConstantsData, 0);
+						cmdList.SetComputeRootUnorderedAccessViewSafe(indirectArgCounter, m_IndirectArgumentCounter.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetComputeRootUnorderedAccessViewSafe(indirectArgBuffer, m_IndirectArguments.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetComputeConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetComputeRootShaderResourceViewSafe(objectCullDataBuffer, renderData.get().ObjectCullDataBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetComputeRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
 
-			if (m_RenderSettings.EnableDepthPrepass)
-			{
-				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet depth pass");
-				auto cameraBuffer = m_MeshletDepthPass.GetBufferBinding("CameraDataBuffer");
-				auto instanceDataBufferAS = m_MeshletDepthPass.GetBufferBinding("InstanceDataBufferAS");
-				auto meshletBoundBuffer = m_MeshletDepthPass.GetBufferBinding("MeshletBoundBuffer");
+						cmdList->Dispatch(std::ceil(renderDataFrameInfo.MeshCount / 32.f), 1, 1);
 
-				auto instanceDataBufferMS = m_MeshletDepthPass.GetBufferBinding("InstanceDataBufferMS");
-				auto meshletBuffer = m_MeshletDepthPass.GetBufferBinding("MeshletBuffer");
-				auto vertexBuffer = m_MeshletDepthPass.GetBufferBinding("VertexBuffer");
+						barriers[0] = CD3DX12_RESOURCE_BARRIER::UAV(m_IndirectArguments.GetResource());
+						barriers[1] = CD3DX12_RESOURCE_BARRIER::UAV(m_IndirectArgumentCounter.GetResource());
+						cmdList->ResourceBarrier(2, barriers.data());
 
-				m_MeshletDepthPass.Begin(cmdList);
-				cmdList.OMSetRenderTargets({}, depthStencilTarget.GetDescriptor());
+						barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArguments.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+						barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_IndirectArgumentCounter.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+						cmdList->ResourceBarrier(2, barriers.data());
+					}
 
-				cmdList.SetGraphicsConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferAS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBoundBuffer, m_RenderAssetManager.get()->m_MeshletBoundsBuffer.GetResource()->GetGPUVirtualAddress());
+					if (m_RenderSettings.EnableDepthPrepass && camera.Dsv)
+					{
+						PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet depth pass");
+						auto cameraBuffer = m_MeshletDepthPass.GetBufferBinding("CameraDataBuffer");
+						auto instanceDataBufferAS = m_MeshletDepthPass.GetBufferBinding("InstanceDataBufferAS");
+						auto meshletBoundBuffer = m_MeshletDepthPass.GetBufferBinding("MeshletBoundBuffer");
 
-				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
+						auto instanceDataBufferMS = m_MeshletDepthPass.GetBufferBinding("InstanceDataBufferMS");
+						auto meshletBuffer = m_MeshletDepthPass.GetBufferBinding("MeshletBuffer");
+						auto vertexBuffer = m_MeshletDepthPass.GetBufferBinding("VertexBuffer");
 
-				cmdList->RSSetScissorRects(1, &scizzorRect);
-				cmdList->RSSetViewports(1, &viewport);
+						m_MeshletDepthPass.Begin(cmdList);
+						cmdList.OMSetRenderTargets({}, camera.Dsv->GetDescriptor());
 
-				cmdList->ExecuteIndirect(m_MeshletDepthPassSignature.Get(), MAX_INSTANCES, m_IndirectArguments.GetResource(), 0, m_IndirectArgumentCounter.GetResource(), 0);
-			}
+						cmdList.SetGraphicsConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferAS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBoundBuffer, m_RenderAssetManager.get()->m_MeshletBoundsBuffer.GetResource()->GetGPUVirtualAddress());
 
-			{
-				PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet draw pass");
+						cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
 
-				auto cameraBuffer = m_MeshletDrawPass.GetBufferBinding("CameraDataBuffer");
-				auto instanceDataBufferAS = m_MeshletDrawPass.GetBufferBinding("InstanceDataBufferAS");
-				auto meshletBoundBuffer = m_MeshletDrawPass.GetBufferBinding("MeshletBoundBuffer");
+						cmdList->RSSetScissorRects(1, &scizzorRect);
+						cmdList->RSSetViewports(1, &viewport);
 
-				auto instanceDataBufferMS = m_MeshletDrawPass.GetBufferBinding("InstanceDataBufferMS");
-				auto meshletBuffer = m_MeshletDrawPass.GetBufferBinding("MeshletBuffer");
-				auto vertexBuffer = m_MeshletDrawPass.GetBufferBinding("VertexBuffer");
+						cmdList->ExecuteIndirect(m_MeshletDepthPassSignature.Get(), MAX_INSTANCES, m_IndirectArguments.GetResource(), 0, m_IndirectArgumentCounter.GetResource(), 0);
+					}
 
-				auto materialBuffer = m_MeshletDrawPass.GetBufferBinding("MaterialBuffer");
-				auto renderModeConstants = m_MeshletDrawPass.GetConstantBinding("RenderMode_CONSTANT");
+					if(camera.Rtv)
+					{
+						PIXScopedEvent(cmdList.Get(), PIX_COLOR(0, 0, 255), "Meshlet draw pass");
 
-				m_MeshletDrawPass.Begin(cmdList);
-				cmdList.OMSetRenderTargets({ renderTarget.GetDescriptor() }, depthStencilTarget.GetDescriptor());
+						auto cameraBuffer = m_MeshletDrawPass.GetBufferBinding("CameraDataBuffer");
+						auto instanceDataBufferAS = m_MeshletDrawPass.GetBufferBinding("InstanceDataBufferAS");
+						auto meshletBoundBuffer = m_MeshletDrawPass.GetBufferBinding("MeshletBoundBuffer");
 
-				cmdList.SetGraphicsConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferAS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBoundBuffer, m_RenderAssetManager.get()->m_MeshletBoundsBuffer.GetResource()->GetGPUVirtualAddress());
+						auto instanceDataBufferMS = m_MeshletDrawPass.GetBufferBinding("InstanceDataBufferMS");
+						auto meshletBuffer = m_MeshletDrawPass.GetBufferBinding("MeshletBuffer");
+						auto vertexBuffer = m_MeshletDrawPass.GetBufferBinding("VertexBuffer");
 
-				cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
-				cmdList.SetGraphicsRootShaderResourceViewSafe(materialBuffer, m_RenderAssetManager.get()->m_MaterialDataBuffer.GetBuffer().GetResource()->GetGPUVirtualAddress());
+						auto materialBuffer = m_MeshletDrawPass.GetBufferBinding("MaterialBuffer");
+						auto pointLightBuffer = m_MeshletDrawPass.GetBufferBinding("PointLightBuffer");
+						auto spotLightBuffer = m_MeshletDrawPass.GetBufferBinding("SpotLightBuffer");
+						auto directionalLightBuffer = m_MeshletDrawPass.GetBufferBinding("DirectionalLightBuffer");
+						auto renderModeConstants = m_MeshletDrawPass.GetConstantBinding("RenderMode_CONSTANT");
+						auto pixelConstants = m_MeshletDrawPass.GetConstantBinding("PixelConstants_CONSTANT");
 
-				cmdList.SetGraphicsRoot32BitConstantsSafe(renderModeConstants, &m_RenderSettings.RenderMode, 0);
+						m_MeshletDrawPass.Begin(cmdList);
 
-				cmdList->RSSetScissorRects(1, &scizzorRect);
-				cmdList->RSSetViewports(1, &viewport);
+						if (camera.Dsv)
+						{
+							cmdList.OMSetRenderTargets({ camera.Rtv->GetDescriptor() }, camera.Dsv->GetDescriptor());
+						}
+						else 
+						{
+							cmdList.OMSetRenderTargets({ camera.Rtv->GetDescriptor() }, {});
+						}
 
-				cmdList->ExecuteIndirect(m_MeshletDrawSignature.Get(), MAX_INSTANCES, m_IndirectArguments.GetResource(), 0, m_IndirectArgumentCounter.GetResource(), 0);
-			}
+						cmdList.SetGraphicsConstantBufferViewSafe(cameraBuffer, renderData.get().CameraBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferAS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBoundBuffer, m_RenderAssetManager.get()->m_MeshletBoundsBuffer.GetResource()->GetGPUVirtualAddress());
+
+						cmdList.SetGraphicsRootShaderResourceViewSafe(instanceDataBufferMS, renderData.get().InstanceBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(meshletBuffer, m_RenderAssetManager.get()->m_MeshletBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(vertexBuffer, m_RenderAssetManager.get()->m_VertexBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(materialBuffer, m_RenderAssetManager.get()->m_MaterialDataBuffer.GetBuffer().GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(pointLightBuffer, renderData.get().PointLightBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(spotLightBuffer, renderData.get().SpotLightBuffer.GetResource()->GetGPUVirtualAddress());
+						cmdList.SetGraphicsRootShaderResourceViewSafe(directionalLightBuffer, renderData.get().DirectionalLightBuffer.GetResource()->GetGPUVirtualAddress());
+
+						cmdList.SetGraphicsRoot32BitConstantsSafe(renderModeConstants, &m_RenderSettings.RenderMode, 0);
+
+						GPU_Struct::PixelConstants pc;
+						pc.NumPointLights = renderDataFrameInfo.PointLightCount;
+						pc.NumSpotLights = renderDataFrameInfo.SpotLightCount;
+						pc.NumDirectionalLights = renderDataFrameInfo.DirectionalLightCount;
+
+						cmdList.SetGraphicsRoot32BitConstantsSafe(pixelConstants, &pc, 0);
+
+						cmdList->OMSetStencilRef(1337);
+						cmdList->RSSetScissorRects(1, &scizzorRect);
+						cmdList->RSSetViewports(1, &viewport);
+
+						cmdList->ExecuteIndirect(m_MeshletDrawSignature.Get(), MAX_INSTANCES, m_IndirectArguments.GetResource(), 0, m_IndirectArgumentCounter.GetResource(), 0);
+					}
+				});
+
+			
 
 			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 		}
@@ -389,7 +422,33 @@ namespace aZero
 
 			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
 
-			this->RecordGPUDrivenRenderPipeline(renderTarget, depthStencilTarget, scene);
+			this->RecordGPUDrivenRenderPipeline(scene);
+		}
+
+		void Renderer::ClearRenderSurface(Rendering::RenderTarget& renderTarget)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+			auto& cmdList = frameContext.GetCommandList();
+
+			if (renderTarget.GetTexture().GetState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
+			{
+				auto barrier = renderTarget.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_RENDER_TARGET);
+				cmdList->ResourceBarrier(1, &barrier);
+			}
+			cmdList->ClearRenderTargetView(renderTarget.GetCpuHandle(), renderTarget.GetClearValue().Color, 0, nullptr);
+		}
+
+		void Renderer::ClearRenderSurface(Rendering::DepthStencilTarget& depthStencilTarget)
+		{
+			FrameContext& frameContext = this->GetCurrentContext();
+			auto& cmdList = frameContext.GetCommandList();
+			if (depthStencilTarget.GetTexture().GetState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
+			{
+				auto barrier = depthStencilTarget.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				cmdList->ResourceBarrier(1, &barrier);
+			}
+			const auto value = depthStencilTarget.GetClearValue().DepthStencil;
+			cmdList->ClearDepthStencilView(depthStencilTarget.GetCpuHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, value.Depth, value.Stencil, 0, nullptr);
 		}
 
 		void Renderer::FlushRenderCommands()
@@ -419,32 +478,6 @@ namespace aZero
 			RenderAPI::TransitionResources(cmdList, postCopyBarriers);
 
 			m_DirectCommandQueue.ExecuteCommandList(cmdList, false);
-		}
-
-		void  Renderer::ClearRenderTarget(Rendering::RenderTarget& rtv)
-		{
-			FrameContext& frameContext = this->GetCurrentContext();
-			auto& cmdList = frameContext.GetCommandList();
-
-			if (rtv.GetTexture().GetState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
-			{
-				auto barrier = rtv.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_RENDER_TARGET);
-				cmdList->ResourceBarrier(1, &barrier);
-			}
-			cmdList->ClearRenderTargetView(rtv.GetCpuHandle(), rtv.GetClearValue().Color, 0, nullptr);
-		}
-
-		void Renderer::ClearDepthStencilTarget(Rendering::DepthStencilTarget& dsv)
-		{
-			FrameContext& frameContext = this->GetCurrentContext();
-			auto& cmdList = frameContext.GetCommandList();
-			if (dsv.GetTexture().GetState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
-			{
-				auto barrier = dsv.GetTexture().CreateTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
-				cmdList->ResourceBarrier(1, &barrier);
-			}
-			const auto value = dsv.GetClearValue().DepthStencil;
-			cmdList->ClearDepthStencilView(dsv.GetCpuHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, value.Depth, value.Stencil, 0, nullptr);
 		}
 
 		Rendering::RenderTarget Renderer::CreateRenderTarget(const Rendering::RenderTarget::Desc& desc)

@@ -119,7 +119,32 @@ void aZero::Scene::Scene::Init()
 	m_CameraQuery = m_World.query_builder<Component::Camera, Component::Position, Component::Rotation>().cached().build();
 
 	m_StaticMeshPrefab = m_World.prefab("StaticMeshPrefab").set(Component::Mesh()).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0)).set(Component::Scale(1, 1, 1));
-	m_CameraPrefab = m_World.prefab("CameraPrefab").set(Component::Camera(3.14f / 2.f, 0.001f, 1000.f, true, { 0,0 }, { 1920, 1080 })).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0));
+	m_CameraPrefab = m_World.prefab("CameraPrefab").set(Component::Camera(3.14f / 2.f, 0.001f, 1000.f, true, Helper::Rectangle(0,0,1920,1080))).set(Component::Position(0, 0, 0)).set(Component::Rotation(0, 0, 0));
+
+	//m_ParentTransform_Observer = m_World.observer<const Component::Position, const Component::Rotation>().event(flecs::OnSet).each(
+	//	[this](flecs::entity parent, const Component::Position& position, const Component::Rotation& rotation) {
+	//		std::cout << "Hit\n";
+	//		if (parent.has<Component::Static>())
+	//		{
+	//			this->MarkStaticMeshesDirty();
+	//			this->MarkStaticLightsDirty();
+	//		}
+
+	//		parent.children([&position, &rotation](flecs::entity child)
+	//			{
+	//				Component::Position& childPosition = child.get_mut<Component::Position>();
+	//				childPosition += position;
+
+	//				Component::Rotation& childRotation = child.get_mut<Component::Rotation>();
+	//				childRotation += rotation;
+
+	//				/*Component::Scale& childScale = child.get_mut<Component::Scale>();
+	//				childScale += scale;*/
+
+	//				child.modified<Component::Position>();
+	//			});
+	//	}
+	//);
 
 	if (m_PhysicsWorld.get()) 
 	{
@@ -274,8 +299,8 @@ std::tuple<uint32_t, uint32_t, uint32_t> aZero::Scene::Scene::UploadDynamicLight
 			*(plight + numLights) = GPU_Struct::PointLight(light, position);
 			numLights++;
 			});
-		cmdList->CopyBufferRegion(m_RenderData.PointLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::PointLight));
-		numPointLights = numLights;
+		cmdList->CopyBufferRegion(m_RenderData.PointLightBuffer.GetResource(), m_NumStaticPointLights * sizeof(GPU_Struct::PointLight), frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::PointLight));
+		numPointLights = numLights + m_NumStaticPointLights;
 	}
 
 	{
@@ -286,8 +311,8 @@ std::tuple<uint32_t, uint32_t, uint32_t> aZero::Scene::Scene::UploadDynamicLight
 			*(plight + numLights) = GPU_Struct::SpotLight(light, position, rotation);
 			numLights++;
 			});
-		cmdList->CopyBufferRegion(m_RenderData.SpotLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::SpotLight));
-		numSpotLights = numLights;
+		cmdList->CopyBufferRegion(m_RenderData.SpotLightBuffer.GetResource(), m_NumStaticSpotLights * sizeof(GPU_Struct::PointLight), frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::SpotLight));
+		numSpotLights = numLights + m_NumStaticSpotLights;
 	}
 
 	{
@@ -298,8 +323,8 @@ std::tuple<uint32_t, uint32_t, uint32_t> aZero::Scene::Scene::UploadDynamicLight
 			*(plight + numLights) = GPU_Struct::DirectionalLight(light, rotation);
 			numLights++;
 			});
-		cmdList->CopyBufferRegion(m_RenderData.DirectionalLightBuffer.GetResource(), 0, frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::DirectionalLight));
-		numDirectionalLights = numLights;
+		cmdList->CopyBufferRegion(m_RenderData.DirectionalLightBuffer.GetResource(), m_NumStaticDirectionalLights * sizeof(GPU_Struct::PointLight), frameDataBuffer.GetResource(), srcOffset, numLights * sizeof(GPU_Struct::DirectionalLight));
+		numDirectionalLights = numLights + m_NumStaticDirectionalLights;
 	}
 	return { numPointLights, numSpotLights, numDirectionalLights };
 }
@@ -320,7 +345,7 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 		m_RenderData.DirectionalLightBuffer = RenderAPI::Buffer(device, RenderAPI::Buffer::Desc(sizeof(GPU_Struct::DirectionalLight) * 100, D3D12_HEAP_TYPE_DEFAULT), &frameDataBuffer.GetResourceRecycler());
 	}
 
-	this->m_RenderData.CameraRSData.clear();
+	/*this->m_RenderData.CameraRSData.clear();
 
 	std::vector<Rendering::GPU_Struct::CameraData> cameraGPUData;
 	m_CameraQuery.each([this, &cameraGPUData](const Component::Camera& camera, const Component::Position& position, const Component::Rotation& rotation)
@@ -341,7 +366,7 @@ std::tuple<aZero::Scene::SceneRenderDataFrameInfo, std::reference_wrapper<aZero:
 	memcpy(pCameraData, cameraGPUData.data(), cameraGPUData.size() * sizeof(GPU_Struct::CameraData));
 
 	cmdList->CopyBufferRegion(m_RenderData.CameraBuffer.GetResource(),
-		0, frameDataBuffer.GetResource(), cameraDataOffset, cameraGPUData.size() * sizeof(GPU_Struct::CameraData));
+		0, frameDataBuffer.GetResource(), cameraDataOffset, cameraGPUData.size() * sizeof(GPU_Struct::CameraData));*/
 
 	if (m_ShouldRebuildStaticMeshes)
 	{
@@ -756,7 +781,6 @@ std::unordered_map<uint32_t, std::string> aZero::Scene::Scene::LoadGltf_Textures
 				[&textureData, &path](const fastgltf::sources::URI& filePath) {
 					// todo Figure out how to handle formatting
 					textureData.CreateFromFile(path.parent_path() / std::filesystem::path(filePath.uri.path()));
-
 				},
 				[&textureData, &image](const fastgltf::sources::Array& vector) {
 					textureData.LoadFromMemory(image.name.c_str(), vector.bytes.data(), vector.bytes.size(), 0);
@@ -916,14 +940,17 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 				std::visit(fastgltf::visitor{
 					[](const auto& arg) {},
 					[&](const fastgltf::Camera::Perspective& perspective) {
-						Component::Camera cameraComponent(static_cast<float>(perspective.yfov),
+						Component::Camera cameraComponent(Component::Camera::EProjectionType::Perspective, static_cast<float>(perspective.yfov),
 							static_cast<float>(perspective.znear), perspective.zfar.has_value() ? static_cast<float>(perspective.zfar.value()) : 1000.f /* default to 1000.f */,
-							perspective.aspectRatio.has_value() ? static_cast<float>(perspective.aspectRatio.value()) : 16.f / 9.f /* default to 16:9 */,
-							true);
+							//perspective.aspectRatio.has_value() ? static_cast<float>(perspective.aspectRatio.value()) : 16.f / 9.f /* default to 16:9 */,
+							true, Helper::Rectangle(0,0,800,600)); // todo Handle loading with aspect ratio instead of hardcoding width and height
 						entity.set<Component::Camera>(cameraComponent);
 					},
 					[&](const fastgltf::Camera::Orthographic orthographic) {
-						// todo Impl support
+						Component::Camera cameraComponent(Component::Camera::EProjectionType::Ortographic, 0.f,
+							static_cast<float>(orthographic.znear), static_cast<float>(orthographic.zfar),
+							true, Helper::Rectangle(0,0,800,600)); // todo Handle loading using orthographic.xmag and orthographic.ymag
+						entity.set<Component::Camera>(cameraComponent);
 					}
 					}, camera.camera);
 			}
@@ -936,7 +963,6 @@ bool aZero::Scene::Scene::LoadGltf(const std::filesystem::path& path, Asset::Ass
 					Component::PointLight p;
 					p.color = { light.color.x(), light.color.y(), light.color.z() };
 					p.intensity = light.intensity;
-					p.radius = light.range.has_value() ? light.range.value() : 0.f;
 					entity.set<Component::PointLight>(p);
 					break;
 				}

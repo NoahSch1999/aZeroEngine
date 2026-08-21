@@ -106,6 +106,9 @@ namespace aZero::Rendering
 
 		void Render(Scene::Scene& scene, Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget);
 
+		void ClearRenderSurface(Rendering::RenderTarget& renderTarget);
+		void ClearRenderSurface(Rendering::DepthStencilTarget& depthStencilTarget);
+
 		void CopyRenderTargetToSwapChain(RenderAPI::SwapChain& swapChain, Rendering::RenderTarget& renderTarget);
 
 		// This is specialized to define custom register-behavior on a per-asset level
@@ -115,9 +118,6 @@ namespace aZero::Rendering
 		// This is specialized to define custom unregister-behavior on a per-asset level
 		template<typename AssetType>
 		void UnregisterAsset(AssetType& asset);
-
-		void ClearRenderTarget(Rendering::RenderTarget& rtv);
-		void ClearDepthStencilTarget(Rendering::DepthStencilTarget& dsv);
 
 		Rendering::RenderTarget CreateRenderTarget(const Rendering::RenderTarget::Desc& desc);
 		Rendering::DepthStencilTarget CreateDepthStencilTarget(const Rendering::DepthStencilTarget::Desc& desc);
@@ -165,7 +165,7 @@ namespace aZero::Rendering
 		// ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 		void InitGPUDrivenRenderPipeline();
-		void RecordGPUDrivenRenderPipeline(Rendering::RenderTarget& renderTarget, Rendering::DepthStencilTarget& depthStencilTarget, Scene::Scene& scene);
+		void RecordGPUDrivenRenderPipeline(Scene::Scene& scene);
 
 		// New version of GPU-driven
 		Pipeline::RenderPass m_MeshCullPass;

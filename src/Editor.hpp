@@ -66,7 +66,7 @@ namespace aZero::Editor
 			[](const SDL_Event& event, Input::Keyboard& keyboard) {}
 					});
 
-			m_FrameRtv = m_Engine->GetRenderer().CreateRenderTarget(Rendering::RenderTarget::Desc(DXGI_FORMAT_R8G8B8A8_UNORM, 1920, 1080, { 0.3,0.3,0.3,1 }, true));
+			m_FrameRtv = m_Engine->GetRenderer().CreateRenderTarget(Rendering::RenderTarget::Desc(1920, 1080, { 0.3,0.3,0.3,1 }, RenderAPI::TEXTURE_FORMAT::RGBA8_UNORM));
 			m_FrameDsv = m_Engine->GetRenderer().CreateDepthStencilTarget(Rendering::DepthStencilTarget::Desc(1920, 1080, 1, 0, true, true));
 
 			aZero::ImGui_Wrapper::Init(m_Engine->GetRenderer(), m_MainWindow->GetSDLWindow());
@@ -128,6 +128,8 @@ namespace aZero::Editor
 			this->CameraUpdate();
 
 			m_Statistics.PreRenderCalc(Statistics::ERenderStat::Scene);
+			m_Engine->GetRenderer().ClearRenderSurface(m_FrameRtv);
+			m_Engine->GetRenderer().ClearRenderSurface(m_FrameDsv);
 			m_Engine->GetRenderer().Render(*m_CurrentScene.get(), m_FrameRtv, m_FrameDsv);
 			m_Statistics.PostRenderCalc(Statistics::ERenderStat::Scene);
 
@@ -246,22 +248,48 @@ namespace aZero::Editor
 			auto [xWin, yWin] = m_MainWindow->GetClientDimensions();
 			entCam.set<Component::Position>({ 0,0,-2 });
 			entCam.set<Component::Rotation>({ 0,0,0 });
-			entCam.set<Component::Camera>({ 3.14 / 2.f, 0.001f, 1000.f, true, { 0,0 }, { (float)xWin, (float)yWin } });
+
+			Component::Camera editorCamera(Component::Camera::EProjectionType::Perspective, 3.14f / 2.f, 0.001f, 1000.f, true, aZero::Helper::Rectangle(0, 0, (float)xWin, (float)yWin), &m_FrameRtv, &m_FrameDsv);
+			entCam.set<Component::Camera>(editorCamera);
 
 			auto loadedGltf = m_CurrentScene->LoadGltf(
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.glb",
 				//m_Engine->GetProjectRootDirectory() + "scenes/TestScene.gltf",
 				//m_Engine->GetProjectRootDirectory() + "scenes/TEST2.gltf",
-				//m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
-				"C:/Users/Noah Schierenbeck/Desktop/deccer-cubes/SM_Deccer_Cubes_Textured_Complex.gltf",
+				m_Engine->GetProjectRootDirectory() + "scenes/Sponza.gltf",
+				//m_Engine->GetProjectRootDirectory() + "scenes/deccer-cubes/SM_Deccer_Cubes_Textured_Complex.gltf",
 				m_Engine->GetAssetManager()
 			);
 			if (!loadedGltf) {
 				throw std::runtime_error("No default scene loaded.");
 			}
 
-			/*flecs::entity lightEnt = m_CurrentScene->GetWorld().lookup("Light");
-			lightEnt.child_of(entCam);*/
+			flecs::entity lightEnt = m_CurrentScene->GetWorld().entity("TEST_LIGHT");
+			if (lightEnt.is_valid())
+			{
+				lightEnt.child_of(entCam);
+				Component::Position pos;
+				pos.x = 0.f; pos.y = 0.5; pos.z = 0.f;
+				lightEnt.set<Component::Position>(pos);
+				Component::PointLight pLight;
+				pLight.color = { 1,0.9,0.66 };
+				pLight.falloffEnd = 7.f;
+				pLight.falloffStart = 0.f;
+				pLight.intensity = 12.f;
+				lightEnt.add<Component::Rotation>();
+				lightEnt.set<Component::PointLight>(pLight);
+				lightEnt.add<Component::SpotLight>();
+				lightEnt.add<Component::DirectionalLight>();
+				/*Component::Mesh meshComponent(*m_Engine->GetAssetManager().Get<Asset::Mesh>("Cube.001"), *m_Engine->GetAssetManager().Get<Asset::Material>("Fallback"));
+				lightEnt.set<Component::Mesh>(meshComponent);
+				lightEnt.remove<Component::Static>();
+
+				JPH::BoxShapeSettings floor_shape_settings(JPH::Vec3(100.0f, 1.0f, 100.0f));
+				JPH::BodyCreationSettings floor_settings(floor_shape_settings.Create().Get(), JPH::RVec3(0.0, -1.0, 0.0), JPH::Quat::sIdentity(), JPH::EMotionType::Static, aZero::Physics::Layers::STATIC);
+				Component::Rigidbody rigidbodyFloor;
+				rigidbodyFloor.SetCreationSettings(floor_settings);
+				lightEnt.set<Component::Rigidbody>(rigidbodyFloor);*/
+			}
 		}
 
 		std::unique_ptr<Engine> m_Engine;

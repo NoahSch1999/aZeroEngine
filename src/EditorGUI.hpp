@@ -3,6 +3,8 @@
 #include <aZeroInput.hpp>
 #include "ImguiInclude.hpp"
 #include "Statistics.hpp"
+#include <psapi.h>
+#include <format>
 
 #include "misc/Flecs_Helpers.hpp"
 
@@ -17,9 +19,16 @@ namespace aZero::Editor::GUI
 			uint32_t SelectedSubmesh = 0;
 		};
 
+		struct MaterialEditing
+		{
+			std::string CurrentlyEditedMaterial;
+			std::string SelectedAlbedo = "", SelectedNormalMap = "", SelectedMetallicRoughnessMap = "";
+		};
+
 		struct DialogueSettings
 		{
 			bool ShowSceneEditor = false;
+			bool ShowMaterialEditor = false;
 			bool ShowStats = false;
 			bool ShowDebugSettings = false;
 			bool ShowMisc = false;
@@ -35,9 +44,51 @@ namespace aZero::Editor::GUI
 		)
 			:m_diWireframeRenderer(&wireframeRenderer),
 			m_diAssetManager(&assetManager)
-		{ }
+		{
+			SYSTEM_INFO sysInfo;
+			FILETIME ftime, fsys, fuser;
 
-		
+			GetSystemInfo(&sysInfo);
+			numProcessors = sysInfo.dwNumberOfProcessors;
+
+			GetSystemTimeAsFileTime(&ftime);
+			memcpy(&lastCPU, &ftime, sizeof(FILETIME));
+
+			self = GetCurrentProcess();
+			GetProcessTimes(self, &ftime, &ftime, &fsys, &fuser);
+			memcpy(&lastSysCPU, &fsys, sizeof(FILETIME));
+			memcpy(&lastUserCPU, &fuser, sizeof(FILETIME));
+
+			Microsoft::WRL::ComPtr<IDXGIFactory1> factory;
+			CreateDXGIFactory1(IID_PPV_ARGS(&factory));
+
+			Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter1;
+			factory->EnumAdapters1(0, adapter1.GetAddressOf());
+
+			adapter1.As(&m_Adapter);
+		}
+
+		double GetUsage_CPU() {
+			FILETIME ftime, fsys, fuser;
+			ULARGE_INTEGER now, sys, user;
+			double percent;
+
+			GetSystemTimeAsFileTime(&ftime);
+			memcpy(&now, &ftime, sizeof(FILETIME));
+
+			GetProcessTimes(self, &ftime, &ftime, &fsys, &fuser);
+			memcpy(&sys, &fsys, sizeof(FILETIME));
+			memcpy(&user, &fuser, sizeof(FILETIME));
+			percent = (sys.QuadPart - lastSysCPU.QuadPart) +
+				(user.QuadPart - lastUserCPU.QuadPart);
+			percent /= (now.QuadPart - lastCPU.QuadPart);
+			percent /= numProcessors;
+			lastCPU = now;
+			lastUserCPU = user;
+			lastSysCPU = sys;
+
+			return percent * 100;
+		}
 
 		void Update(Scene::Scene& scene, Rendering::Renderer& renderer, Statistics& stats)
 		{
@@ -48,6 +99,7 @@ namespace aZero::Editor::GUI
 				ImGui::Checkbox("Show render settings", &m_DialogueSettings.ShowRenderSettings);
 				ImGui::Checkbox("Show debug settings", &m_DialogueSettings.ShowDebugSettings);
 				ImGui::Checkbox("Show scene editor", &m_DialogueSettings.ShowSceneEditor);
+				ImGui::Checkbox("Show material editor", &m_DialogueSettings.ShowMaterialEditor);
 				ImGui::Checkbox("Show stats", &m_DialogueSettings.ShowStats);
 				ImGui::Checkbox("Show misc", &m_DialogueSettings.ShowMisc);
 				ImGui::End();
@@ -60,6 +112,11 @@ namespace aZero::Editor::GUI
 				if (m_DialogueSettings.ShowSceneEditor)
 				{
 					this->ShowEditor(scene);
+				}
+
+				if (m_DialogueSettings.ShowMaterialEditor)
+				{
+					this->ShowMaterialEditor(renderer);
 				}
 
 				if (m_DialogueSettings.ShowRenderSettings)
@@ -227,9 +284,17 @@ namespace aZero::Editor::GUI
 						"Position"
 					);
 
-					if (ImGui::DragFloat3("##Position", &pComp->x, 0.1f) && e.has<Component::Static>())
+					if (ImGui::DragFloat3("##Position", &pComp->x, 0.1f))
 					{
-						shouldUpdateStatics = true;
+						if (Component::Rigidbody* rigidbody = e.try_get_mut<Component::Rigidbody>(); rigidbody != nullptr)
+						{
+							rigidbody->GetBody().SetPosition(Math::Convert(DXM::Vector3(pComp->x, pComp->y, pComp->z)), JPH::EActivation::Activate);
+						}
+
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
 					}
 				}
 
@@ -237,12 +302,26 @@ namespace aZero::Editor::GUI
 				{
 					ImGui::TextColored(
 						ImVec4(1.0f, 0.f, 0.f, 1.0f),
-						"Rotation"
+						"Rotation (deg)"
 					);
 
-					if (ImGui::DragFloat3("##Rotation", &pComp->x, 0.1f) && e.has<Component::Static>())
+					DXM::Vector3 rotationDegrees = Math::PositiveZero({ Math::ToDegree(pComp->x), Math::ToDegree(pComp->y), Math::ToDegree(pComp->z) });
+
+					if (ImGui::DragFloat3("##Rotation", &rotationDegrees.x, 0.1f))
 					{
-						shouldUpdateStatics = true;
+						pComp->x = Math::ToRadian(rotationDegrees.x);
+						pComp->y = Math::ToRadian(rotationDegrees.y);
+						pComp->z = Math::ToRadian(rotationDegrees.z);
+
+						if (Component::Rigidbody* rigidbody = e.try_get_mut<Component::Rigidbody>(); rigidbody != nullptr)
+						{
+							rigidbody->GetBody().SetRotation(Math::Convert(DXM::Quaternion::CreateFromYawPitchRoll(pComp->x, pComp->y, pComp->z)), JPH::EActivation::Activate);
+						}
+
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
 					}
 				}
 
@@ -253,9 +332,12 @@ namespace aZero::Editor::GUI
 						"Scale"
 					);
 
-					if (ImGui::DragFloat3("##Scale", &pComp->x, 0.1f) && e.has<Component::Static>())
+					if (ImGui::DragFloat3("##Scale", &pComp->x, 0.1f))
 					{
-						shouldUpdateStatics = true;
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
 					}
 				}
 			}
@@ -264,18 +346,12 @@ namespace aZero::Editor::GUI
 				if (Component::Mesh* pComp = e.try_get_mut<Component::Mesh>(); pComp != nullptr)
 				{
 					ImGui::SeparatorText("Mesh");
-					/*ImGui::TextColored(
-						ImVec4(0.2f, 0.6f, 1.0f, 1.0f),
-						"Scale"
-					);
-					ImGui::DragFloat3("##Scale", &pComp->x, 0.1f);*/
-					
 
-					const Asset::Mesh* meshAsset = nullptr;
+					Asset::Mesh* meshAsset = nullptr;
 
 					{
-						const auto& assetContainer = m_diAssetManager->GetContainer<Asset::Mesh>();
-						for (const auto& asset : assetContainer)
+						auto& assetContainer = m_diAssetManager->GetContainer<Asset::Mesh>();
+						for (auto& asset : assetContainer)
 						{
 							if (asset.second->GetRenderRef().m_MeshletGlobalOffset == pComp->m_MeshID)
 							{
@@ -283,11 +359,40 @@ namespace aZero::Editor::GUI
 								break;
 							}
 						}
+
+						if (!meshAsset) {
+							meshAsset = m_diAssetManager->Get<Asset::Mesh>("Fallback");
+						}
 					}
 
 					if (meshAsset)
 					{
-						ImGui::Text(("Name: " + meshAsset->GetCachedData().Name).c_str());
+						ImGui::Text(("Mesh: " + meshAsset->GetCachedData().Name).c_str());
+						ImGui::SameLine();
+
+						if (ImGui::BeginCombo("##MeshSelected", meshAsset->GetCachedData().Name.c_str()))
+						{
+							std::string meshSelected = meshAsset->GetCachedData().Name;
+							auto& assetContainer = m_diAssetManager->GetContainer<Asset::Mesh>();
+							for (const auto& [name, asset] : assetContainer)
+							{
+								const bool is_selected = (meshSelected == name);
+								if (ImGui::Selectable(name.c_str(), is_selected))
+								{
+									meshSelected = name;
+									pComp->SetMesh(*asset, *m_diAssetManager->Get<Asset::Material>("Fallback"));
+									if (e.has<Component::Static>()) {
+										shouldUpdateStatics = true;
+									}
+								}
+
+								// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+								if (is_selected)
+									ImGui::SetItemDefaultFocus();
+							}
+							ImGui::EndCombo();
+						}
+
 						ImGui::Text(("Submesh Count: " + std::to_string(pComp->m_NumSubmeshes)).c_str());
 
 						if (pComp->m_NumSubmeshes > 0)
@@ -295,19 +400,11 @@ namespace aZero::Editor::GUI
 							ImGui::SeparatorText("Submesh");
 
 							ImGui::SetNextItemWidth(50.f);
-							if (ImGui::BeginCombo("Submesh", std::to_string(m_SceneHierarchyEditing.SelectedSubmesh).c_str()))
-							{
-								for (uint32_t i = 0; i < pComp->m_NumSubmeshes; i++) 
-								{
-									const bool is_selected = (m_SceneHierarchyEditing.SelectedSubmesh == i);
-									if (ImGui::Selectable(std::to_string(i).c_str(), is_selected))
-										m_SceneHierarchyEditing.SelectedSubmesh = i;
 
-									// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-									if (is_selected)
-										ImGui::SetItemDefaultFocus();
-								}
-								ImGui::EndCombo();
+							{
+								std::vector<std::string> submeshOptions(pComp->m_NumSubmeshes); uint32_t counter = 0;
+								std::for_each(submeshOptions.begin(), submeshOptions.end(), [&](std::string& x) { x = std::to_string(counter); counter++; });
+								aZero::ImGui_Wrapper::ComboBox(m_SceneHierarchyEditing.SelectedSubmesh, "Submesh", submeshOptions, [](uint32_t index) {});
 							}
 
 							if (m_SceneHierarchyEditing.SelectedSubmesh < pComp->m_NumSubmeshes)
@@ -334,6 +431,7 @@ namespace aZero::Editor::GUI
 
 								ImGui::Text("Material:");
 								ImGui::SameLine();
+
 								if (ImGui::BeginCombo("##MaterialSelect", materialAsset->GetCachedData().Name.c_str()))
 								{
 									std::string materialSelected = materialAsset->GetCachedData().Name;
@@ -356,16 +454,6 @@ namespace aZero::Editor::GUI
 									ImGui::EndCombo();
 								}
 
-								/*
-								materialAsset->GetAlbedoPtr();
-										materialAsset->GetNormalMapPtr();
-										materialAsset->GetMetallicRoughnessTexturePtr();
-										materialAsset->GetCachedData().Name;
-										materialAsset->GetCachedData().Info.MetallicFactor;
-										materialAsset->GetCachedData().Info.RoughnessFactor;
-										materialAsset->GetCachedData().FilePath;
-								*/
-
 								ImGui::EndGroup();
 							}
 						}
@@ -377,6 +465,275 @@ namespace aZero::Editor::GUI
 							"ERROR - Mesh component references an invalid mesh asset!"
 						);
 					}
+				}
+			}
+
+			{
+				auto calcAttenuation = [](float x, float falloffStart, float falloffEnd) {
+					return std::clamp((falloffEnd - x) / (falloffEnd - falloffStart), 0.f, 1.f);
+				};
+
+				if (Component::PointLight* pComp = e.try_get_mut<Component::PointLight>(); pComp != nullptr)
+				{
+					ImGui::SeparatorText("Point Light");
+					ImGuiColorEditFlags flags = ImGuiColorEditFlags_::ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_::ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_DisplayHex;
+					
+					if (ImGui::ColorEdit3("Color##Point", (float*)&pComp->color, flags))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+					if (ImGui::DragFloat("Intensity##Point", (float*)&pComp->intensity, 0.1f, 0.f, std::numeric_limits<float>::max()))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+					if (ImGui::DragFloat("Falloff Start##Point", (float*)&pComp->falloffStart, 0.1f, 0.f, pComp->falloffEnd))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+					if (ImGui::DragFloat("Falloff End##Point", (float*)&pComp->falloffEnd, 0.1f, pComp->falloffStart, std::numeric_limits<float>::max()))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+
+					constexpr uint32_t sampleCount = 200u;
+					std::vector<float> samples(sampleCount);
+					float maxX = pComp->falloffEnd * 1.2f;
+
+					for (uint32_t i = 0; i < samples.size(); i++)
+					{
+						float x = maxX * i / (sampleCount - 1u);
+						samples[i] = calcAttenuation(
+							x,
+							pComp->falloffStart,
+							pComp->falloffEnd
+						);
+					}
+					ImGui::PlotLines("Falloff##Point", samples.data(), samples.size());
+				}
+
+				if (Component::SpotLight* pComp = e.try_get_mut<Component::SpotLight>(); pComp != nullptr)
+				{
+					ImGui::SeparatorText("Spot Light");
+					ImGuiColorEditFlags flags = ImGuiColorEditFlags_::ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_::ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_DisplayHex;
+					DXM::Vector3 temp = pComp->color;
+					if (ImGui::ColorEdit3("Color##Spot", (float*)&pComp->color, flags))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+
+					if (ImGui::DragFloat("Intensity##Spot", (float*)&pComp->intensity, 0.1f, 0.f, std::numeric_limits<float>::max()))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+
+					if (ImGui::DragFloat("Power##Spot", (float*)&pComp->spotPower, 0.1f, 0.f, std::numeric_limits<float>::max()))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+
+					if (ImGui::DragFloat("Falloff Start##Spot", (float*)&pComp->falloffStart, 0.1f, 0.f, pComp->falloffEnd))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+
+					if (ImGui::DragFloat("Falloff End##Spot", (float*)&pComp->falloffEnd, 0.1f, pComp->falloffStart, std::numeric_limits<float>::max()))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+
+					constexpr uint32_t sampleCount = 200u;
+					std::vector<float> samples(sampleCount);
+					float maxX = pComp->falloffEnd * 1.2f;
+
+					for (uint32_t i = 0; i < samples.size(); i++)
+					{
+						float x = maxX * i / (sampleCount - 1u);
+						samples[i] = calcAttenuation(
+							x,
+							pComp->falloffStart,
+							pComp->falloffEnd
+						);
+					}
+					ImGui::PlotLines("Falloff##Spot", samples.data(), samples.size());
+				}
+
+				if (Component::DirectionalLight* pComp = e.try_get_mut<Component::DirectionalLight>(); pComp != nullptr)
+				{
+					ImGui::SeparatorText("Directional Light");
+					ImGuiColorEditFlags flags = ImGuiColorEditFlags_::ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_::ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_DisplayHex;
+					DXM::Vector3 temp = pComp->color;
+					if (ImGui::ColorEdit3("Color##Directional", (float*)&pComp->color, flags))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+					if (ImGui::DragFloat("Intensity##Directional", (float*)&pComp->intensity, 0.1f, 0.f, std::numeric_limits<float>::max()))
+					{
+						if (e.has<Component::Static>())
+						{
+							shouldUpdateStatics = true;
+						}
+					}
+				}
+			}
+
+			{
+				if (Component::Camera* pComp = e.try_get_mut<Component::Camera>(); pComp != nullptr)
+				{
+					ImGui::SeparatorText("Camera##Camera");
+
+					bool isOrtographics = Component::Camera::EProjectionType::Ortographic == pComp->ProjectionType;
+
+					ImGui::BeginDisabled(isOrtographics);
+
+					float fov = pComp->Fov;
+					if (ImGui::DragFloat("Fov##Camera", &fov, 0.1f, 0.1f, 360.f))
+					{
+						if (!DirectX::XMScalarNearEqual(fov, 0.0f, 0.00001f * 2.0f)) // To ensure that we don't input invalid values
+						{
+							pComp->Fov = fov;
+						}
+
+						if (e.has<Component::Static>())
+						{
+							// Maybe do something in the future if static
+						}
+					}
+
+					ImGui::EndDisabled();
+
+					float nearPlane = pComp->Near;
+					float farPlane = pComp->Far;
+					if (ImGui::DragFloat("Near Plane##Camera", &nearPlane, 0.1f, 0.1f, farPlane))
+					{
+						if (!DirectX::XMScalarNearEqual(farPlane, nearPlane, 0.00001f))
+						{
+							pComp->Near = nearPlane;
+						}
+
+						if (e.has<Component::Static>())
+						{
+
+						}
+					}
+
+					if (ImGui::DragFloat("Far Plane##Camera", &farPlane, 0.1f, nearPlane + 0.1f, std::numeric_limits<float>::max()))
+					{
+						if (!DirectX::XMScalarNearEqual(farPlane, nearPlane, 0.00001f))
+						{
+							pComp->Far = farPlane;
+						}
+
+						if (e.has<Component::Static>())
+						{
+
+						}
+					}
+
+					if (ImGui::DragInt2("Top Left##Camera", &pComp->Viewport.TopX, 0.1f, 0.f, 8000.f))
+					{
+						if (e.has<Component::Static>())
+						{
+
+						}
+					}
+
+					int32_t viewportDims[2] = { pComp->Viewport.Width, pComp->Viewport.Height };
+					if (ImGui::DragInt2("Width / Height##Camera", &viewportDims[0], 0.1f, 0.f, 8000.f))
+					{
+						if (!DirectX::XMScalarNearEqual(viewportDims[0] / viewportDims[1], 0.0f, 0.00001f)) // To ensure that we don't input invalid values
+						{
+							pComp->Viewport.Width = viewportDims[0];
+							pComp->Viewport.Height = viewportDims[1];
+						}
+
+						if (e.has<Component::Static>())
+						{
+
+						}
+					}
+
+					if (ImGui::Checkbox("Active##Camera", &pComp->Active))
+					{
+						if (e.has<Component::Static>())
+						{
+
+						}
+					}
+
+					if (ImGui::Checkbox("Ortographic##Camera", &isOrtographics))
+					{
+						if (isOrtographics)
+						{
+							pComp->ProjectionType = Component::Camera::EProjectionType::Ortographic;
+						}
+						else
+						{
+							pComp->ProjectionType = Component::Camera::EProjectionType::Perspective;
+						}
+
+						if (e.has<Component::Static>())
+						{
+
+						}
+					}
+
+					if (ImGui::DragInt("Layer##Camera", &pComp->Layer, 1.f))
+					{
+						if (e.has<Component::Static>())
+						{
+
+						}
+					}
+
+					ImGui::Text("Render target format: %s", pComp->Rtv != nullptr ? aZero::RenderAPI::Format_To_String(aZero::RenderAPI::FromDX_Format(pComp->Rtv->GetTexture().GetResource()->GetDesc().Format)).c_str() : "None");
+					ImGui::Text("Depth stencil target format: %s", pComp->Dsv != nullptr ? aZero::RenderAPI::Format_To_String(aZero::RenderAPI::FromDX_Format(pComp->Dsv->GetTexture().GetResource()->GetDesc().Format)).c_str() : "None");
+				}
+			}
+
+			{
+				if (Component::Rigidbody* pComp = e.try_get_mut<Component::Rigidbody>(); pComp != nullptr)
+				{
+					ImGui::SeparatorText("Rigidbody");
+
+					// todo Impl
+
+				}
+
+				if (Component::Triggerbody* pComp = e.try_get_mut<Component::Triggerbody>(); pComp != nullptr)
+				{
+					ImGui::SeparatorText("Collider");
+
+					// todo Impl
 				}
 			}
 
@@ -426,12 +783,60 @@ namespace aZero::Editor::GUI
 		{
 			ImGui::Begin("Statistics");
 
+			ImGui::SeparatorText("Timing");
+
 			ImGui::Text(("FPS: " + std::to_string(stats.FPS.Value)).c_str());
 			ImGui::Text(("Scene Render (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::Scene))).c_str());
 			ImGui::Text(("Scene Wireframe (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::Wireframe))).c_str());
 			ImGui::Text(("Editor GUI (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::EditorGUI))).c_str());
 			ImGui::Text(("Resolve SwapChain (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::ResolveSwapChain))).c_str());
 			ImGui::Text(("Present (ms): " + std::to_string(stats.GetRenderStat(Statistics::ERenderStat::Present))).c_str());
+
+			ImGui::SeparatorText("Memory");
+
+			{
+				MEMORYSTATUSEX memInfo;
+				memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+				GlobalMemoryStatusEx(&memInfo);
+				PROCESS_MEMORY_COUNTERS_EX pmc;
+				GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+				double physMemUsedByProcess = pmc.WorkingSetSize / (1024.0 * 1024 * 1024);
+				double availablePhysRamGB =
+					(double)memInfo.ullAvailPhys / (1024.0 * 1024 * 1024) + physMemUsedByProcess;
+
+				std::string buf = std::format("{:.3f}/{:.3f} (gb)",
+					physMemUsedByProcess,
+					availablePhysRamGB);
+
+				ImGui::ProgressBar(physMemUsedByProcess / availablePhysRamGB, ImVec2(0.f, 0.f), buf.c_str());
+				ImGui::SetItemTooltip("How much ram the process uses out of available ram.");
+				ImGui::SameLine();
+				ImGui::Text("Physical Ram");
+			}
+
+			{
+				DXGI_QUERY_VIDEO_MEMORY_INFO info = {};
+
+				HRESULT hr = m_Adapter->QueryVideoMemoryInfo(
+					0,
+					DXGI_MEMORY_SEGMENT_GROUP_LOCAL,
+					&info);
+
+				if (SUCCEEDED(hr))
+				{
+					double vramUsed = info.CurrentUsage / 1024.0 / 1024.0 / 1024.0;
+					double totalVram = info.Budget / 1024.0 / 1024.0 / 1024.0;
+
+					std::string buf = std::format("{:.3f}/{:.3f} (gb)",
+						vramUsed,
+						totalVram);
+
+					ImGui::ProgressBar(vramUsed / totalVram, ImVec2(0.f, 0.f), buf.c_str());
+					ImGui::SetItemTooltip("How much vram the process uses out of total vram.");
+					ImGui::SameLine();
+					ImGui::Text("Video Ram");
+				}
+			}
 
 			ImGui::End();
 		}
@@ -560,7 +965,172 @@ namespace aZero::Editor::GUI
 			ImGui::End();
 		}
 
-		
+		void ShowMaterialEditor(Rendering::Renderer& renderer)
+		{
+			ImGui::Begin("Material Editor");
+
+			{
+				//auto& materials = m_diAssetManager->GetContainer<Asset::Material>();
+
+				//if (ImGui::BeginListBox("Materials"))
+				//{
+				//	for (auto& [name, mat] : materials)
+				//	{
+
+				//	}
+				//	for (int n = 0; n < IM_COUNTOF(items); n++)
+				//	{
+				//		const bool is_selected = (item_selected_idx == n);
+				//		if (ImGui::Selectable(items[n], is_selected))
+				//			item_selected_idx = n;
+
+				//		if (item_highlight && ImGui::IsItemHovered())
+				//			item_highlighted_idx = n;
+
+				//		// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+				//		if (is_selected)
+				//			ImGui::SetItemDefaultFocus();
+				//	}
+				//	ImGui::EndListBox();
+				//}
+
+				
+			}
+
+			if (!m_MaterialEditing.CurrentlyEditedMaterial.empty())
+			{
+				Asset::Material* m = m_diAssetManager->Get<Asset::Material>(m_MaterialEditing.CurrentlyEditedMaterial);
+				if (m)
+				{
+					bool updateMaterial = false;
+					auto& textureContainer = m_diAssetManager->GetContainer<Asset::Texture>();
+
+					ImGui::Text(("Name: " + m->GetCachedData().Name).c_str());
+
+					if (!m->GetAlbedoPtr())
+					{
+						m->SetAlbedo(m_diAssetManager->Get<Asset::Texture>("Fallback"));
+						updateMaterial = true;
+					}
+
+					if (ImGui::BeginCombo("Albedo", m->GetAlbedoPtr()->GetCachedData().Name.c_str()))
+					{
+						for (auto& [name, tex] : textureContainer)
+						{
+							const bool is_selected = m_MaterialEditing.SelectedAlbedo == name;
+							if (ImGui::Selectable(name.c_str(), is_selected)) {
+								m_MaterialEditing.SelectedAlbedo = name;
+								m->SetAlbedo(tex.get());
+								updateMaterial = true;
+								break;
+							}
+
+							// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+							if (is_selected) {
+								ImGui::SetItemDefaultFocus();
+							}
+						}
+						ImGui::EndCombo();
+					}
+
+					if (m->GetNormalMapPtr())
+					{
+						if (ImGui::BeginCombo("Normal Map", m->GetNormalMapPtr()->GetCachedData().Name.c_str()))
+						{
+							for (auto& [name, tex] : textureContainer)
+							{
+								const bool is_selected = m_MaterialEditing.SelectedNormalMap == name;
+								if (ImGui::Selectable(name.c_str(), is_selected)) {
+									m_MaterialEditing.SelectedNormalMap = name;
+									m->SetNormalMap(tex.get());
+									updateMaterial = true;
+									break;
+								}
+
+								// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+								if (is_selected) {
+									ImGui::SetItemDefaultFocus();
+								}
+							}
+							ImGui::EndCombo();
+						}
+
+						ImGui::SameLine();
+						if (ImGui::Button("Clear")) 
+						{
+							m->SetNormalMap(nullptr);
+							updateMaterial = true;
+						}
+					}
+					else
+					{
+						if (ImGui::Button("Add normal map"))
+						{
+							m->SetNormalMap(m_diAssetManager->Get<Asset::Texture>("FallbackNormalMap"));
+							updateMaterial = true;
+						}
+					}
+					
+					if (m->GetMetallicRoughnessTexturePtr())
+					{
+						if (ImGui::BeginCombo("Metallic/Roughness Map", m->GetMetallicRoughnessTexturePtr()->GetCachedData().Name.c_str()))
+						{
+							for (auto& [name, tex] : textureContainer)
+							{
+								const bool is_selected = m_MaterialEditing.SelectedMetallicRoughnessMap == name;
+								if (ImGui::Selectable(name.c_str(), is_selected)) {
+									m_MaterialEditing.SelectedMetallicRoughnessMap = name;
+									m->SetMetallicRoughnessTexture(tex.get());
+									updateMaterial = true;
+									break;
+								}
+
+								// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+								if (is_selected) {
+									ImGui::SetItemDefaultFocus();
+								}
+							}
+							ImGui::EndCombo();
+						}
+
+						ImGui::SameLine();
+						if (ImGui::Button("Clear"))
+						{
+							m->SetMetallicRoughnessTexture(nullptr);
+							updateMaterial = true;
+						}
+					}
+					else
+					{
+						float metallicFactor = m->GetCachedData().Info.MetallicFactor;
+						if (ImGui::SliderFloat("Metallic Factor", &metallicFactor, 0.f, 1.f))
+						{
+							m->SetMetallicFactor(metallicFactor);
+							updateMaterial = true;
+						}
+
+						float roughnessFactor = m->GetCachedData().Info.RoughnessFactor;
+						if (ImGui::SliderFloat("Roughness Factor", &roughnessFactor, 0.f, 1.f))
+						{
+							m->SetRoughnessFactor(roughnessFactor);
+							updateMaterial = true;
+						}
+
+						if (ImGui::Button("Add metallic/roughness map"))
+						{
+							m->SetMetallicRoughnessTexture(m_diAssetManager->Get<Asset::Texture>("FallbackMetallicRoughnessMap"));
+							updateMaterial = true;
+						}
+					}
+
+					if (updateMaterial)
+					{
+						renderer.RegisterOrUpdateAsset(*m);
+					}
+				}
+			}
+			ImGui::End();
+		}
 
 		bool m_EnableFlecsExplorer = false;
 		bool m_ShowRigidbodyColliders = false;
@@ -569,9 +1139,16 @@ namespace aZero::Editor::GUI
 		bool m_ShowGrid = true;
 		bool m_PhysicsCamera = false;
 		bool m_Show_demo_window = false;
+
+		ULARGE_INTEGER lastCPU, lastSysCPU, lastUserCPU;
+		int numProcessors;
+		HANDLE self;
+		Microsoft::WRL::ComPtr<IDXGIAdapter3> m_Adapter;
+
 		Rendering::WireframeRenderer* m_diWireframeRenderer;
 		Asset::AssetManager<std::string>* m_diAssetManager;
 		SceneHierarchyEditing m_SceneHierarchyEditing;
+		MaterialEditing m_MaterialEditing;
 		DialogueSettings m_DialogueSettings;
 	};
 }

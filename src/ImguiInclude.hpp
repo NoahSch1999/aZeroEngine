@@ -4,8 +4,6 @@
 #include <backends/imgui_impl_sdl3.h>
 #include "Engine.hpp"
 
-#pragma once
-
 /*
 Color definitions in ImGui are a good starting point,
 but do not cover all the intricacies of Spectrum's possible colors
@@ -369,6 +367,28 @@ namespace aZero
 	class ImGui_Wrapper
 	{
 	public:
+        static void ComboBox(uint32_t& selectedIndex, const std::string& comboTitle, const std::vector<std::string>& options, std::function<void(uint32_t)> selectCallback)
+        {
+            if (ImGui::BeginCombo(comboTitle.c_str(), options[selectedIndex].c_str()))
+            {
+                for (uint32_t i = 0; i < options.size(); i++)
+                {
+                    const bool is_selected = selectedIndex == i;
+                    if (ImGui::Selectable(options[i].c_str(), is_selected)) {
+                        selectedIndex = i;
+                        selectCallback(selectedIndex);
+                        break;
+                    }
+
+                    // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                    if (is_selected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
+
 		static void Init(Rendering::Renderer& renderer, SDL_Window* window)
 		{
 			float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
